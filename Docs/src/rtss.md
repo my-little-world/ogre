@@ -29,6 +29,9 @@ Here are the attributes you can use in a `rtshader_system` block of a `pass {}`:
 
 - [transform_stage](#transform_stage)
 - [lighting_stage](#lighting_stage)
+- [gbuffer](#gbuffer)
+- [normal_map](#normal_map)
+- [metal_roughness](#metal_roughness)
 - [fog_stage](#fog_stage)
 - [light_count](#light_count)
 - [triplanarTexturing](#triplanarTexturing)
@@ -59,21 +62,59 @@ Example: `transform_stage instanced 1`
 Force a specific lighting model.
 
 @par
-Format: `lighting_stage <ffp|per_pixel|normal_map|gbuffer> [two_sided] [normalised]`
+Format: `lighting_stage <ffp|per_pixel> [two_sided] [normalised]`
 @par
-Format2: `lighting_stage normal_map <texturename> [tangent_space|object_space|parallax] [coordinateIndex] [samplerName]`
+Example: `lighting_stage ffp two_sided`
+
+@param two_sided compute lighting on both sides of the surface, when culling is disabled.
+@param normalised normalise the blinn-phong reflection model to make it energy conserving - see [this for details](http://www.rorydriscoll.com/2009/01/25/energy-conservation-in-games/)
+
+<a name="gbuffer"></a>
+
+## gbuffer
+
+Redirects intermediate lighting results into gbuffers for e.g. deferred shading.
+
 @par
-Format3: `lighting_stage gbuffer <target_layout> [target_layout]`
+Format: `lighting_stage gbuffer <target_layout> [target_layout]`
+@par
+Example: `lighting_stage gbuffer normal_viewdepth diffuse_specular`
+
+@param target_layout with @c gbuffer, this specifies the data to be written into one or two MRT targets. Possible values are @c depth, @c normal, @c viewpos, @c normal_viewdepth and @c diffuse_specular
+
+<a name="normal_map"></a>
+
+## normal_map
+
+Use a normal map for lighting computations
+
+@par
+Format: `lighting_stage normal_map <texturename> [tangent_space|object_space|parallax] [coordinateIndex] [samplerName]`
 @par
 Example: `lighting_stage normal_map Panels_Normal_Tangent.png tangent_space 0 SamplerToUse`
 
-@param two_sided compute lighting on both sides of the surface, when culling is disabled.
-@param normalised with @c ffp or @c per_pixel normalise the blinn-phong reflection model to make it energy conserving - see [this for details](http://www.rorydriscoll.com/2009/01/25/energy-conservation-in-games/)
 @param texturename normal map to use with @c normal_map
-@param target_layout with @c gbuffer, this specifies the data to be written into one or two MRT targets. Possible values are @c depth, @c normal, @c viewpos, @c normal_viewdepth and @c diffuse_specular
 
 @see Ogre::RTShader::NormalMapLighting::NormalMapSpace
 @see @ref Samplers
+
+<a name="metal_roughness"></a>
+
+## metal_roughness
+
+Use metal roughness parametrisation for lighting computations.
+
+By default, metalness is read from `specular[0]` and roughness from `specular[1]`.
+
+@par
+Format: `lighting_stage metal_roughness [texture <texturename>]`
+@par
+Example: `lighting_stage metal_roughness texture Default_metalRoughness.jpg`
+
+@param texturename texture for spatially varying parametrization.
+[In accordance to the glTF2.0 specification](https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#_material_pbrmetallicroughness_metallicroughnesstexture), metalness is sampled from the B channel and roughness from the G channel.
+
+@note Using this option switches the lighting equations from Blinn-Phong to the Cook-Torrance PBR model [using the equations described by Filament](https://google.github.io/filament/Filament.html#materialsystem/standardmodelsummary).
 
 <a name="fog_stage"></a>
 
@@ -170,6 +211,30 @@ Example: `source_modifier src1_inverse_modulate custom 2`
 
 @param operation one of `src1_modulate, src2_modulate, src1_inverse_modulate, src2_inverse_modulate`
 @param parameterNum number of the custom shader parameter that controls the operation
+
+# Setting properties programmatically {#RTSS-Props-API}
+
+In case you need to set the properties programmatically, see the following example for how the script is mapped to the API.
+
+```cpp
+rtshader_system
+{
+	lighting_stage normal_map Default_normal.jpg
+}
+```
+becomes
+```cpp
+using namespace Ogre::RTShader;
+auto& dstScheme = ShaderGenerator::DEFAULT_SCHEME_NAME;
+ShaderGenerator* shaderGen = ShaderGenerator::getSingletonPtr();
+
+shaderGen->createShaderBasedTechnique(mat->getTechnique(0), dstScheme);
+RenderState* rs = shaderGen->getRenderState(dstScheme, *mat, 0);
+SubRenderState* srs = shaderGen->createSubRenderState("NormalMap");
+rs->addTemplateSubRenderState(srs);
+
+srs->setParameter("texture", "Default_normal.jpg");
+```
 
 # System overview {#rtss_overview}
 

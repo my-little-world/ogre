@@ -259,7 +259,6 @@ namespace Ogre {
         // Check for hardware stencil support and set bit depth
         rsc->setCapability(RSC_HWSTENCIL);
         rsc->setCapability(RSC_TWO_SIDED_STENCIL);
-        rsc->setStencilBufferBitDepth(8);
 
         rsc->setCapability(RSC_HW_GAMMA);
 
@@ -1475,7 +1474,7 @@ namespace Ogre {
         if(context != mCurrentContext)
             context->_getVaoDeferredForDestruction().push_back(vao);
         else
-            OGRE_CHECK_GL_ERROR(glDeleteVertexArrays(1, &vao));
+            _getStateCacheManager()->deleteGLVertexArray(vao);
     }
 
     void GL3PlusRenderSystem::_destroyFbo(GLContext* context, uint32 fbo)

@@ -58,7 +58,7 @@ namespace Ogre {
 
     EGLDisplay EGLSupport::getGLDisplay(void)
     {
-#if defined(EGL_VERSION_1_5) && OGRE_PLATFORM != OGRE_PLATFORM_ANDROID
+#if defined(EGL_VERSION_1_5) && OGRE_PLATFORM != OGRE_PLATFORM_ANDROID && OGRE_PLATFORM != OGRE_PLATFORM_EMSCRIPTEN
         static auto eglQueryDevicesEXT = (PFNEGLQUERYDEVICESEXTPROC)eglGetProcAddress("eglQueryDevicesEXT");
         static auto eglQueryDeviceStringEXT =
             (PFNEGLQUERYDEVICESTRINGEXTPROC)eglGetProcAddress("eglQueryDeviceStringEXT");
@@ -345,12 +345,12 @@ namespace Ogre {
             EGL_NONE
         };
 
+        if (!eglBindAPI(mContextProfile == CONTEXT_ES ? EGL_OPENGL_ES_API : EGL_OPENGL_API))
+        {
+            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "eglBindAPI failed");
+        }
+
         if(mContextProfile != CONTEXT_ES) {
-            if (!eglBindAPI(EGL_OPENGL_API))
-            {
-                OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Could not bind GL API");
-            }
-            EGL_CHECK_ERROR
             contextAttrs[1] = 4;
             contextAttrs[3] = 6;
 
