@@ -131,7 +131,7 @@ namespace Ogre {
         LightTypes getType(void) const;
 
         /** Sets the colour of the diffuse light given off by this source.
-        @remarks
+
             Material objects have ambient, diffuse and specular values which indicate how much of each type of
             light an object reflects. This value denotes the amount and colour of this type of light the light
             exudes into the scene. The actual appearance of objects is a combination of the two.
@@ -149,7 +149,7 @@ namespace Ogre {
         const ColourValue& getDiffuseColour(void) const;
 
         /** Sets the colour of the specular light given off by this source.
-        @remarks
+
             Material objects have ambient, diffuse and specular values which indicate how much of each type of
             light an object reflects. This value denotes the amount and colour of this type of light the light
             exudes into the scene. The actual appearance of objects is a combination of the two.
@@ -167,7 +167,7 @@ namespace Ogre {
         const ColourValue& getSpecularColour(void) const;
 
         /** Sets the attenuation parameters of the light source i.e. how it diminishes with distance.
-        @remarks
+
             Lights normally get fainter the further they are away. Also, each light is given a maximum range
             beyond which it cannot affect any objects.
         @par
@@ -211,7 +211,7 @@ namespace Ogre {
 
 #ifdef OGRE_NODELESS_POSITIONING
         /** Sets the position of the light.
-        @remarks
+
             Applicable to point lights and spotlights only.
         @note
             This will be overridden if the light is attached to a SceneNode.
@@ -242,11 +242,8 @@ namespace Ogre {
         */
         OGRE_DEPRECATED const Vector3& getDirection(void) const;
 
-        /** @copydoc MovableObject::_notifyAttached */
-        void _notifyAttached(Node* parent, bool isTagPoint = false);
-
-        /** @copydoc MovableObject::_notifyMoved */
-        void _notifyMoved(void);
+        void _notifyAttached(Node* parent, bool isTagPoint = false) override;
+        void _notifyMoved(void) override;
 #endif
         /** Sets the range of a spotlight, i.e. the angle of the inner and outer cones
             and the rate of falloff between them.
@@ -300,7 +297,7 @@ namespace Ogre {
         Real getSpotlightNearClipDistance() const { return mSpotNearClip; }
         
         /** Set a scaling factor to indicate the relative power of a light.
-        @remarks
+
             This factor is only useful in High Dynamic Range (HDR) rendering.
             You can bind it to a shader variable to take it into account,
             @see GpuProgramParameters
@@ -320,7 +317,7 @@ namespace Ogre {
         void _updateRenderQueue(RenderQueue* queue) override {} // No rendering
 
         /** @copydoc MovableObject::getMovableType */
-        const String& getMovableType(void) const;
+        const String& getMovableType(void) const override;
 
         /** Retrieves the position of the light including any transform from nodes it is attached to. 
         @param cameraRelativeIfSet If set to true, returns data in camera-relative units if that's been set up (render use)
@@ -350,14 +347,14 @@ namespace Ogre {
 #endif
 
         /** @copydoc MovableObject::setVisible
-        @remarks
+
             Although lights themselves are not 'visible', setting a light to invisible
             means it no longer affects the scene.
         */
         void setVisible(bool visible) { MovableObject::setVisible(visible); }
 
         /** Returns the details of this light as a 4D vector.
-        @remarks
+
             Getting details of a light as a 4D vector can be useful for
             doing general calculations between different light types; for
             example the vector can represent both position lights (w=1.0f)
@@ -371,7 +368,7 @@ namespace Ogre {
         /** Internal method for calculating the 'near clip volume', which is
             the volume formed between the near clip rectangle of the 
             camera and the light.
-        @remarks
+
             This volume is a pyramid for a point/spot light and
             a cuboid for a directional light. It can used to detect whether
             an object could be casting a shadow on the viewport. Note that
@@ -383,20 +380,20 @@ namespace Ogre {
         /** Internal method for calculating the clip volumes outside of the 
             frustum which can be used to determine which objects are casting
             shadow on the frustum as a whole. 
-        @remarks
+
             Each of the volumes is a pyramid for a point/spot light and
             a cuboid for a directional light. 
         */
         virtual const PlaneBoundedVolumeList& _getFrustumClipVolumes(const Camera* const cam) const;
 
         /// Override to return specific type flag
-        uint32 getTypeFlags(void) const;
+        uint32 getTypeFlags(void) const override;
 
         /// @copydoc AnimableObject::createAnimableValue
-        AnimableValuePtr createAnimableValue(const String& valueName);
+        AnimableValuePtr createAnimableValue(const String& valueName) override;
 
         /** Set this light to use a custom shadow camera when rendering texture shadows.
-        @remarks
+
             This changes the shadow camera setup for just this light,  you can set
             the shadow camera setup globally using SceneManager::setShadowCameraSetup
         @see ShadowCameraSetup
@@ -415,7 +412,7 @@ namespace Ogre {
             bool debugRenderables = false) override;
 
         /** Returns the index at which this light is in the current render.
-        @remarks
+
             Lights will be present in the in a list for every renderable,
             detected and sorted appropriately, and sometimes it's useful to know 
             what position in that list a given light occupies. This can vary 
@@ -453,7 +450,7 @@ namespace Ogre {
 
         /** Returns the near clip plane distance to be used by the shadow camera, if
             this light casts texture shadows.
-        @remarks
+
             May be zero if the light doesn't have it's own near distance set;
             use _deriveShadowNearDistance for a version guaranteed to give a result.
         */
@@ -466,7 +463,7 @@ namespace Ogre {
 
         /** Set the far clip plane distance to be used by the shadow camera, if
             this light casts texture shadows.
-        @remarks
+
             This is different from the 'shadow far distance', which is
             always measured from the main camera. This distance is the far clip plane
             of the light camera.
@@ -477,7 +474,7 @@ namespace Ogre {
 
         /** Returns the far clip plane distance to be used by the shadow camera, if
             this light casts texture shadows.
-        @remarks
+
             May be zero if the light doesn't have it's own far distance set;
             use _deriveShadowfarDistance for a version guaranteed to give a result.
         */
@@ -497,7 +494,7 @@ namespace Ogre {
 
         /** Sets a custom parameter for this Light, which may be used to 
             drive calculations for this specific Renderable, like GPU program parameters.
-        @remarks
+
             Calling this method simply associates a numeric index with a 4-dimensional
             value for this specific Light. This is most useful if the material
             which this Renderable uses a vertex or fragment program, and has an 
@@ -512,17 +509,17 @@ namespace Ogre {
         @param value
             The value to associate.
         */
-        void setCustomParameter(uint16 index, const Vector4& value);
+        void setCustomParameter(uint16 index, const Vector4f& value);
 
         /** Returns the custom value associated with this Light at the given index.
         @param index Index of the parameter to retrieve
         @see setCustomParameter for full details.
         */
-        const Vector4& getCustomParameter(uint16 index) const;
+        const Vector4f& getCustomParameter(uint16 index) const;
 
         /** Update a custom GpuProgramParameters constant which is derived from 
             information only this Light knows.
-        @remarks
+
             This method allows a Light to map in a custom GPU program parameter
             based on it's own data. This is represented by a GPU auto parameter
             of ACT_LIGHT_CUSTOM, and to allow there to be more than one of these per
@@ -605,7 +602,7 @@ namespace Ogre {
         /// Pointer to a custom shadow camera setup.
         mutable ShadowCameraSetupPtr mCustomShadowCameraSetup;
 
-        typedef std::map<uint16, Vector4> CustomParameterMap;
+        typedef std::map<uint16, Vector4f> CustomParameterMap;
         /// Stores the custom parameters for the light.
         CustomParameterMap mCustomParameters;
         Real mPowerScale;
@@ -617,14 +614,14 @@ namespace Ogre {
     class _OgreExport LightFactory : public MovableObjectFactory
     {
     private:
-        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params);
+        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params) override;
     public:
         LightFactory() {}
         ~LightFactory() {}
 
         static String FACTORY_TYPE_NAME;
 
-        const String& getType(void) const;
+        const String& getType(void) const override;
     };
     /** @} */
     /** @} */

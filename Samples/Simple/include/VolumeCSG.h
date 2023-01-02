@@ -63,19 +63,15 @@ protected:
 
     /** Sets up the sample.
     */
-    virtual void setupContent(void);
+    void setupContent(void) override;
         
     /** Sets up the UI.
     */
     virtual void setupControls(void);
 
-    /** Sets up the shader generator.
-    */
-    virtual void setupShaderGenerator(void);
-
     /** Is called when the sample is stopped.
     */
-    virtual void cleanupContent(void);
+    void cleanupContent(void) override;
 public:
 
     /** Constructor.
@@ -84,15 +80,11 @@ public:
     
     /** Overridden from SdkSample.
     */
-    virtual bool keyPressed(const KeyboardEvent& evt);
+    bool keyPressed(const KeyboardEvent& evt) override;
     
     /** Overridden from SdkSample.
     */
-    virtual bool frameRenderingQueued(const Ogre::FrameEvent& evt);
-
-    /** Overridden from SdkSample.
-    */
-    virtual void _shutdown();
+    bool frameRenderingQueued(const Ogre::FrameEvent& evt) override;
 };
 
 #endif

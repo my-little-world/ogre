@@ -43,9 +43,7 @@ namespace RTShader {
 *  @{
 */
 
-/** Integrated PSSM shadow receiver with 3 splits sub render state implementation.
-Derives from SubRenderState class.
-*/
+/// @copydoc SRS_INTEGRATED_PSSM3
 class _OgreRTSSExport IntegratedPSSM3 : public SubRenderState
 {
 
@@ -56,31 +54,28 @@ public:
     /** Class default constructor */    
     IntegratedPSSM3();
 
-    /** 
-    @see SubRenderState::getType.
-    */
-    virtual const String& getType() const;
+    const String& getType() const override { return SRS_INTEGRATED_PSSM3; }
 
     /** 
     @see SubRenderState::getType.
     */
-    virtual int getExecutionOrder() const;
+    int getExecutionOrder() const override;
 
     /** 
     @see SubRenderState::updateGpuProgramsParams.
     */
-    virtual void updateGpuProgramsParams(Renderable* rend, const Pass* pass, const AutoParamDataSource* source, const LightList* pLightList);
+    void updateGpuProgramsParams(Renderable* rend, const Pass* pass, const AutoParamDataSource* source, const LightList* pLightList) override;
 
     /** 
     @see SubRenderState::copyFrom.
     */
-    virtual void copyFrom(const SubRenderState& rhs);
+    void copyFrom(const SubRenderState& rhs) override;
 
 
     /** 
     @see SubRenderState::preAddToRenderState.
     */
-    virtual bool preAddToRenderState(const RenderState* renderState, Pass* srcPass, Pass* dstPass);
+    bool preAddToRenderState(const RenderState* renderState, Pass* srcPass, Pass* dstPass) override;
 
 
     
@@ -133,17 +128,17 @@ protected:
     /** 
     @see SubRenderState::resolveParameters.
     */
-    virtual bool resolveParameters(ProgramSet* programSet);
+    bool resolveParameters(ProgramSet* programSet) override;
 
     /** 
     @see SubRenderState::resolveDependencies.
     */
-    virtual bool resolveDependencies(ProgramSet* programSet);
+    bool resolveDependencies(ProgramSet* programSet) override;
 
     /** 
     @see SubRenderState::addFunctionInvocations.
     */
-    virtual bool addFunctionInvocations(ProgramSet* programSet);
+    bool addFunctionInvocations(ProgramSet* programSet) override;
 
     /** 
     Internal method that adds related vertex shader functions invocations.
@@ -175,19 +170,12 @@ protected:
     ParameterPtr mPSInDepth;
     // Pixel shader local computed shadow colour parameter.
     ParameterPtr mPSLocalShadowFactor;
-    // Pixel shader in/local diffuse colour parameter.
-    ParameterPtr mPSDiffuse;
-    // Pixel shader output diffuse colour parameter.
-    ParameterPtr mPSOutDiffuse;
-    // Pixel shader in/local specular colour parameter.
-    ParameterPtr mPSSpecualr;
-    // Derived scene colour (ambient term).
-    UniformParameterPtr mPSDerivedSceneColour;
 
     float mPCFxSamples;
     bool mUseTextureCompare;
     bool mUseColourShadows;
     bool mDebug;
+    bool mIsD3D9;
 };
 
 
@@ -198,16 +186,12 @@ A factory that enables creation of IntegratedPSSM3 instances.
 class _OgreRTSSExport IntegratedPSSM3Factory : public SubRenderStateFactory
 {
 public:
-
-    /** 
-    @see SubRenderStateFactory::getType.
-    */
-    virtual const String& getType() const;
+    const String& getType() const override { return SRS_INTEGRATED_PSSM3; }
 
     /** 
     @see SubRenderStateFactory::createInstance.
     */
-    virtual SubRenderState* createInstance(ScriptCompiler* compiler, PropertyAbstractNode* prop, Pass* pass, SGScriptTranslator* translator);
+    SubRenderState* createInstance(ScriptCompiler* compiler, PropertyAbstractNode* prop, Pass* pass, SGScriptTranslator* translator) override;
 
 
 protected:
@@ -215,7 +199,7 @@ protected:
     /** 
     @see SubRenderStateFactory::createInstanceImpl.
     */
-    virtual SubRenderState* createInstanceImpl();
+    SubRenderState* createInstanceImpl() override;
 
 
 };

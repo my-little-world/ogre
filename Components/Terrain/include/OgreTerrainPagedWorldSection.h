@@ -49,7 +49,7 @@ namespace Ogre
     */
 
     /** A world section which includes paged terrain. 
-    @remarks
+
         Rather than implement terrain paging as a PageContent subclass, because terrain
         benefits from direct knowledge of neighbour arrangements and the tight
         coupling between that and the paging strategy, instead we use a PagedWorldSection
@@ -89,7 +89,7 @@ namespace Ogre
         virtual ~TerrainPagedWorldSection();
 
         /** Initialise this section from an existing TerrainGroup instance. 
-        @remarks
+
             This is the route you will take if you're defining this world section
             from scratch in code. The other alternative is that you'll be loading
             this section from a file, in which case all the settings will be
@@ -144,14 +144,14 @@ namespace Ogre
         virtual uint32 getLoadingIntervalMs() const;
 
         /// Overridden from PagedWorldSection
-        void loadPage(PageID pageID, bool forceSynchronous = false);
+        void loadPage(PageID pageID, bool forceSynchronous = false) override;
         /// Overridden from PagedWorldSection
-        void unloadPage(PageID pageID, bool forceSynchronous = false);
+        void unloadPage(PageID pageID, bool forceSynchronous = false) override;
 
         /// WorkQueue::RequestHandler override
-        WorkQueue::Response* handleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ);
+        WorkQueue::Response* handleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ) override;
         /// WorkQueue::ResponseHandler override
-        void handleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ);
+        void handleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ) override;
 
         static const uint16 WORKQUEUE_LOAD_TERRAIN_PAGE_REQUEST;
 
@@ -182,8 +182,8 @@ namespace Ogre
         uint32 mLoadingIntervalMs;
 
         /// Overridden from PagedWorldSection
-        void loadSubtypeData(StreamSerialiser& ser);
-        void saveSubtypeData(StreamSerialiser& ser);
+        void loadSubtypeData(StreamSerialiser& ser) override;
+        void saveSubtypeData(StreamSerialiser& ser) override;
 
         virtual void syncSettings();
 

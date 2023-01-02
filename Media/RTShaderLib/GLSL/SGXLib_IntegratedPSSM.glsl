@@ -48,12 +48,10 @@ STATIC vec3 pssm_lod_info = vec3(0.0, 0.0, 0.0);
 
 //-----------------------------------------------------------------------------
 void SGX_ApplyShadowFactor_Diffuse(in vec4 ambient, 
-					  in vec4 lightSum, 
-					  in float fShadowFactor, 
-					  out vec4 oLight)
+					  in float fShadowFactor,
+					  inout vec4 oLight)
 {
-	oLight.rgb = ambient.rgb + (lightSum.rgb - ambient.rgb) * fShadowFactor;
-	oLight.a   = lightSum.a;
+	oLight.rgb = mix(ambient.rgb, oLight.rgb, fShadowFactor);
 
 #ifdef DEBUG_PSSM
 	oLight.rgb += pssm_lod_info;
@@ -118,6 +116,15 @@ void SGX_ComputeShadowFactor_PSSM3(in float fDepth,
 							in vec2 invShadowMapSize3,
 							out float oShadowFactor)
 {
+#if defined(PROJ_SPACE_SPLITS) && !defined(OGRE_REVERSED_Z) && !defined(OGRE_HLSL) && !defined(VULKAN)
+	vSplitPoints = vSplitPoints * 0.5 + 0.5; // convert -1..1 to 0..1
+#endif
+
+#ifdef OGRE_REVERSED_Z
+	vSplitPoints = vec4_splat(1.0) - vSplitPoints;
+	fDepth = 1.0 - fDepth;
+#endif
+
 	if (fDepth  <= vSplitPoints.x)
 	{
 #ifdef PSSM_SAMPLE_COLOUR

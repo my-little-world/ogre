@@ -193,26 +193,22 @@ namespace Ogre {
             return;
 
         // Delete submeshes
-        SubEntityList::iterator i, iend;
-        iend = mSubEntityList.end();
-        for (i = mSubEntityList.begin(); i != iend; ++i)
+        for (auto *s : mSubEntityList)
         {
             // Delete SubEntity
-            OGRE_DELETE *i;
-            *i = 0;
+            OGRE_DELETE s;
+            s = nullptr;
         }
         mSubEntityList.clear();
 
 #if !OGRE_NO_MESHLOD
         // Delete LOD entities
-        LODEntityList::iterator li, liend;
-        liend = mLodEntityList.end();
-        for (li = mLodEntityList.begin(); li != liend; ++li)
+        for (auto *li : mLodEntityList)
         {
-            if(*li != this) {
+            if(li != this) {
                 // Delete
-                OGRE_DELETE *li;
-                *li = 0;
+                OGRE_DELETE li;
+                li = nullptr;
             }
         }
         mLodEntityList.clear();
@@ -308,11 +304,10 @@ namespace Ogre {
         if (mInitialised)
         {
             // Copy material settings
-            SubEntityList::const_iterator i;
             unsigned int n = 0;
-            for (i = mSubEntityList.begin(); i != mSubEntityList.end(); ++i, ++n)
+            for (const auto *e : mSubEntityList)
             {
-                newEnt->getSubEntity(n)->setMaterialName((*i)->getMaterialName());
+                newEnt->getSubEntities()[n++]->setMaterialName(e->getMaterialName());
             }
             if (mAnimationState)
             {
@@ -327,10 +322,9 @@ namespace Ogre {
     void Entity::setMaterialName( const String& name, const String& groupName /* = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME */)
     {
         // Set for all subentities
-        SubEntityList::iterator i;
-        for (i = mSubEntityList.begin(); i != mSubEntityList.end(); ++i)
+        for (auto *s : mSubEntityList)
         {
-            (*i)->setMaterialName(name, groupName);
+            s->setMaterialName(name, groupName);
         }
 
     }
@@ -338,10 +332,9 @@ namespace Ogre {
     void Entity::setMaterial( const MaterialPtr& material )
     {
         // Set for all subentities
-        SubEntityList::iterator i;
-        for (i = mSubEntityList.begin(); i != mSubEntityList.end(); ++i)
+        for (auto *s : mSubEntityList)
         {
-            (*i)->setMaterial(material);
+            s->setMaterial(material);
         }
     }
     //-----------------------------------------------------------------------
@@ -385,13 +378,11 @@ namespace Ogre {
 #endif
 
 
-            SubEntityList::iterator i, iend;
-            iend = mSubEntityList.end();
-            for (i = mSubEntityList.begin(); i != iend; ++i)
+            for (auto *s : mSubEntityList)
             {
 #if !OGRE_NO_MESHLOD
                 // Get sub-entity material
-                const MaterialPtr& material = (*i)->getMaterial();
+                const MaterialPtr& material = s->getMaterial();
                 
                 // Get material LOD strategy
                 const LodStrategy *materialStrategy = material->getLodStrategy();
@@ -410,20 +401,20 @@ namespace Ogre {
 
                 // Construct event object
                 EntityMaterialLodChangedEvent subEntEvt;
-                subEntEvt.subEntity = (*i);
+                subEntEvt.subEntity = s;
                 subEntEvt.camera = cam;
                 subEntEvt.lodValue = biasedMaterialLodValue;
-                subEntEvt.previousLodIndex = (*i)->mMaterialLodIndex;
+                subEntEvt.previousLodIndex = s->mMaterialLodIndex;
                 subEntEvt.newLodIndex = idx;
 
                 // Notify LOD event listeners
                 cam->getSceneManager()->_notifyEntityMaterialLodChanged(subEntEvt);
 
                 // Change LOD index
-                (*i)->mMaterialLodIndex = subEntEvt.newLodIndex;
+                s->mMaterialLodIndex = subEntEvt.newLodIndex;
 #endif
                 // Also invalidate any camera distance cache
-                (*i)->_invalidateCameraCache ();
+                s->_invalidateCameraCache ();
             }
 
 
@@ -463,10 +454,9 @@ namespace Ogre {
                     boneHasVerts[ iBone ] = false;
                 }
                 // for each bone that has vertices weighted to it,
-                for (size_t iBlend = 0; iBlend < mMesh->sharedBlendIndexToBoneIndexMap.size(); ++iBlend)
+                for (unsigned long iBone : mMesh->sharedBlendIndexToBoneIndexMap)
                 {
                     // record which bones have vertices assigned
-                    size_t iBone = mMesh->sharedBlendIndexToBoneIndexMap[ iBlend ];
                     boneHasVerts[ iBone ] = true;
                 }
                 // for each submesh,
@@ -477,9 +467,8 @@ namespace Ogre {
                     if ( ! submesh->useSharedVertices )
                     {
                         // record which bones have vertices assigned
-                        for (size_t iBlend = 0; iBlend < submesh->blendIndexToBoneIndexMap.size(); ++iBlend)
+                        for (unsigned long iBone : submesh->blendIndexToBoneIndexMap)
                         {
-                            size_t iBone = submesh->blendIndexToBoneIndexMap[ iBlend ];
                             boneHasVerts[ iBone ] = true;
                         }
                     }
@@ -617,36 +606,34 @@ namespace Ogre {
 #endif
 
         // Add each visible SubEntity to the queue
-        SubEntityList::iterator i, iend;
-        iend = displayEntity->mSubEntityList.end();
-        for (i = displayEntity->mSubEntityList.begin(); i != iend; ++i)
+        for (auto *s : displayEntity->mSubEntityList)
         {
-            if((*i)->isVisible())
+            if(s->isVisible())
             {
                 // Order: first use subentity queue settings, if available
                 //        if not then use entity queue settings, if available
                 //        finally fall back on default queue settings
-                if((*i)->isRenderQueuePrioritySet())
+                if(s->isRenderQueuePrioritySet())
                 {
-                    assert((*i)->isRenderQueueGroupSet() == true);
-                    queue->addRenderable(*i, (*i)->getRenderQueueGroup(), (*i)->getRenderQueuePriority());
+                    assert(s->isRenderQueueGroupSet() == true);
+                    queue->addRenderable(s, s->getRenderQueueGroup(), s->getRenderQueuePriority());
                 }
-                else if((*i)->isRenderQueueGroupSet())
+                else if(s->isRenderQueueGroupSet())
                 {
-                    queue->addRenderable(*i, (*i)->getRenderQueueGroup());
+                    queue->addRenderable(s, s->getRenderQueueGroup());
                 }
                 else if (mRenderQueuePrioritySet)
                 {
                     assert(mRenderQueueIDSet == true);
-                    queue->addRenderable(*i, mRenderQueueID, mRenderQueuePriority);
+                    queue->addRenderable(s, mRenderQueueID, mRenderQueuePriority);
                 }
                 else if(mRenderQueueIDSet)
                 {
-                    queue->addRenderable(*i, mRenderQueueID);
+                    queue->addRenderable(s, mRenderQueueID);
                 }
                 else
                 {
-                    queue->addRenderable(*i);
+                    queue->addRenderable(s);
                 }
             }
         }
@@ -735,10 +722,8 @@ namespace Ogre {
         {
             ret = ret && mTempVertexAnimInfo.buffersCheckedOut(true, mMesh->getSharedVertexDataAnimationIncludesNormals());
         }
-        for (SubEntityList::const_iterator i = mSubEntityList.begin();
-             i != mSubEntityList.end(); ++i)
+        for (auto sub : mSubEntityList)
         {
-            SubEntity* sub = *i;
             if (!sub->getSubMesh()->useSharedVertices
                 && sub->getSubMesh()->getVertexAnimationType() != VAT_NONE)
             {
@@ -757,10 +742,8 @@ namespace Ogre {
             if (!mTempSkelAnimInfo.buffersCheckedOut(true, requestNormals))
                 return false;
         }
-        for (SubEntityList::const_iterator i = mSubEntityList.begin();
-             i != mSubEntityList.end(); ++i)
+        for (auto sub : mSubEntityList)
         {
-            SubEntity* sub = *i;
             if (sub->isVisible() && sub->mSkelAnimVertexData)
             {
                 if (!sub->mTempSkelAnimInfo.buffersCheckedOut(true, requestNormals))
@@ -819,12 +802,9 @@ namespace Ogre {
                         mTempVertexAnimInfo.bindTempCopies(mSoftwareVertexAnimVertexData.get(),
                                                            hwAnimation);
                     }
-                    SubEntityList::iterator i, iend;
-                    iend = mSubEntityList.end();
-                    for (i = mSubEntityList.begin(); i != iend; ++i)
+                    for (auto *se : mSubEntityList)
                     {
                         // Blend dedicated geometry
-                        SubEntity* se = *i;
                         if (se->isVisible() && se->mSoftwareVertexAnimVertexData
                             && se->getSubMesh()->getVertexAnimationType() != VAT_NONE)
                         {
@@ -833,7 +813,6 @@ namespace Ogre {
                             se->mTempVertexAnimInfo.bindTempCopies(se->mSoftwareVertexAnimVertexData.get(),
                                                                    hwAnimation);
                         }
-
                     }
                 }
                 applyVertexAnimation(hwAnimation, stencilShadows);
@@ -846,7 +825,7 @@ namespace Ogre {
                 // Software blend?
                 if (softwareAnimation)
                 {
-                    const Affine3* blendMatrices[256];
+                    const Affine3* blendMatrices[OGRE_MAX_NUM_BONES];
 
                     // Ok, we need to do a software blend
                     // Firstly, check out working vertex buffers
@@ -870,12 +849,10 @@ namespace Ogre {
                             blendMatrices, mMesh->sharedBlendIndexToBoneIndexMap.size(),
                             blendNormals);
                     }
-                    SubEntityList::iterator i, iend;
-                    iend = mSubEntityList.end();
-                    for (i = mSubEntityList.begin(); i != iend; ++i)
+
+                    for (auto *se : mSubEntityList)
                     {
                         // Blend dedicated geometry
-                        SubEntity* se = *i;
                         if (se->isVisible() && se->mSkelAnimVertexData)
                         {
                             se->mTempSkelAnimInfo.checkoutTempCopies(true, blendNormals);
@@ -922,7 +899,7 @@ namespace Ogre {
 
             // Also calculate bone world matrices, since are used as replacement world matrices,
             // but only if it's used (when using hardware animation and skeleton animated).
-            if (hwAnimation && _isSkeletonAnimated())
+            if (hwAnimation && _isSkeletonAnimated() && !MeshManager::getBonesUseObjectSpace())
             {
                 // Allocate bone world matrices on demand, for better memory footprint
                 // when using software animation.
@@ -952,9 +929,9 @@ namespace Ogre {
                 vdata->allocateHardwareAnimationElements(numberOfElements, animateNormals);
         }
         // Initialise parametrics in case we don't use all of them
-        for (size_t i = 0; i < vdata->hwAnimationDataList.size(); ++i)
+        for (auto & i : vdata->hwAnimationDataList)
         {
-            vdata->hwAnimationDataList[i].parametric = 0.0f;
+            i.parametric = 0.0f;
         }
         // reset used count
         vdata->hwAnimDataItemsUsed = 0;
@@ -992,10 +969,8 @@ namespace Ogre {
                 }
                     
 }
-            for (SubEntityList::iterator si = mSubEntityList.begin();
-                si != mSubEntityList.end(); ++si)
+            for (auto sub : mSubEntityList)
             {
-                SubEntity* sub = *si;
                 if (sub->getSubMesh()->getVertexAnimationType() != VAT_NONE &&
                     !sub->getSubMesh()->useSharedVertices)
                 {
@@ -1037,10 +1012,8 @@ namespace Ogre {
                 initialisePoseVertexData(mMesh->sharedVertexData, mSoftwareVertexAnimVertexData.get(),
                     mMesh->getSharedVertexDataAnimationIncludesNormals());
             }
-            for (SubEntityList::iterator si = mSubEntityList.begin();
-                si != mSubEntityList.end(); ++si)
+            for (auto sub : mSubEntityList)
             {
-                SubEntity* sub = *si;
                 if (!sub->getSubMesh()->useSharedVertices &&
                     sub->getSubMesh()->getVertexAnimationType() == VAT_POSE)
                 {
@@ -1063,9 +1036,8 @@ namespace Ogre {
         // at once; if you do more, only the last one will actually apply
         markBuffersUnusedForAnimation();
         EnabledAnimationStateList::const_iterator animIt;
-        for(animIt = mAnimationState->getEnabledAnimationStates().begin(); animIt != mAnimationState->getEnabledAnimationStates().end(); ++animIt)
+        for(auto *state : mAnimationState->getEnabledAnimationStates())
         {
-            const AnimationState* state = *animIt;
             Animation* anim = msh->_getAnimationImpl(state->getAnimationName());
             if (anim)
             {
@@ -1092,10 +1064,8 @@ namespace Ogre {
                     ->vertexBufferBinding->getBuffer(elem->getSource());
                 buf->suppressHardwareUpdate(false);
             }
-            for (SubEntityList::iterator si = mSubEntityList.begin();
-                si != mSubEntityList.end(); ++si)
+            for (auto sub : mSubEntityList)
             {
-                SubEntity* sub = *si;
                 if (!sub->getSubMesh()->useSharedVertices &&
                     sub->getSubMesh()->getVertexAnimationType() == VAT_POSE)
                 {
@@ -1118,10 +1088,9 @@ namespace Ogre {
     void Entity::markBuffersUnusedForAnimation(void)
     {
         mVertexAnimationAppliedThisFrame = false;
-        for (SubEntityList::iterator i = mSubEntityList.begin();
-            i != mSubEntityList.end(); ++i)
+        for (auto & i : mSubEntityList)
         {
-            (*i)->_markBuffersUnusedForAnimation();
+            i->_markBuffersUnusedForAnimation();
         }
     }
     //-----------------------------------------------------------------------------
@@ -1167,10 +1136,9 @@ namespace Ogre {
         }
 
 
-        for (SubEntityList::iterator i = mSubEntityList.begin();
-            i != mSubEntityList.end(); ++i)
+        for (auto & i : mSubEntityList)
         {
-            (*i)->_restoreBuffersForUnusedAnimation(hardwareAnimation);
+            i->_restoreBuffersForUnusedAnimation(hardwareAnimation);
         }
 
     }
@@ -1189,10 +1157,8 @@ namespace Ogre {
             srcData->vertexBufferBinding->getBuffer(
                 srcPosElem->getSource());
 
-        for (VertexData::HardwareAnimationDataList::const_iterator i = destData->hwAnimationDataList.begin();
-            i != destData->hwAnimationDataList.end(); ++i)
+        for (auto animData : destData->hwAnimationDataList)
         {
-            const VertexData::HardwareAnimationData& animData = *i;
             if (!destData->vertexBufferBinding->isBufferBound(
                 animData.targetBufferIndex))
             {
@@ -1436,12 +1402,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Entity::setPolygonModeOverrideable(bool overrideable)
     {
-        SubEntityList::iterator i, iend;
-        iend = mSubEntityList.end();
-
-        for( i = mSubEntityList.begin(); i != iend; ++i )
+        for(auto *s : mSubEntityList)
         {
-            (*i)->setPolygonModeOverrideable(overrideable);
+            s->setPolygonModeOverrideable(overrideable);
         }
     }
 
@@ -1521,14 +1484,12 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Entity::detachObjectFromBone(MovableObject* obj)
     {
-        ChildObjectList::iterator i, iend;
-        iend = mChildObjectList.end();
-        for (i = mChildObjectList.begin(); i != iend; ++i)
+        for (auto *o : mChildObjectList)
         {
-            if (*i == obj)
+            if (o == obj)
             {
                 detachObjectImpl(obj);
-                std::swap(*i, mChildObjectList.back());
+                std::swap(o, mChildObjectList.back());
                 mChildObjectList.pop_back();
 
                 // Trigger update of bounding box if necessary
@@ -1595,7 +1556,7 @@ namespace Ogre {
                 // Clone without copying data, don't remove any blending info
                 // (since if we skeletally animate too, we need it)
                 mSoftwareVertexAnimVertexData.reset(mMesh->sharedVertexData->clone(false));
-                extractTempBufferInfo(mSoftwareVertexAnimVertexData.get(), &mTempVertexAnimInfo);
+                mTempVertexAnimInfo.extractFrom(mSoftwareVertexAnimVertexData.get());
 
                 // Also clone for hardware usage, don't remove blend info since we'll
                 // need it if we also hardware skeletally animate
@@ -1612,75 +1573,20 @@ namespace Ogre {
                 // Prepare temp vertex data if needed
                 // Clone without copying data, remove blending info
                 // (since blend is performed in software)
-                mSkelAnimVertexData.reset(
-                    cloneVertexDataRemoveBlendInfo(mMesh->sharedVertexData));
-                extractTempBufferInfo(mSkelAnimVertexData.get(), &mTempSkelAnimInfo);
+                mSkelAnimVertexData.reset(mMesh->sharedVertexData->_cloneRemovingBlendData());
+                mTempSkelAnimInfo.extractFrom(mSkelAnimVertexData.get());
             }
 
         }
 
         // Do SubEntities
-        SubEntityList::iterator i, iend;
-        iend = mSubEntityList.end();
-        for (i = mSubEntityList.begin(); i != iend; ++i)
+        for (auto *s : mSubEntityList)
         {
-            SubEntity* s = *i;
             s->prepareTempBlendBuffers();
         }
 
         // It's prepared for shadow volumes only if mesh has been prepared for shadow volumes.
         mPreparedForShadowVolumes = mMesh->isPreparedForShadowVolumes();
-    }
-    //-----------------------------------------------------------------------
-    void Entity::extractTempBufferInfo(VertexData* sourceData, TempBlendedBufferInfo* info)
-    {
-        info->extractFrom(sourceData);
-    }
-    //-----------------------------------------------------------------------
-    VertexData* Entity::cloneVertexDataRemoveBlendInfo(const VertexData* source)
-    {
-        // Clone without copying data
-        VertexData* ret = source->clone(false);
-        bool removeIndices = Ogre::Root::getSingleton().isBlendIndicesGpuRedundant();
-        bool removeWeights = Ogre::Root::getSingleton().isBlendWeightsGpuRedundant();
-         
-        unsigned short safeSource = 0xFFFF;
-        const VertexElement* blendIndexElem =
-            source->vertexDeclaration->findElementBySemantic(VES_BLEND_INDICES);
-        if (blendIndexElem)
-        {
-            //save the source in order to prevent the next stage from unbinding it.
-            safeSource = blendIndexElem->getSource();
-            if (removeIndices)
-            {
-                // Remove buffer reference
-                ret->vertexBufferBinding->unsetBinding(blendIndexElem->getSource());
-            }
-        }
-        if (removeWeights)
-        {
-            // Remove blend weights
-            const VertexElement* blendWeightElem =
-                source->vertexDeclaration->findElementBySemantic(VES_BLEND_WEIGHTS);
-            if (blendWeightElem &&
-                blendWeightElem->getSource() != safeSource)
-            {
-                // Remove buffer reference
-                ret->vertexBufferBinding->unsetBinding(blendWeightElem->getSource());
-            }
-        }
-
-        // remove elements from declaration
-        if (removeIndices)
-            ret->vertexDeclaration->removeElement(VES_BLEND_INDICES);
-        if (removeWeights)
-            ret->vertexDeclaration->removeElement(VES_BLEND_WEIGHTS);
-
-        // Close gaps in bindings for effective and safely
-        if (removeWeights || removeIndices)
-            ret->closeGapsInBindings();
-
-        return ret;
     }
     //-----------------------------------------------------------------------
     EdgeData* Entity::getEdgeList(void)
@@ -1718,11 +1624,8 @@ namespace Ogre {
         bool hasHardwareAnimation = false;
         bool firstPass = true;
 
-        SubEntityList::iterator i, iend;
-        iend = mSubEntityList.end();
-        for (i = mSubEntityList.begin(); i != iend; ++i)
+        for (auto *sub : mSubEntityList)
         {
-            SubEntity* sub = *i;
             const MaterialPtr& m = sub->getMaterial();
             // Make sure it's loaded
             m->load();
@@ -2024,11 +1927,9 @@ namespace Ogre {
         {
             return skel? mSkelAnimVertexData.get() : mSoftwareVertexAnimVertexData.get();
         }
-        SubEntityList::iterator i, iend;
-        iend = mSubEntityList.end();
-        for (i = mSubEntityList.begin(); i != iend; ++i)
+
+        for (auto *se : mSubEntityList)
         {
-            SubEntity* se = *i;
             if (orig == se->getSubMesh()->vertexData)
             {
                 return skel? se->_getSkelAnimVertexData() : se->_getSoftwareVertexAnimVertexData();
@@ -2047,11 +1948,8 @@ namespace Ogre {
             return 0;
         }
 
-        SubEntityList::iterator i, iend;
-        iend = mSubEntityList.end();
-        for (i = mSubEntityList.begin(); i != iend; ++i)
+        for (auto *se : mSubEntityList)
         {
-            SubEntity* se = *i;
             if (orig == se->getSubMesh()->vertexData)
             {
                 return se;
@@ -2090,12 +1988,10 @@ namespace Ogre {
         MovableObject::_notifyAttached(parent, isTagPoint);
 #if !OGRE_NO_MESHLOD
         // Also notify LOD entities
-        LODEntityList::iterator i, iend;
-        iend = mLodEntityList.end();
-        for (i = mLodEntityList.begin(); i != iend; ++i)
+        for (auto *e : mLodEntityList)
         {
-            if(*i != this)
-                (*i)->_notifyAttached(parent, isTagPoint);
+            if(e != this)
+                e->_notifyAttached(parent, isTagPoint);
         }
 #endif
     }
@@ -2163,12 +2059,10 @@ namespace Ogre {
         // Set render queue for all manual LOD entities
         if (mMesh->hasManualLodLevel())
         {
-            LODEntityList::iterator li, liend;
-            liend = mLodEntityList.end();
-            for (li = mLodEntityList.begin(); li != liend; ++li)
+            for (auto *e : mLodEntityList)
             {
-                if(*li != this)
-                    (*li)->setRenderQueueGroup(queueID);
+                if(e != this)
+                    e->setRenderQueueGroup(queueID);
             }
         }
 #endif
@@ -2181,12 +2075,10 @@ namespace Ogre {
         // Set render queue for all manual LOD entities
         if (mMesh->hasManualLodLevel())
         {
-            LODEntityList::iterator li, liend;
-            liend = mLodEntityList.end();
-            for (li = mLodEntityList.begin(); li != liend; ++li)
+            for (auto *e : mLodEntityList)
             {
-                if(*li != this)
-                    (*li)->setRenderQueueGroupAndPriority(queueID, priority);
+                if(e != this)
+                    e->setRenderQueueGroupAndPriority(queueID, priority);
             }
         }
 #endif
@@ -2332,9 +2224,9 @@ namespace Ogre {
         bool debugRenderables)
     {
         // Visit each SubEntity
-        for (SubEntityList::iterator i = mSubEntityList.begin(); i != mSubEntityList.end(); ++i)
+        for (auto& i : mSubEntityList)
         {
-            visitor->visit(*i, 0, false);
+            visitor->visit(i, 0, false);
         }
 #if !OGRE_NO_MESHLOD
         // if manual LOD is in use, visit those too

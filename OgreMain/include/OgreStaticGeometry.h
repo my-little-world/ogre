@@ -44,7 +44,7 @@ namespace Ogre {
     */
     /** Pre-transforms and batches up meshes for efficient use as static
         geometry in a scene.
-    @remarks
+
         Modern graphics cards (GPUs) prefer to receive geometry in large
         batches. It is orders of magnitude faster to render 10 batches
         of 10,000 triangles than it is to render 10,000 batches of 10 
@@ -122,7 +122,7 @@ namespace Ogre {
     public:
         /** Struct holding geometry optimised per SubMesh / LOD level, ready
             for copying to instances. 
-        @remarks
+
             Since we're going to be duplicating geometry lots of times, it's
             far more important that we don't have redundant vertex data. If a 
             SubMesh uses shared geometry, or we're looking at a lower LOD, not
@@ -210,13 +210,13 @@ namespace Ogre {
             /// Get the index data for this geometry 
             const IndexData* getIndexData(void) const { return mIndexData; }
             /// @copydoc Renderable::getMaterial
-            const MaterialPtr& getMaterial(void) const;
-            Technique* getTechnique(void) const;
-            void getRenderOperation(RenderOperation& op);
-            void getWorldTransforms(Matrix4* xform) const;
-            Real getSquaredViewDepth(const Camera* cam) const;
-            const LightList& getLights(void) const;
-            bool getCastsShadows(void) const;
+            const MaterialPtr& getMaterial(void) const override;
+            Technique* getTechnique(void) const override;
+            void getRenderOperation(RenderOperation& op) override;
+            void getWorldTransforms(Matrix4* xform) const override;
+            Real getSquaredViewDepth(const Camera* cam) const override;
+            const LightList& getLights(void) const override;
+            bool getCastsShadows(void) const override;
             
             /** Try to assign geometry to this bucket.
             @return false if there is no room left in this bucket
@@ -278,7 +278,7 @@ namespace Ogre {
             void visitRenderables(Renderable::Visitor* visitor, bool debugRenderables);
         };
         /** A LODBucket is a collection of smaller buckets with the same LOD. 
-        @remarks
+
             LOD refers to Mesh LOD here. Material LOD can change separately
             at the next bucket down from this.
         */
@@ -336,7 +336,7 @@ namespace Ogre {
         };
         /** The details of a topological region which is the highest level of
             partitioning for this class.
-        @remarks
+
             The size & shape of regions entirely depends on the SceneManager
             specific implementation. It is a MovableObject since it will be
             attached to a node based on the local centre - in practice it
@@ -393,16 +393,16 @@ namespace Ogre {
             uint32 getID(void) const { return mRegionID; }
             /// Get the centre point of the region
             const Vector3& getCentre(void) const { return mCentre; }
-            const String& getMovableType(void) const;
-            void _notifyCurrentCamera(Camera* cam);
-            const AxisAlignedBox& getBoundingBox(void) const;
-            Real getBoundingRadius(void) const;
-            void _updateRenderQueue(RenderQueue* queue);
+            const String& getMovableType(void) const override;
+            void _notifyCurrentCamera(Camera* cam) override;
+            const AxisAlignedBox& getBoundingBox(void) const override;
+            Real getBoundingRadius(void) const override;
+            void _updateRenderQueue(RenderQueue* queue) override;
             /// @copydoc MovableObject::visitRenderables
             void visitRenderables(Renderable::Visitor* visitor, 
-                bool debugRenderables = false);
-            bool isVisible(void) const;
-            uint32 getTypeFlags(void) const;
+                bool debugRenderables = false) override;
+            bool isVisible(void) const override;
+            uint32 getTypeFlags(void) const override;
 
             typedef VectorIterator<LODBucketList> LODIterator;
             /// @deprecated use getLODBuckets()
@@ -424,7 +424,7 @@ namespace Ogre {
         };
         /** Indexed region map based on packed x/y/z region index, 10 bits for
             each axis.
-        @remarks
+
             Regions are indexed 0-1023 in all axes, where for example region 
             0 in the x axis begins at mOrigin.x + (mRegionDimensions.x * -512), 
             and region 1023 ends at mOrigin + (mRegionDimensions.x * 512).
@@ -540,7 +540,7 @@ namespace Ogre {
         /// Get the name of this object
         const String& getName(void) const { return mName; }
         /** Adds an Entity to the static geometry.
-        @remarks
+
             This method takes an existing Entity and adds its details to the 
             list of elements to include when building. Note that the Entity
             itself is not copied or referenced in this method; an Entity is 
@@ -563,7 +563,7 @@ namespace Ogre {
 
         /** Adds all the Entity objects attached to a SceneNode and all it's
             children to the static geometry.
-        @remarks
+
             This method performs just like addEntity, except it adds all the 
             entities attached to an entire sub-tree to the geometry. 
             The position / orientation / scale parameters are taken from the
@@ -573,7 +573,7 @@ namespace Ogre {
             it's parent, so if you have this node already attached to the scene
             graph, you will need to remove it if you wish to avoid the overhead
             of rendering <i>both</i> the original objects and their new static
-            versions! We don't do this for you incase you are preparing this 
+            versions! We don't do this for you in case you are preparing this
             in advance and so don't want the originals detached yet. 
         @note Must be called before 'build'.
         @param node Pointer to the node to use to provide a set of Entity 
@@ -582,7 +582,7 @@ namespace Ogre {
         virtual void addSceneNode(const SceneNode* node);
 
         /** Build the geometry. 
-        @remarks
+
             Based on all the entities which have been added, and the batching 
             options which have been set, this method constructs the batched 
             geometry structures required. The batches are added to the scene 
@@ -594,7 +594,7 @@ namespace Ogre {
         virtual void build(void);
 
         /** Destroys all the built geometry state (reverse of build). 
-        @remarks
+
             You can call build() again after this and it will pick up all the
             same entities / nodes you queued last time.
         */
@@ -606,7 +606,7 @@ namespace Ogre {
         virtual void reset(void);
 
         /** Sets the distance at which batches are no longer rendered.
-        @remarks
+
             This lets you turn off batches at a given distance. This can be 
             useful for things like detail meshes (grass, foliage etc) and could
             be combined with a shader which fades the geometry out beforehand 
@@ -633,7 +633,7 @@ namespace Ogre {
         virtual bool isVisible(void) const { return mVisible; }
 
         /** Sets whether this geometry should cast shadows.
-        @remarks
+
             No matter what the settings on the original entities,
             the StaticGeometry class defaults to not casting shadows. 
             This is because, being static, unless you have moving lights
@@ -654,7 +654,7 @@ namespace Ogre {
         virtual bool getCastShadows(void) { return mCastShadows; }
 
         /** Sets the size of a single region of geometry.
-        @remarks
+
             This method allows you to configure the physical world size of 
             each region, so you can balance culling against batch size. Entities
             will be fitted within the batch they most closely fit, and the 
@@ -670,7 +670,7 @@ namespace Ogre {
         /** Gets the size of a single batch of geometry. */
         virtual const Vector3& getRegionDimensions(void) const { return mRegionDimensions; }
         /** Sets the origin of the geometry.
-        @remarks
+
             This method allows you to configure the world centre of the geometry,
             thus the place which all regions surround. You probably don't need 
             to mess with this unless you have a seriously large world, since the
@@ -690,7 +690,7 @@ namespace Ogre {
         uint32 getVisibilityFlags() const;
 
         /** Sets the render queue group this object will be rendered through.
-        @remarks
+
             Render queues are grouped to allow you to more tightly control the ordering
             of rendered objects. If you do not call this method, all  objects default
             to the default queue (RenderQueue::getDefaultQueueGroup), which is fine for 
@@ -726,14 +726,14 @@ namespace Ogre {
     /** Dummy factory to let Regions adhere to MovableObject protocol */
     class _OgreExport StaticGeometryFactory : public MovableObjectFactory
     {
-        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params) { return NULL; }
+        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params) override { return NULL; }
     public:
         StaticGeometryFactory() {}
         ~StaticGeometryFactory() {}
 
         static String FACTORY_TYPE_NAME;
 
-        const String& getType(void) const { return FACTORY_TYPE_NAME; }
+        const String& getType(void) const override { return FACTORY_TYPE_NAME; }
     };
     /** @} */
     /** @} */

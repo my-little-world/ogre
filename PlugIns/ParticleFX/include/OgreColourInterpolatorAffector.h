@@ -36,7 +36,7 @@ THE SOFTWARE.
 namespace Ogre {
 
 
-    class _OgreParticleFXExport ColourInterpolatorAffector : public ParticleAffector
+    class ColourInterpolatorAffector : public ParticleAffector
     {
     public:
         // this is something of a hack.. 
@@ -52,8 +52,8 @@ namespace Ogre {
             size_t      mIndex;
 
         public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
+            String doGet(const void* target) const override;
+            void doSet(void* target, const String& val) override;
         };
 
         /** Command object for red adjust (see ParamCommand).*/
@@ -63,8 +63,8 @@ namespace Ogre {
             size_t      mIndex;
 
         public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
+            String doGet(const void* target) const override;
+            void doSet(void* target, const String& val) override;
         };
 
         /** Default constructor. */
@@ -81,6 +81,8 @@ namespace Ogre {
         
         static CmdColourAdjust  msColourCmd[MAX_STAGES];
         static CmdTimeAdjust    msTimeCmd[MAX_STAGES];
+
+        void _initParticle(Particle* pParticle) override;
 
     protected:
         ColourValue             mColourAdj[MAX_STAGES];

@@ -74,11 +74,8 @@ namespace Ogre
         mRemoveOwnVertexData = true;
         VertexData *thisVertexData      = mRenderOperation.vertexData;
         const unsigned short lastSource = thisVertexData->vertexDeclaration->getMaxSource();
-        HardwareVertexBufferSharedPtr vertexBuffer =
-                                        HardwareBufferManager::getSingleton().createVertexBuffer(
-                                        thisVertexData->vertexDeclaration->getVertexSize(lastSource),
-                                        mInstancesPerBatch,
-                                        HardwareBuffer::HBU_STATIC_WRITE_ONLY );
+        auto vertexBuffer = HardwareBufferManager::getSingleton().createVertexBuffer(
+            thisVertexData->vertexDeclaration->getVertexSize(lastSource), mInstancesPerBatch, HBU_CPU_TO_GPU);
         thisVertexData->vertexBufferBinding->setBinding( lastSource, vertexBuffer );
         vertexBuffer->setIsInstanceData( true );
         vertexBuffer->setInstanceDataStepRate( 1 );
@@ -86,19 +83,17 @@ namespace Ogre
     //-----------------------------------------------------------------------
     void InstanceBatchHW::setupVertices( const SubMesh* baseSubMesh )
     {
-        mRenderOperation.vertexData = baseSubMesh->vertexData->clone();
+        //No skeletal animation support in this technique, sorry
+        mRenderOperation.vertexData = baseSubMesh->vertexData->_cloneRemovingBlendData();
         mRemoveOwnVertexData = true; //Raise flag to remove our own vertex data in the end (not always needed)
         
         VertexData *thisVertexData = mRenderOperation.vertexData;
-
-        //No skeletal animation support in this technique, sorry
-        removeBlendData();
 
         //Modify the declaration so it contains an extra source, where we can put the per instance data
         size_t offset               = 0;
         unsigned short nextTexCoord = thisVertexData->vertexDeclaration->getNextFreeTextureCoordinate();
         const unsigned short newSource = thisVertexData->vertexDeclaration->getMaxSource() + 1;
-        for( unsigned char i=0; i<3 + mCreator->getNumCustomParams(); ++i )
+        for (unsigned char i = 0; i < 3 + mCreator->getNumCustomParams(); ++i)
         {
             thisVertexData->vertexDeclaration->addElement( newSource, offset, VET_FLOAT4,
                                                             VES_TEXTURE_COORDINATES, nextTexCoord++ );
@@ -106,11 +101,8 @@ namespace Ogre
         }
 
         //Create the vertex buffer containing per instance data
-        HardwareVertexBufferSharedPtr vertexBuffer =
-                                        HardwareBufferManager::getSingleton().createVertexBuffer(
-                                        thisVertexData->vertexDeclaration->getVertexSize(newSource),
-                                        mInstancesPerBatch,
-                                        HardwareBuffer::HBU_STATIC_WRITE_ONLY );
+        auto vertexBuffer = HardwareBufferManager::getSingleton().createVertexBuffer(
+            thisVertexData->vertexDeclaration->getVertexSize(newSource), mInstancesPerBatch, HBU_CPU_TO_GPU);
         thisVertexData->vertexBufferBinding->setBinding( newSource, vertexBuffer );
         vertexBuffer->setIsInstanceData( true );
         vertexBuffer->setInstanceDataStepRate( 1 );
@@ -122,34 +114,6 @@ namespace Ogre
         //the pointer, and we can't give it something that doesn't belong to us.
         mRenderOperation.indexData = baseSubMesh->indexData->clone( true );
         mRemoveOwnIndexData = true; //Raise flag to remove our own index data in the end (not always needed)
-    }
-    //-----------------------------------------------------------------------
-    void InstanceBatchHW::removeBlendData()
-    {
-        VertexData *thisVertexData = mRenderOperation.vertexData;
-
-        unsigned short safeSource = 0xFFFF;
-        const VertexElement* blendIndexElem = thisVertexData->vertexDeclaration->findElementBySemantic(
-                                                                                VES_BLEND_INDICES );
-        if( blendIndexElem )
-        {
-            //save the source in order to prevent the next stage from unbinding it.
-            safeSource = blendIndexElem->getSource();
-            // Remove buffer reference
-            thisVertexData->vertexBufferBinding->unsetBinding( blendIndexElem->getSource() );
-        }
-        // Remove blend weights
-        const VertexElement* blendWeightElem = thisVertexData->vertexDeclaration->findElementBySemantic(
-                                                                                VES_BLEND_WEIGHTS );
-        if( blendWeightElem && blendWeightElem->getSource() != safeSource )
-        {
-            // Remove buffer reference
-            thisVertexData->vertexBufferBinding->unsetBinding( blendWeightElem->getSource() );
-        }
-
-        thisVertexData->vertexDeclaration->removeElement(VES_BLEND_INDICES);
-        thisVertexData->vertexDeclaration->removeElement(VES_BLEND_WEIGHTS);
-        thisVertexData->closeGapsInBindings();
     }
     //-----------------------------------------------------------------------
     bool InstanceBatchHW::checkSubMeshCompatibility( const SubMesh* baseSubMesh )
@@ -185,39 +149,30 @@ namespace Ogre
         const ushort bufferIdx = ushort(binding->getBufferCount()-1);
         HardwareBufferLockGuard vertexLock(binding->getBuffer(bufferIdx), HardwareBuffer::HBL_DISCARD);
         float *pDest = static_cast<float*>(vertexLock.pData);
-
-        InstancedEntityVec::const_iterator itor = mInstancedEntities.begin();
-        InstancedEntityVec::const_iterator end  = mInstancedEntities.end();
-
         unsigned char numCustomParams           = mCreator->getNumCustomParams();
         size_t customParamIdx                   = 0;
 
-        while( itor != end )
+        for (auto *e : mInstancedEntities)
         {
             //Cull on an individual basis, the less entities are visible, the less instances we draw.
             //No need to use null matrices at all!
-            if( (*itor)->findVisible( currentCamera ) )
+            if (e->findVisible(currentCamera ))
             {
-                const size_t floatsWritten = (*itor)->getTransforms3x4( (Matrix3x4f*)pDest );
+                const size_t floatsWritten = e->getTransforms3x4( (Matrix3x4f*)pDest);
 
                 if( mManager->getCameraRelativeRendering() )
-                    makeMatrixCameraRelative3x4( (Matrix3x4f*)pDest, floatsWritten / 12 );
+                    makeMatrixCameraRelative3x4((Matrix3x4f*)pDest, floatsWritten / 12);
 
                 pDest += floatsWritten;
 
                 //Write custom parameters, if any
-                for( unsigned char i=0; i<numCustomParams; ++i )
+                for (unsigned char i = 0; i < numCustomParams; ++i)
                 {
-                    *pDest++ = mCustomParams[customParamIdx+i].x;
-                    *pDest++ = mCustomParams[customParamIdx+i].y;
-                    *pDest++ = mCustomParams[customParamIdx+i].z;
-                    *pDest++ = mCustomParams[customParamIdx+i].w;
+                    memcpy(pDest, mCustomParams[customParamIdx+i].ptr(), sizeof(Vector4f));
+                    pDest += 4;
                 }
-
                 ++retVal;
             }
-            ++itor;
-
             customParamIdx += numCustomParams;
         }
 
@@ -252,11 +207,6 @@ namespace Ogre
     void InstanceBatchHW::getWorldTransforms( Matrix4* xform ) const
     {
         *xform = Matrix4::IDENTITY;
-    }
-    //-----------------------------------------------------------------------
-    unsigned short InstanceBatchHW::getNumWorldTransforms(void) const
-    {
-        return 1;
     }
     //-----------------------------------------------------------------------
     void InstanceBatchHW::_updateRenderQueue( RenderQueue* queue )

@@ -50,20 +50,6 @@ namespace Ogre
         return 0;
     }
     //---------------------------------------------------------------------
-    D3DLIGHTTYPE D3D9Mappings::get(Ogre::Light::LightTypes lightType)
-    {
-        switch( lightType )
-        {
-        case Light::LT_POINT:
-            return D3DLIGHT_POINT;
-        case Light::LT_DIRECTIONAL:
-            return D3DLIGHT_DIRECTIONAL;
-        case Light::LT_SPOTLIGHT:
-            return D3DLIGHT_SPOT;
-        }
-        return D3DLIGHT_FORCE_DWORD;
-    }
-    //---------------------------------------------------------------------
     DWORD D3D9Mappings::get(TexCoordCalcMethod m, const D3DCAPS9& caps)
     {
         switch( m )
@@ -72,19 +58,10 @@ namespace Ogre
             return D3DTSS_TCI_PASSTHRU;
         case TEXCALC_ENVIRONMENT_MAP_REFLECTION:
             return D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR;
-        case TEXCALC_ENVIRONMENT_MAP_PLANAR:
-            if (caps.VertexProcessingCaps & D3DVTXPCAPS_TEXGEN_SPHEREMAP)
-            {
-                // Use sphere map if available
-                return D3DTSS_TCI_SPHEREMAP;
-            }
-            else
-            {
-                // If not, fall back on camera space reflection vector which isn't as good
-                return D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR;
-            }
         case TEXCALC_ENVIRONMENT_MAP_NORMAL:
             return D3DTSS_TCI_CAMERASPACENORMAL;
+        case TEXCALC_ENVIRONMENT_MAP_PLANAR:
+            // should be D3DTSS_TCI_CAMERASPACEPOSITION, but it has been like this since v0.12
         case TEXCALC_ENVIRONMENT_MAP:
             if (caps.VertexProcessingCaps & D3DVTXPCAPS_TEXGEN_SPHEREMAP)
             {

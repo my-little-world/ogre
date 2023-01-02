@@ -33,12 +33,12 @@ namespace RTShader {
 /************************************************************************/
 /*                                                                      */
 /************************************************************************/
-String PerPixelLighting::Type = "SGX_PerPixelLighting";
+const String SRS_PER_PIXEL_LIGHTING = "SGX_PerPixelLighting";
 
 //-----------------------------------------------------------------------
 const String& PerPixelLighting::getType() const
 {
-    return Type;
+    return SRS_PER_PIXEL_LIGHTING;
 }
 
 bool PerPixelLighting::setParameter(const String& name, const String& value)
@@ -256,9 +256,22 @@ bool PerPixelLighting::addFunctionInvocations(ProgramSet* programSet)
         stage.callFunction("SGX_Flip_Backface_Normal", mFrontFacing, mTargetFlipped, mViewNormal);
 
     // Add per light functions.
+    int i = 0;
     for (const auto& lp : mLightParamsList)
     {
         addIlluminationInvocation(&lp, stage);
+
+        if(i > 0) // directional lights are in front
+            continue;
+        i++;
+
+        if (auto shadowFactor = psMain->getLocalParameter("lShadowFactor"))
+        {
+            stage.callFunction("SGX_ApplyShadowFactor_Diffuse",
+                               {In(mDerivedSceneColour), In(shadowFactor), InOut(mOutDiffuse)});
+            if(mSpecularEnable)
+                stage.mul(mOutSpecular, shadowFactor, mOutSpecular);
+        }
     }
 
     // Assign back temporary variables
@@ -298,12 +311,12 @@ void PerPixelLighting::addPSGlobalIlluminationInvocation(const FunctionStageRef&
         }
         else
         {
-            stage.assign(In(mDerivedAmbientLightColour).xyz(), Out(mOutDiffuse).xyz());
+            stage.assign(mDerivedAmbientLightColour, mOutDiffuse);
         }
 
         if (mTrackVertexColourType & TVC_EMISSIVE)
         {
-            stage.add(mInDiffuse, mOutDiffuse, mOutDiffuse);
+            stage.add(In(mInDiffuse).xyz(), In(mOutDiffuse).xyz(), Out(mOutDiffuse).xyz());
         }
         else
         {
@@ -315,7 +328,7 @@ void PerPixelLighting::addPSGlobalIlluminationInvocation(const FunctionStageRef&
 //-----------------------------------------------------------------------
 const String& PerPixelLightingFactory::getType() const
 {
-    return PerPixelLighting::Type;
+    return SRS_PER_PIXEL_LIGHTING;
 }
 
 //-----------------------------------------------------------------------
@@ -326,15 +339,7 @@ SubRenderState* PerPixelLightingFactory::createInstance(ScriptCompiler* compiler
         return NULL;
 
     auto it = prop->values.begin();
-    String val;
-
-    if(!SGScriptTranslator::getString(*it++, &val))
-    {
-        compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-        return NULL;
-    }
-
-    if (val != "per_pixel")
+    if((*it++)->getString() != "per_pixel")
         return NULL;
 
     auto ret = createOrRetrieveInstance(translator);
@@ -342,10 +347,9 @@ SubRenderState* PerPixelLightingFactory::createInstance(ScriptCompiler* compiler
     // process the flags
     while(it != prop->values.end())
     {
-        if (!SGScriptTranslator::getString(*it++, &val) || !ret->setParameter(val, "true"))
-        {
+        const String& val = (*it++)->getString();
+        if (!ret->setParameter(val, "true"))
             compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line, val);
-        }
     }
 
     return ret;

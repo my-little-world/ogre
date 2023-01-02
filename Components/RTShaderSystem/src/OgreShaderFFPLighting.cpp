@@ -32,7 +32,7 @@ namespace RTShader {
 /************************************************************************/
 /*                                                                      */
 /************************************************************************/
-String FFPLighting::Type = "FFP_Lighting";
+const String SRS_PER_VERTEX_LIGHTING = "FFP_Lighting";
 
 //-----------------------------------------------------------------------
 FFPLighting::FFPLighting()
@@ -46,7 +46,7 @@ FFPLighting::FFPLighting()
 //-----------------------------------------------------------------------
 const String& FFPLighting::getType() const
 {
-	return Type;
+	return SRS_PER_VERTEX_LIGHTING;
 }
 
 
@@ -67,11 +67,9 @@ void FFPLighting::updateGpuProgramsParams(Renderable* rend, const Pass* pass, co
 	unsigned int curSearchLightIndex = 0;
 
 	// Update per light parameters.
-	for (unsigned int i=0; i < mLightParamsList.size(); ++i)
+	for (auto & curParams : mLightParamsList)
 	{
-		const LightParams& curParams = mLightParamsList[i];
-
-		if (curLightType != curParams.mType)
+			if (curLightType != curParams.mType)
 		{
 			curLightType = curParams.mType;
 			curSearchLightIndex = 0;
@@ -269,6 +267,24 @@ bool FFPLighting::addFunctionInvocations(ProgramSet* programSet)
         addIlluminationInvocation(&lp, stage);
     }
 
+    auto psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
+    auto psMain = psProgram->getMain();
+    if (auto shadowFactor = psMain->getLocalParameter("lShadowFactor"))
+    {
+        auto ambient = psProgram->resolveParameter(GpuProgramParameters::ACT_DERIVED_SCENE_COLOUR);
+        auto psOutDiffuse = psMain->resolveOutputParameter(Parameter::SPC_COLOR_DIFFUSE);
+
+        auto fstage = psMain->getStage(FFP_PS_COLOUR_BEGIN);
+        fstage.callFunction("SGX_ApplyShadowFactor_Diffuse", {In(ambient), In(shadowFactor), InOut(psOutDiffuse)});
+        if (mSpecularEnable)
+        {
+            auto psSpecular = psMain->getInputParameter(Parameter::SPC_COLOR_SPECULAR);
+            if (!psSpecular)
+                psMain->getLocalParameter(Parameter::SPC_COLOR_SPECULAR);
+            fstage.mul(psSpecular, shadowFactor, psSpecular);
+        }
+    }
+
     return true;
 }
 
@@ -303,7 +319,7 @@ void FFPLighting::addGlobalIlluminationInvocation(const FunctionStageRef& stage)
 
 		if (mTrackVertexColourType & TVC_EMISSIVE)
 		{
-            stage.add(mInDiffuse, mOutDiffuse, mOutDiffuse);
+			stage.add(In(mInDiffuse).xyz(), In(mOutDiffuse).xyz(), Out(mOutDiffuse).xyz());
 		}
 		else
 		{
@@ -459,6 +475,11 @@ bool FFPLighting::preAddToRenderState(const RenderState* renderState, Pass* srcP
 		}
 	}
 
+	if(srcPass->getMaxSimultaneousLights() == 0)
+	{
+		lightCount = Vector3i(0);
+	}
+
 	setLightCount(lightCount);
 
 	return true;
@@ -477,7 +498,7 @@ bool FFPLighting::setParameter(const String& name, const String& value)
 //-----------------------------------------------------------------------
 void FFPLighting::setLightCount(const Vector3i& lightCount)
 {
-	for (int type=0; type < 3; ++type)
+	for (int type : {1, 0, 2}) // directional first
 	{
 		for (int i=0; i < lightCount[type]; ++i)
 		{
@@ -500,11 +521,9 @@ Vector3i FFPLighting::getLightCount() const
 {
 	Vector3i lightCount(0, 0, 0);
 
-	for (unsigned int i=0; i < mLightParamsList.size(); ++i)
+	for (const auto& curParams : mLightParamsList)
 	{
-		const LightParams curParams = mLightParamsList[i];
-
-		if (curParams.mType == Light::LT_POINT)
+			if (curParams.mType == Light::LT_POINT)
 			lightCount[0]++;
 		else if (curParams.mType == Light::LT_DIRECTIONAL)
 			lightCount[1]++;
@@ -518,7 +537,7 @@ Vector3i FFPLighting::getLightCount() const
 //-----------------------------------------------------------------------
 const String& FFPLightingFactory::getType() const
 {
-	return FFPLighting::Type;
+	return SRS_PER_VERTEX_LIGHTING;
 }
 
 //-----------------------------------------------------------------------
@@ -529,29 +548,16 @@ SubRenderState*	FFPLightingFactory::createInstance(ScriptCompiler* compiler,
         return NULL;
 
     auto it = prop->values.begin();
-    String val;
-
-    if(!SGScriptTranslator::getString(*it, &val))
-    {
-        compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-        return NULL;
-    }
 
     SubRenderState* ret = NULL;
-    if (val == "ffp")
+    if ((*it++)->getString() == "ffp")
     {
         ret = createOrRetrieveInstance(translator);
     }
 
     if(ret && prop->values.size() >= 2)
     {
-        if(!SGScriptTranslator::getString(*it, &val))
-        {
-            compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-            return NULL;
-        }
-
-        static_cast<FFPLighting*>(ret)->setNormaliseEnabled(val == "normalised");
+        ret->setParameter((*it)->getString(), "true"); // normalise
     }
 
     return ret;

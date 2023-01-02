@@ -152,7 +152,7 @@ namespace Ogre
 
     /** Stream which compresses / uncompresses data using the 'deflate' compression
         algorithm.
-    @remarks
+
         This stream is designed to wrap another stream for the actual source / destination
         of the compressed data, it has no concrete source / data itself. The idea is
         that you pass uncompressed data through this stream, and the underlying
@@ -235,7 +235,7 @@ namespace Ogre
         ~DeflateStream();
         
         /** Returns whether the compressed stream is valid deflated data.
-         @remarks
+
             If you pass this class a READ stream which is not compressed with the 
             deflate algorithm, this method returns false and all read commands
             will actually be executed as passthroughs as a fallback. 
@@ -244,31 +244,31 @@ namespace Ogre
         
         /** @copydoc DataStream::read
          */
-        size_t read(void* buf, size_t count);
+        size_t read(void* buf, size_t count) override;
         
         /** @copydoc DataStream::write
          */
-        size_t write(const void* buf, size_t count);
+        size_t write(const void* buf, size_t count) override;
                 
         /** @copydoc DataStream::skip
          */
-        void skip(long count);
+        void skip(long count) override;
         
         /** @copydoc DataStream::seek
          */
-        void seek( size_t pos );
+        void seek( size_t pos ) override;
         
         /** @copydoc DataStream::tell
          */
-        size_t tell(void) const;
+        size_t tell(void) const override;
         
         /** @copydoc DataStream::eof
          */
-        bool eof(void) const;
+        bool eof(void) const override;
         
         /** @copydoc DataStream::close
          */
-        void close(void);
+        void close(void) override;
         
     };
 }

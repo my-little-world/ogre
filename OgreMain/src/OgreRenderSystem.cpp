@@ -242,26 +242,20 @@ namespace Ogre {
     {
 
         // Init stats
-        for(
-            RenderTargetMap::iterator it = mRenderTargets.begin();
-            it != mRenderTargets.end();
-            ++it )
+        for (auto& rt : mRenderTargets)
         {
-            it->second->resetStatistics();
+            rt.second->resetStatistics();
         }
-
     }
     //-----------------------------------------------------------------------
     void RenderSystem::_updateAllRenderTargets(bool swapBuffers)
     {
         // Update all in order of priority
         // This ensures render-to-texture targets get updated before render windows
-        RenderTargetPriorityMap::iterator itarg, itargend;
-        itargend = mPrioritisedRenderTargets.end();
-        for( itarg = mPrioritisedRenderTargets.begin(); itarg != itargend; ++itarg )
+        for (auto& rt : mPrioritisedRenderTargets)
         {
-            if( itarg->second->isActive() && itarg->second->isAutoUpdated())
-                itarg->second->update(swapBuffers);
+            if (rt.second->isActive() && rt.second->isAutoUpdated())
+                rt.second->update(swapBuffers);
         }
     }
     //-----------------------------------------------------------------------
@@ -270,12 +264,10 @@ namespace Ogre {
         OgreProfile("_swapAllRenderTargetBuffers");
         // Update all in order of priority
         // This ensures render-to-texture targets get updated before render windows
-        RenderTargetPriorityMap::iterator itarg, itargend;
-        itargend = mPrioritisedRenderTargets.end();
-        for( itarg = mPrioritisedRenderTargets.begin(); itarg != itargend; ++itarg )
+        for (auto& rt : mPrioritisedRenderTargets)
         {
-            if( itarg->second->isActive() && itarg->second->isAutoUpdated())
-                itarg->second->swapBuffers();
+            if (rt.second->isActive() && rt.second->isAutoUpdated())
+                rt.second->swapBuffers();
         }
     }
     //-----------------------------------------------------------------------
@@ -305,12 +297,12 @@ namespace Ogre {
     //---------------------------------------------------------------------------------------------
     void RenderSystem::useCustomRenderSystemCapabilities(RenderSystemCapabilities* capabilities)
     {
-    if (mRealCapabilities != 0)
-    {
-      OGRE_EXCEPT(Exception::ERR_INTERNAL_ERROR, 
-          "Custom render capabilities must be set before the RenderSystem is initialised.",
-          "RenderSystem::useCustomRenderSystemCapabilities");
-    }
+        if (mRealCapabilities != 0)
+        {
+          OGRE_EXCEPT(Exception::ERR_INTERNAL_ERROR,
+              "Custom render capabilities must be set before the RenderSystem is initialised.",
+              "RenderSystem::useCustomRenderSystemCapabilities");
+        }
 
         mCurrentCapabilities = capabilities;
         mUseCustomCapabilities = true;
@@ -424,6 +416,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void RenderSystem::_setTextureUnitSettings(size_t texUnit, TextureUnitState& tl)
     {
+        if(texUnit >= getCapabilities()->getNumTextureUnits())
+            return;
+
         // This method is only ever called to set a texture unit to valid details
         // The method _disableTextureUnit is called to turn a unit off
         TexturePtr tex = tl._getTexturePtr();
@@ -433,69 +428,32 @@ namespace Ogre {
         // Bind texture (may be blank)
         _setTexture(texUnit, true, tex);
 
+        _setSampler(texUnit, *tl.getSampler());
+
+        if(!getCapabilities()->hasCapability(RSC_FIXED_FUNCTION))
+            return;
+
         // Set texture coordinate set
         _setTextureCoordSet(texUnit, tl.getTextureCoordSet());
-
-        _setSampler(texUnit, *tl.getSampler());
 
         // Set blend modes
         // Note, colour before alpha is important
         _setTextureBlendMode(texUnit, tl.getColourBlendMode());
         _setTextureBlendMode(texUnit, tl.getAlphaBlendMode());
 
-        // Set texture effects
-        TextureUnitState::EffectMap::iterator effi;
-        // Iterate over new effects
-        bool anyCalcs = false;
-        for (effi = tl.mEffects.begin(); effi != tl.mEffects.end(); ++effi)
+        auto calcMode = tl._deriveTexCoordCalcMethod();
+        if(calcMode == TEXCALC_PROJECTIVE_TEXTURE)
         {
-            switch (effi->second.type)
-            {
-            case TextureUnitState::ET_ENVIRONMENT_MAP:
-                if (effi->second.subtype == TextureUnitState::ENV_CURVED)
-                {
-                    _setTextureCoordCalculation(texUnit, TEXCALC_ENVIRONMENT_MAP);
-                    anyCalcs = true;
-                }
-                else if (effi->second.subtype == TextureUnitState::ENV_PLANAR)
-                {
-                    _setTextureCoordCalculation(texUnit, TEXCALC_ENVIRONMENT_MAP_PLANAR);
-                    anyCalcs = true;
-                }
-                else if (effi->second.subtype == TextureUnitState::ENV_REFLECTION)
-                {
-                    _setTextureCoordCalculation(texUnit, TEXCALC_ENVIRONMENT_MAP_REFLECTION);
-                    anyCalcs = true;
-                }
-                else if (effi->second.subtype == TextureUnitState::ENV_NORMAL)
-                {
-                    _setTextureCoordCalculation(texUnit, TEXCALC_ENVIRONMENT_MAP_NORMAL);
-                    anyCalcs = true;
-                }
-                break;
-            case TextureUnitState::ET_UVSCROLL:
-            case TextureUnitState::ET_USCROLL:
-            case TextureUnitState::ET_VSCROLL:
-            case TextureUnitState::ET_ROTATE:
-            case TextureUnitState::ET_TRANSFORM:
-                break;
-            case TextureUnitState::ET_PROJECTIVE_TEXTURE:
-                _setTextureCoordCalculation(texUnit, TEXCALC_PROJECTIVE_TEXTURE, 
-                    effi->second.frustum);
-                anyCalcs = true;
-                break;
-            }
+            auto frustum = tl.getEffects().find(TextureUnitState::ET_PROJECTIVE_TEXTURE)->second.frustum;
+            _setTextureCoordCalculation(texUnit, calcMode, frustum);
         }
-        // Ensure any previous texcoord calc settings are reset if there are now none
-        if (!anyCalcs)
+        else
         {
-            _setTextureCoordCalculation(texUnit, TEXCALC_NONE);
+            _setTextureCoordCalculation(texUnit, calcMode);
         }
 
         // Change tetxure matrix 
         _setTextureMatrix(texUnit, tl.getTextureTransform());
-
-
     }
     //-----------------------------------------------------------------------
     void RenderSystem::_setVertexTexture(size_t unit, const TexturePtr& tex)
@@ -536,28 +494,18 @@ namespace Ogre {
     //---------------------------------------------------------------------
     void RenderSystem::_cleanupDepthBuffers( bool bCleanManualBuffers )
     {
-        DepthBufferMap::iterator itMap = mDepthBufferPool.begin();
-        DepthBufferMap::iterator enMap = mDepthBufferPool.end();
-
-        while( itMap != enMap )
+        for (auto& m : mDepthBufferPool)
         {
-            DepthBufferVec::const_iterator itor = itMap->second.begin();
-            DepthBufferVec::const_iterator end  = itMap->second.end();
-
-            while( itor != end )
+            for (auto *b : m.second)
             {
-                if( bCleanManualBuffers || !(*itor)->isManual() )
-                    delete *itor;
-                ++itor;
+                if (bCleanManualBuffers || !b->isManual())
+                    delete b;
             }
-
-            itMap->second.clear();
-
-            ++itMap;
+            m.second.clear();
         }
-
         mDepthBufferPool.clear();
     }
+    //-----------------------------------------------------------------------
     void RenderSystem::_beginFrame(void)
     {
         if (!mActiveViewport)
@@ -576,12 +524,11 @@ namespace Ogre {
             return; //RenderTarget explicitly requested no depth buffer
 
         //Find a depth buffer in the pool
-        DepthBufferVec::const_iterator itor = mDepthBufferPool[poolId].begin();
-        DepthBufferVec::const_iterator end  = mDepthBufferPool[poolId].end();
-
         bool bAttached = false;
-        while( itor != end && !bAttached )
-            bAttached = renderTarget->attachDepthBuffer( *itor++ );
+        for (auto& d : mDepthBufferPool[poolId]) {
+            bAttached = renderTarget->attachDepthBuffer(d);
+            if (bAttached) break;
+        }
 
         //Not found yet? Create a new one!
         if( !bAttached )
@@ -617,11 +564,9 @@ namespace Ogre {
 
     void RenderSystem::shutdown(void)
     {
-        // Remove occlusion queries
-        for (HardwareOcclusionQueryList::iterator i = mHwOcclusionQueries.begin();
-            i != mHwOcclusionQueries.end(); ++i)
+        for (auto& q : mHwOcclusionQueries)
         {
-            OGRE_DELETE *i;
+            OGRE_DELETE q;
         }
         mHwOcclusionQueries.clear();
 
@@ -630,20 +575,14 @@ namespace Ogre {
         // Remove all the render targets. Destroy primary target last since others may depend on it.
         // Keep mRenderTargets valid all the time, so that render targets could receive
         // appropriate notifications, for example FBO based about GL context destruction.
-        RenderTarget* primary = 0;
-        for (RenderTargetMap::iterator it = mRenderTargets.begin(); it != mRenderTargets.end(); /* note - no increment */)
-        {
-            RenderTarget* current = it->second;
-            if (!primary && current->isPrimary())
-            {
-                ++it;
-                primary = current;
+        RenderTarget* primary {nullptr};
+        for (auto &&a : mRenderTargets) {
+            if (!primary && a.second->isPrimary()) {
+                primary = a.second;
+                continue;
             }
-            else
-            {
-                it = mRenderTargets.erase(it);
-                OGRE_DELETE current;
-            }
+            OGRE_DELETE a.second;
+            mRenderTargets.erase(a.first);
         }
         OGRE_DELETE primary;
         mRenderTargets.clear();
@@ -759,11 +698,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void RenderSystem::_notifyCameraRemoved(const Camera* cam)
     {
-        RenderTargetMap::iterator i, iend;
-        iend = mRenderTargets.end();
-        for (i = mRenderTargets.begin(); i != iend; ++i)
+        for (auto& rt : mRenderTargets)
         {
-            RenderTarget* target = i->second;
+            auto target = rt.second;
             target->_notifyCameraRemoved(cam);
         }
     }
@@ -843,10 +780,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void RenderSystem::fireEvent(const String& name, const NameValuePairList* params)
     {
-        for(ListenerList::iterator i = mEventListeners.begin(); 
-            i != mEventListeners.end(); ++i)
+        for(auto& el : mEventListeners)
         {
-            (*i)->eventOccurred(name, params);
+            el->eventOccurred(name, params);
         }
 
         if(msSharedEventListener)
@@ -855,9 +791,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void RenderSystem::destroyHardwareOcclusionQuery( HardwareOcclusionQuery *hq)
     {
-        HardwareOcclusionQueryList::iterator i =
-            std::find(mHwOcclusionQueries.begin(), mHwOcclusionQueries.end(), hq);
-        if (i != mHwOcclusionQueries.end())
+        auto end = mHwOcclusionQueries.end();
+        auto i = std::find(mHwOcclusionQueries.begin(), end, hq);
+        if (i != end)
         {
             mHwOcclusionQueries.erase(i);
             OGRE_DELETE hq;
@@ -963,18 +899,13 @@ namespace Ogre {
     //---------------------------------------------------------------------
     const String& RenderSystem::_getDefaultViewportMaterialScheme( void ) const
     {
-#ifdef RTSHADER_SYSTEM_BUILD_CORE_SHADERS   
-        if ( !(getCapabilities()->hasCapability(Ogre::RSC_FIXED_FUNCTION)) )
+#ifdef RTSHADER_SYSTEM_BUILD_CORE_SHADERS
+        if (!getCapabilities()->hasCapability(RSC_FIXED_FUNCTION))
         {
-            // I am returning the exact value for now - I don't want to add dependency for the RTSS just for one string  
-            static const String ShaderGeneratorDefaultScheme = "ShaderGeneratorDefaultScheme";
-            return ShaderGeneratorDefaultScheme;
+            return MSN_SHADERGEN;
         }
-        else
 #endif
-        {
-            return MaterialManager::DEFAULT_SCHEME_NAME;
-        }
+        return MSN_DEFAULT;
     }
     //---------------------------------------------------------------------
     Ogre::HardwareVertexBufferSharedPtr RenderSystem::getGlobalInstanceVertexBuffer() const
@@ -1028,6 +959,16 @@ namespace Ogre {
         optFullScreen.currentValue = optFullScreen.possibleValues[0];
         optFullScreen.immutable = false;
         mOptions[optFullScreen.name] = optFullScreen;
+
+        // Video mode possibilities, can be overwritten by actual values
+        ConfigOption optVideoMode;
+        optVideoMode.name = "Video Mode";
+        optVideoMode.possibleValues.push_back("1920 x 1080");
+        optVideoMode.possibleValues.push_back("1280 x 720");
+        optVideoMode.possibleValues.push_back("800 x 600");
+        optVideoMode.currentValue = optVideoMode.possibleValues.back();
+        optVideoMode.immutable = false;
+        mOptions[optVideoMode.name] = optVideoMode;
 
         ConfigOption optVSync;
         optVSync.name = "VSync";

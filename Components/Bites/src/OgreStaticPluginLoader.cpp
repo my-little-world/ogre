@@ -98,6 +98,9 @@
 #if defined(OGRE_BUILD_PLUGIN_FREEIMAGE) && !defined(OGRE_BUILD_PLUGIN_STBI)
 #   include "OgreFreeImageCodec.h"
 #endif
+#if defined(OGRE_BUILD_PLUGIN_RSIMAGE) && !defined(OGRE_BUILD_PLUGIN_STBI)
+#   include "OgreRsImageCodec.h"
+#endif
 #endif
 
 void OgreBites::StaticPluginLoader::load()
@@ -161,11 +164,15 @@ void OgreBites::StaticPluginLoader::load()
     plugin = OGRE_NEW STBIPlugin();
     mPlugins.push_back(plugin);
 #endif
+#if defined(OGRE_BUILD_PLUGIN_RSIMAGE) && !defined(OGRE_BUILD_PLUGIN_STBI)
+    plugin = OGRE_NEW RsImagePlugin();
+    mPlugins.push_back(plugin);
+#endif
 #ifdef OGRE_BUILD_PLUGIN_DOT_SCENE
     plugin = OGRE_NEW DotScenePlugin();
     mPlugins.push_back(plugin);
 #endif
-#if defined(OGRE_BUILD_PLUGIN_FREEIMAGE) && !defined(OGRE_BUILD_PLUGIN_STBI)
+#if defined(OGRE_BUILD_PLUGIN_FREEIMAGE) && !defined(OGRE_BUILD_PLUGIN_STBI) && !defined(OGRE_BUILD_PLUGIN_RSIMAGE)
     plugin = OGRE_NEW FreeImagePlugin();
     mPlugins.push_back(plugin);
 #endif
@@ -180,16 +187,16 @@ void OgreBites::StaticPluginLoader::load()
 #endif
 
     Root& root  = Root::getSingleton();
-    for (size_t i = 0; i < mPlugins.size(); ++i) {
-        root.installPlugin(mPlugins[i]);
+    for (auto & p : mPlugins) {
+        root.installPlugin(p);
     }
 }
 
 void OgreBites::StaticPluginLoader::unload()
 {
     // don't unload plugins, since Root will have done that. Destroy here.
-    for (size_t i = 0; i < mPlugins.size(); ++i) {
-        OGRE_DELETE mPlugins[i];
+    for (auto & p : mPlugins) {
+        OGRE_DELETE p;
     }
     mPlugins.clear();
 }

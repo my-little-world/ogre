@@ -124,9 +124,9 @@ void GLSLProgramWriter::writeSourceCode(std::ostream& os, Program* program)
 void GLSLProgramWriter::writeUniformBlock(std::ostream& os, const String& name, int binding,
                                           const UniformParameterList& uniforms)
 {
-    os << "layout(binding = " << binding << ", row_major) uniform " << name << " {";
+    os << "layout(binding = " << binding << ", row_major) uniform " << name << " {\n";
 
-    for (auto uparam : uniforms)
+    for (const auto& uparam : uniforms)
     {
         if(uparam->getType() == GCT_MATRIX_3X4 || uparam->getType() == GCT_MATRIX_2X4)
             os << "layout(column_major) ";
@@ -134,7 +134,7 @@ void GLSLProgramWriter::writeUniformBlock(std::ostream& os, const String& name, 
         os << ";\n";
     }
 
-    os << "\n};\n";
+    os << "};\n";
 }
 
 void GLSLProgramWriter::writeMainSourceCode(std::ostream& os, Program* program)
@@ -158,7 +158,7 @@ void GLSLProgramWriter::writeMainSourceCode(std::ostream& os, Program* program)
 
     // Write the uniforms
     UniformParameterList uniforms;
-    for (auto param : parameterList)
+    for (const auto& param : parameterList)
     {
         if(!param->isSampler())
         {
@@ -175,7 +175,7 @@ void GLSLProgramWriter::writeMainSourceCode(std::ostream& os, Program* program)
     }
 
     int uniformLoc = 0;
-    for (auto uparam : uniforms)
+    for (const auto& uparam : uniforms)
     {
         if(mGLSLVersion >= 430 && hasSSO)
         {
@@ -185,6 +185,8 @@ void GLSLProgramWriter::writeMainSourceCode(std::ostream& os, Program* program)
         }
 
         os << "uniform\t";
+        if(mIsGLSLES)
+            os << "highp\t"; // force highp to avoid precision mismatch between VP/ FP
         writeParameter(os, uparam);
         os << ";\n";
     }
@@ -217,47 +219,19 @@ void GLSLProgramWriter::writeMainSourceCode(std::ostream& os, Program* program)
 
     for (const auto& pFuncInvoc : curFunction->getAtomInstances())
     {
+        redirectGlobalWrites(os, pFuncInvoc, inParams, parameterList);
         for (auto& operand : pFuncInvoc->getOperandList())
         {
             const ParameterPtr& param = operand.getParameter();
-            Operand::OpSemantic opSemantic = operand.getSemantic();
+            if (gpuType != GPT_VERTEX_PROGRAM || param->getSemantic() != Parameter::SPS_TEXTURE_COORDINATES)
+                continue;
 
-            bool isInputParam =
-                std::find(inParams.begin(), inParams.end(), param) != inParams.end();
-
-            if (opSemantic == Operand::OPS_OUT || opSemantic == Operand::OPS_INOUT)
-            {
-                // Check if we write to an input variable because they are only readable
-                // Well, actually "attribute" were writable in GLSL < 120, but we dont care here
-                bool doLocalRename = isInputParam;
-
-                // If its not a varying param check if a uniform is written
-                if (!doLocalRename)
-                {
-                    doLocalRename = std::find(parameterList.begin(), parameterList.end(),
-                                                param) != parameterList.end();
-                }
-
-                // now we check if we already declared a redirector var
-                if(doLocalRename && mLocalRenames.find(param->getName()) == mLocalRenames.end())
-                {
-                    // Declare the copy variable and assign the original
-                    String newVar = "local_" + param->getName();
-                    os << "\t" << mGpuConstTypeMap[param->getType()] << " " << newVar << " = " << param->getName() << ";" << std::endl;
-
-                    // From now on we replace it automatic
-                    param->_rename(newVar, true);
-                    mLocalRenames.insert(newVar);
-                }
-            }
+            bool isInputParam = std::find(inParams.begin(), inParams.end(), param) != inParams.end();
 
             // Now that every texcoord is a vec4 (passed as vertex attributes) we
             // have to swizzle them according the desired type.
-            if (gpuType == GPT_VERTEX_PROGRAM && isInputParam &&
-                param->getSemantic() == Parameter::SPS_TEXTURE_COORDINATES)
-            {
+            if (isInputParam)
                 operand.setMaskToParamType();
-            }
         }
 
         os << "\t";
@@ -294,7 +268,7 @@ void GLSLProgramWriter::writeInputParameters(std::ostream& os, Function* functio
 
     for ( ; itParam != itParamEnd; ++itParam)
     {       
-        ParameterPtr pParam = *itParam;
+        const ParameterPtr& pParam = *itParam;
         Parameter::Content paramContent = pParam->getContent();
         const String& paramName = pParam->getName();
 
@@ -317,6 +291,8 @@ void GLSLProgramWriter::writeInputParameters(std::ostream& os, Function* functio
             }
 
             os << "IN(";
+            if(pParam->isHighP())
+                os << "f32"; // rely on unified shader vor f32vec4 etc.
             os << mGpuConstTypeMap[pParam->getType()];
             os << "\t"; 
             os << paramName;
@@ -379,7 +355,7 @@ void GLSLProgramWriter::writeOutParameters(std::ostream& os, Function* function,
 
     for ( ; itParam != itParamEnd; ++itParam)
     {
-        ParameterPtr pParam = *itParam;
+        const ParameterPtr& pParam = *itParam;
 
         if(gpuType == GPT_VERTEX_PROGRAM)
         {

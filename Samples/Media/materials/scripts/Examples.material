@@ -88,42 +88,6 @@ material Examples/SpaceSkyBox
 	}
 }
 
-material Examples/SceneSkyBox1
-{
-	technique
-	{
-		pass
-		{
-			lighting off
-			depth_write off
-
-			texture_unit
-			{
-				texture cubemap.jpg cubic
-				tex_address_mode clamp
-			}
-		}
-	}
-}
-
-material Examples/SceneCubeMap1
-{
-	technique
-	{
-		pass
-		{
-			lighting off
-
-			texture_unit
-			{
-				texture cubemap.jpg cubic
-				tex_address_mode clamp
-				env_map cubic_reflection
-			}
-		}
-	}
-}
-
 material Examples/SceneSkyBox2
 {
 	technique
@@ -135,24 +99,7 @@ material Examples/SceneSkyBox2
 
 			texture_unit
 			{
-				texture cubescene.jpg cubic
-				tex_address_mode clamp
-			}
-		}
-	}
-}
-
-material Examples/SceneCubeMap2
-{
-	technique
-	{
-		pass
-		{
-			lighting off
-
-			texture_unit
-			{
-				texture cubescene.jpg cubic
+				texture studio_garden.jpg cubic
 				tex_address_mode clamp
 			}
 		}
@@ -1508,6 +1455,39 @@ material Examples/PBR_Sphere
 			rtshader_system
 			{
                 lighting_stage metal_roughness
+			}
+		}
+	}
+}
+
+material TestLevel_b0_m0/TEXFACE/Grass.jpg
+{
+	receive_shadows on
+	technique
+	{
+		pass
+		{
+			ambient 0.500000 0.500000 0.500000 1.000000
+			diffuse 0.800000 0.800000 0.800000 1.000000
+			texture_unit
+			{
+				texture grass_1024.jpg
+			}
+		}
+	}
+}
+material TestLevel_b0_m0/TEXFACE/Soil.jpg
+{
+	receive_shadows on
+	technique
+	{
+		pass
+		{
+			ambient 0.500000 0.500000 0.500000 1.000000
+			diffuse 0.800000 0.800000 0.800000 1.000000
+			texture_unit
+			{
+				texture egyptrockyfull.jpg
 			}
 		}
 	}

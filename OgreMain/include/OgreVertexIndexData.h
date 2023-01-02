@@ -144,8 +144,11 @@ namespace Ogre {
         */
         void prepareForShadowVolume(void);
 
+        /// converts between #VET_FLOAT3 or #VET_FLOAT4 and #VET_INT_10_10_10_2_NORM
+        void convertVertexElement(VertexElementSemantic semantic, VertexElementType dstType);
+
         /** Additional shadow volume vertex buffer storage. 
-        @remarks
+
             This additional buffer is only used where we have prepared this VertexData for
             use in shadow volume construction, and where the current render system supports
             vertex programs. This buffer contains the 'w' vertex position component which will
@@ -201,7 +204,7 @@ namespace Ogre {
         void reorganiseBuffers(VertexDeclaration* newDeclaration, HardwareBufferManagerBase* mgr = 0);
 
         /** Remove any gaps in the vertex buffer bindings.
-        @remarks
+
             This is useful if you've removed elements and buffers from this vertex
             data and want to remove any gaps in the vertex buffer bindings. This
             method is mainly useful when reorganising vertex data manually.
@@ -212,7 +215,7 @@ namespace Ogre {
         void closeGapsInBindings(void);
 
         /** Remove all vertex buffers that never used by the vertex declaration.
-        @remarks
+
             This is useful if you've removed elements from the vertex declaration
             and want to unreference buffers that never used any more. This method
             is mainly useful when reorganising vertex data manually.
@@ -233,7 +236,7 @@ namespace Ogre {
 
         /** Allocate elements to serve a holder of morph / pose target data 
             for hardware morphing / pose blending.
-        @remarks
+
             This method will allocate the given number of 3D texture coordinate 
             sets for use as a morph target or target pose offset (3D position).
             These elements will be saved in hwAnimationDataList.
@@ -248,8 +251,8 @@ namespace Ogre {
         */
         ushort allocateHardwareAnimationElements(ushort count, bool animateNormals);
 
-
-
+        /** Internal method to clone vertex data definitions but to remove blend buffers. */
+        VertexData* _cloneRemovingBlendData() const;
     };
 
     /** Summary class collecting together index data source information. */
@@ -282,7 +285,7 @@ namespace Ogre {
         /** Re-order the indexes in this index data structure to be more
             vertex cache friendly; that is to re-use the same vertices as close
             together as possible. 
-        @remarks
+
             Can only be used for index data which consists of triangle lists.
             It would in fact be pointless to use it on triangle strips or fans
             in any case.
@@ -292,7 +295,7 @@ namespace Ogre {
     };
 
     /** Vertex cache profiler.
-    @remarks
+
         Utility class for evaluating the effectiveness of the use of the vertex
         cache by a given index buffer.
     */

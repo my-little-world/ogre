@@ -59,7 +59,7 @@ namespace Ogre {
     };
 
     /** Defines a program which runs on the GPU such as a vertex or fragment program.
-        @remarks
+
         This class defines the low-level program in assembler code, the sort used to
         directly assemble into machine instructions for the GPU to execute. By nature,
         this means that the assembler source is rendersystem specific, which is why this
@@ -80,6 +80,8 @@ namespace Ogre {
     GpuProgramType mType;
     /// Whether we need to load source from file or not
     bool mLoadFromFile;
+    /// Does this (vertex) program include Instancing?
+    bool mInstancing;
     /// Does this (vertex) program include skeletal animation?
     bool mSkeletalAnimation;
     /// Does this (vertex) program include morph animation?
@@ -109,7 +111,7 @@ namespace Ogre {
     ushort mPoseAnimation;
 
     /** Internal method for setting up the basic parameter definitions for a subclass.
-        @remarks
+
         Because StringInterface holds a dictionary of parameters per class, subclasses need to
         call this to ask the base class to add it's parameters to their dictionary as well.
         Can't do this in the constructor because that runs in a non-virtual context.
@@ -125,11 +127,11 @@ namespace Ogre {
     // catches errors during prepare
     void safePrepare();
 
-    void prepareImpl();
+    void prepareImpl() override;
 
-    void loadImpl(void);
+    void loadImpl(void) override;
 
-    void postLoadImpl();
+    void postLoadImpl() override;
 
     /// Create the internal params logical & named mapping structures
     void createParameterMappingStructures(bool recreateIfExists = true);
@@ -148,13 +150,13 @@ namespace Ogre {
     virtual ~GpuProgram() {}
 
     /** Sets the filename of the source assembly for this program.
-        @remarks
+
         Setting this will have no effect until you (re)load the program.
     */
     void setSourceFile(const String& filename);
 
     /** Sets the source assembly for this program from an in-memory string.
-        @remarks
+
         Setting this will have no effect until you (re)load the program.
     */
     void setSource(const String& source);
@@ -175,7 +177,7 @@ namespace Ogre {
     GpuProgramType getType(void) const { return mType; }
 
     /** Returns the GpuProgram which should be bound to the pipeline.
-        @remarks
+
         This method is simply to allow some subclasses of GpuProgram to delegate
         the program which is bound to the pipeline to a delegate, if required. */
     virtual GpuProgram* _getBindingDelegate(void) { return this; }
@@ -184,7 +186,7 @@ namespace Ogre {
     virtual bool isSupported(void) const;
 
     /** Creates a new parameters object compatible with this program definition.
-        @remarks
+
         It is recommended that you use this method of creating parameters objects
         rather than going direct to GpuProgramManager, because this method will
         populate any implementation-specific extras (like named parameters) where
@@ -192,35 +194,43 @@ namespace Ogre {
     */
     virtual GpuProgramParametersSharedPtr createParameters(void);
 
-    /** Sets whether a vertex program includes the required instructions
-        to perform skeletal animation.
-        @remarks
+    /// @name GPU offloading features
+    /// @{
+    /** Sets whether a vertex program can do instancing.
+
+        If this is set to true, OGRE will provide an instance buffer holding the
+        World Matrix of each instance to the vertex program.
+    */
+    void setInstancingIncluded(bool included) { mInstancing = included; }
+
+    /** Returns whether a vertex program can do instancing.
+    */
+    bool isInstancingIncluded(void) const { return mInstancing; }
+
+    /** Sets whether a vertex program can do skeletal animation.
+
         If this is set to true, OGRE will not blend the geometry according to
         skeletal animation, it will expect the vertex program to do it.
     */
-    virtual void setSkeletalAnimationIncluded(bool included)
-    { mSkeletalAnimation = included; }
+    virtual void setSkeletalAnimationIncluded(bool included) { mSkeletalAnimation = included; }
 
-    /** Returns whether a vertex program includes the required instructions
-        to perform skeletal animation.
-        @remarks
+    /** Returns whether a vertex program can do skeletal animation.
+
         If this returns true, OGRE will not blend the geometry according to
         skeletal animation, it will expect the vertex program to do it.
     */
     virtual bool isSkeletalAnimationIncluded(void) const { return mSkeletalAnimation; }
 
-    /** Sets whether a vertex program includes the required instructions
-        to perform morph animation.
-        @remarks
+    /** Sets whether a vertex program can do morph animation.
+
         If this is set to true, OGRE will not blend the geometry according to
         morph animation, it will expect the vertex program to do it.
     */
     virtual void setMorphAnimationIncluded(bool included)
     { mMorphAnimation = included; }
 
-    /** Sets whether a vertex program includes the required instructions
-        to perform pose animation.
-        @remarks
+    /** Sets whether a vertex program can do pose animation.
+
         If this is set to true, OGRE will not blend the geometry according to
         pose animation, it will expect the vertex program to do it.
         @param poseCount The number of simultaneous poses the program can blend
@@ -228,17 +238,15 @@ namespace Ogre {
     virtual void setPoseAnimationIncluded(ushort poseCount)
     { mPoseAnimation = poseCount; }
 
-    /** Returns whether a vertex program includes the required instructions
-        to perform morph animation.
-        @remarks
+    /** Returns whether a vertex program can do morph animation.
+
         If this returns true, OGRE will not blend the geometry according to
         morph animation, it will expect the vertex program to do it.
     */
     virtual bool isMorphAnimationIncluded(void) const { return mMorphAnimation; }
 
-    /** Returns whether a vertex program includes the required instructions
-        to perform pose animation.
-        @remarks
+    /** Returns whether a vertex program can do pose animation.
+
         If this returns true, OGRE will not blend the geometry according to
         pose animation, it will expect the vertex program to do it.
     */
@@ -247,6 +255,8 @@ namespace Ogre {
         blend, for use in pose animation.
     */
     virtual ushort getNumberOfPosesIncluded(void) const { return mPoseAnimation; }
+    /// @}
+
     /** Sets whether this vertex program requires support for vertex
         texture fetch from the hardware.
     */
@@ -263,7 +273,7 @@ namespace Ogre {
 
     /** Get a reference to the default parameters which are to be used for all
         uses of this program.
-        @remarks
+
         A program can be set up with a list of default parameters, which can save time when
         using a program many times in a material with roughly the same settings. By
         retrieving the default parameters and populating it with the most used options,
@@ -279,7 +289,7 @@ namespace Ogre {
 
     /** Returns whether a vertex program wants light and material states to be passed
         through fixed pipeline low level API rendering calls (default false, subclasses can override)
-        @remarks
+
         Most vertex programs do not need this material information, however GLSL
         shaders can refer to this material and lighting state so enable this option
     */
@@ -287,7 +297,7 @@ namespace Ogre {
 
     /** Returns whether a fragment program wants fog state to be passed
         through fixed pipeline low level API rendering calls (default true, subclasses can override)
-        @remarks
+
         On DirectX, shader model 2 and earlier continues to have fixed-function fog
         applied to it, so fog state is still passed (you should disable fog on the
         pass if you want to perform fog in the shader). In OpenGL it is also
@@ -297,7 +307,7 @@ namespace Ogre {
 
     /** Returns whether a vertex program wants transform state to be passed
         through fixed pipeline low level API rendering calls
-        @remarks
+
         Most vertex programs do not need fixed-function transform information, however GLSL
         shaders can refer to this state so enable this option
     */
@@ -318,7 +328,7 @@ namespace Ogre {
 
     /** Allows you to manually provide a set of named parameter mappings
         to a program which would not be able to derive named parameters itself.
-        @remarks
+
         You may wish to use this if you have assembler programs that were compiled
         from a high-level source, and want the convenience of still being able
         to use the named parameters from the original high-level source.
@@ -328,7 +338,7 @@ namespace Ogre {
 
     /** Specifies the name of a file from which to load named parameters mapping
         for a program which would not be able to derive named parameters itself.
-        @remarks
+
         You may wish to use this if you have assembler programs that were compiled
         from a high-level source, and want the convenience of still being able
         to use the named parameters from the original high-level source. This

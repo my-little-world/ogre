@@ -47,11 +47,11 @@ namespace Ogre {
     class CmdHasSamplersBinding : public ParamCommand
     {
     public:
-        String doGet(const void* target) const
+        String doGet(const void* target) const override
         {
             return StringConverter::toString(static_cast<const GLSLShader*>(target)->getSamplerBinding());
         }
-        void doSet(void* target, const String& val)
+        void doSet(void* target, const String& val) override
         {
             static_cast<GLSLShader*>(target)->setSamplerBinding(StringConverter::parseBool(val));
         }
@@ -654,11 +654,8 @@ namespace Ogre {
 
 
         // Also parse any attached sources.
-        for (GLSLProgramContainer::const_iterator i = mAttachedGLSLPrograms.begin();
-             i != mAttachedGLSLPrograms.end(); ++i)
+        for (auto childShader : mAttachedGLSLPrograms)
         {
-            GLSLShaderCommon* childShader = *i;
-
             GLSLProgramManager::getSingleton().extractUniformsFromGLSL(
                 childShader->getSource(), *mConstantDefs, childShader->getName());
         }

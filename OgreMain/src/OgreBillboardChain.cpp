@@ -38,13 +38,9 @@ THE SOFTWARE.
 namespace Ogre {
     const size_t BillboardChain::SEGMENT_EMPTY = std::numeric_limits<size_t>::max();
     //-----------------------------------------------------------------------
-    BillboardChain::Element::Element()
-    {
-    }
-    //-----------------------------------------------------------------------
     BillboardChain::Element::Element(const Vector3 &_position,
-        Real _width,
-        Real _texCoord,
+        float _width,
+        float _texCoord,
         const ColourValue &_colour,
         const Quaternion &_orientation) :
     position(_position),
@@ -218,6 +214,13 @@ namespace Ogre {
         mDynamic = dyn;
         mBuffersNeedRecreating = mIndexContentDirty = mVertexContentDirty = true;
     }
+    void BillboardChain::setAutoUpdate(bool autoUpdate)
+    {
+        mAutoUpdate = autoUpdate;
+        OGRE_IGNORE_DEPRECATED_BEGIN
+        setDynamic(autoUpdate);
+        OGRE_IGNORE_DEPRECATED_END
+    }
     //-----------------------------------------------------------------------
     void BillboardChain::addChainElement(size_t chainIndex,
         const BillboardChain::Element& dtls)
@@ -387,11 +390,8 @@ namespace Ogre {
         {
             mAABB.setNull();
             Vector3 widthVector;
-            for (ChainSegmentList::const_iterator segi = mChainSegmentList.begin();
-                segi != mChainSegmentList.end(); ++segi)
+            for (const auto& seg : mChainSegmentList)
             {
-                const ChainSegment& seg = *segi;
-
                 if (seg.head != SEGMENT_EMPTY)
                 {
 
@@ -434,11 +434,8 @@ namespace Ogre {
     void BillboardChain::updateVertexBuffer(Camera* cam)
     {
         setupBuffers();
-        
-        // The contents of the vertex buffer are correct if they are not dirty
-        // and the camera used to build the vertex buffer is still the current 
-        // camera.
-        if (!mVertexContentDirty && mVertexCameraUsed == cam)
+
+        if (!mVertexContentDirty && !mAutoUpdate)
             return;
 
         HardwareVertexBufferSharedPtr pBuffer =
@@ -449,11 +446,8 @@ namespace Ogre {
         Vector3 eyePos = mParentNode->convertWorldToLocalPosition(camPos);
 
         Vector3 chainTangent;
-        for (ChainSegmentList::iterator segi = mChainSegmentList.begin();
-            segi != mChainSegmentList.end(); ++segi)
+        for (auto& seg : mChainSegmentList)
         {
-            ChainSegment& seg = *segi;
-
             // Skip 0 or 1 element segment counts
             if (seg.head != SEGMENT_EMPTY && seg.head != seg.tail)
             {
@@ -583,11 +577,8 @@ namespace Ogre {
             uint16* pShort = static_cast<uint16*>(indexLock.pData);
             mIndexData->indexCount = 0;
             // indexes
-            for (ChainSegmentList::iterator segi = mChainSegmentList.begin();
-                segi != mChainSegmentList.end(); ++segi)
+            for (auto& seg : mChainSegmentList)
             {
-                ChainSegment& seg = *segi;
-
                 // Skip 0 or 1 element segment counts
                 if (seg.head != SEGMENT_EMPTY && seg.head != seg.tail)
                 {
@@ -656,10 +647,7 @@ namespace Ogre {
 
         if (!mMaterial)
         {
-            LogManager::getSingleton().logError("Can't assign material " + name +
-                " to BillboardChain " + mName + " because this "
-                "Material does not exist in group "+groupName+". Have you forgotten to define it in a "
-                ".material script?");
+            logMaterialNotFound(name, groupName, "BillboardChain", mName);
             mMaterial = MaterialManager::getSingleton().getDefaultMaterial(false);
         }
         // Ensure new material loaded (will not load again if already loaded)
@@ -684,7 +672,6 @@ namespace Ogre {
             else
                 queue->addRenderable(this);
         }
-
     }
     //-----------------------------------------------------------------------
     void BillboardChain::getRenderOperation(RenderOperation& op)
@@ -769,12 +756,9 @@ namespace Ogre {
             {
                 dynamic = StringConverter::parseBool(ni->second);
             }
-
         }
 
         return OGRE_NEW BillboardChain(name, maxElements, numberOfChains, useTex, useCol, dynamic);
 
     }
 }
-
-

@@ -36,7 +36,7 @@ THE SOFTWARE.
 namespace Ogre {
     /** Specialisation of HighLevelGpuProgram to provide support for D3D9 
         High-Level Shader Language (HLSL).
-    @remarks
+
         Note that the syntax of D3D9 HLSL is identical to nVidia's Cg language, therefore
         unless you know you will only ever be deploying on Direct3D, or you have some specific
         reason for not wanting to use the Cg plugin, I suggest you use Cg instead since that
@@ -114,7 +114,6 @@ namespace Ogre {
         void processParamElement(LPD3DXCONSTANTTABLE pConstTable, D3DXHANDLE parent, String prefix, unsigned int index);
         void populateDef(D3DXCONSTANT_DESC& d3dDesc, GpuConstantDefinition& def) const;
 
-        String mTarget;
         bool mColumnMajorMatrices;
         bool mBackwardsCompatibility;
 
@@ -179,8 +178,6 @@ namespace Ogre {
         /** Gets the optimisation level to use. */
         OptimisationLevel getOptimisationLevel() const { return mOptimisationLevel; }
 
-        /// Overridden from GpuProgram
-        bool isSupported(void) const;
         /// Overridden from GpuProgram
         GpuProgramParametersSharedPtr createParameters(void);
         /// Overridden from GpuProgram

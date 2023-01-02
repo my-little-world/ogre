@@ -63,6 +63,7 @@ extern "C" {
 #include "OgreFileSystem.h"
 #include "OgreFrustum.h"
 #include "OgreHardwareBufferManager.h"
+#include "OgreLight.h"
 #include "OgreLog.h"
 #include "OgreLogManager.h"
 #include "OgreManualObject.h"
@@ -126,5 +127,11 @@ extern "C" {
     _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
 #define OGRE_IGNORE_DEPRECATED_END _Pragma("GCC diagnostic pop")
 #endif
+
+namespace Ogre
+{
+void logMaterialNotFound(const String& name, const String& groupName, const String& destType, const String& destName,
+                         LogMessageLevel lml = LML_CRITICAL);
+}
 
 #endif 

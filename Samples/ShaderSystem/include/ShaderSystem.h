@@ -10,8 +10,9 @@ using namespace OgreBites;
 // Lighting models.
 enum ShaderSystemLightingModel
 {
-    SSLM_PerVertexLighting,
     SSLM_PerPixelLighting,
+    SSLM_CookTorranceLighting,
+    SSLM_ImageBasedLighting,
     SSLM_NormalMapLightingTangentSpace,
     SSLM_NormalMapLightingObjectSpace
 };
@@ -36,14 +37,14 @@ public:
         mFrustumPlanes[FRUSTUM_PLANE_FAR].normal = Vector3::UNIT_Z;
         mFrustumPlanes[FRUSTUM_PLANE_FAR].d = 9999999999999999999.0f;
     }
-    virtual bool isVisible(const AxisAlignedBox& bound, FrustumPlane* culledBy = 0) const {return true;};
-    virtual bool isVisible(const Sphere& bound, FrustumPlane* culledBy = 0) const {return true;};
-    virtual bool isVisible(const Vector3& vert, FrustumPlane* culledBy = 0) const {return true;};
+    bool isVisible(const AxisAlignedBox& bound, FrustumPlane* culledBy = 0) const override {return true;};
+    bool isVisible(const Sphere& bound, FrustumPlane* culledBy = 0) const override {return true;};
+    bool isVisible(const Vector3& vert, FrustumPlane* culledBy = 0) const override {return true;};
     bool projectSphere(const Sphere& sphere, 
-        Real* left, Real* top, Real* right, Real* bottom) const {*left = *bottom = -1.0f; *right = *top = 1.0f; return true;};
+        Real* left, Real* top, Real* right, Real* bottom) const override {*left = *bottom = -1.0f; *right = *top = 1.0f; return true;};
     Real getNearClipDistance(void) const {return 1.0;};
     Real getFarClipDistance(void) const {return 9999999999999.0f;};
-    const Plane& getFrustumPlane( unsigned short plane ) const
+    const Plane& getFrustumPlane( unsigned short plane ) const override
     {
         return mFrustumPlanes[plane];
     }
@@ -58,36 +59,36 @@ public:
     Sample_ShaderSystem();
     ~Sample_ShaderSystem();
         
-    virtual void _shutdown();
+    void _shutdown() override;
 
     /** @see Sample::checkBoxToggled. */
-    void checkBoxToggled(CheckBox* box);
+    void checkBoxToggled(CheckBox* box) override;
 
     /** @see Sample::itemSelected. */
-    void itemSelected(SelectMenu* menu);
+    void itemSelected(SelectMenu* menu) override;
 
     /** @see Sample::buttonHit. */
-    virtual void buttonHit(OgreBites::Button* b);
+    void buttonHit(OgreBites::Button* b) override;
 
     /** @see Sample::sliderMoved. */
-    virtual void sliderMoved(Slider* slider);
+    void sliderMoved(Slider* slider) override;
 
     /** @see Sample::testCapabilities. */
-    void testCapabilities(const RenderSystemCapabilities* caps);
+    void testCapabilities(const RenderSystemCapabilities* caps) override;
     
     /** @see Sample::frameRenderingQueued. */
-    bool frameRenderingQueued(const FrameEvent& evt);
+    bool frameRenderingQueued(const FrameEvent& evt) override;
 
     void updateTargetObjInfo();
 
     /** @see Sample::mousePressed. */
-    bool mousePressed(const MouseButtonEvent& evt);
+    bool mousePressed(const MouseButtonEvent& evt) override;
 
     /** @see Sample::mouseReleased. */
-    bool mouseReleased(const MouseButtonEvent& evt);
+    bool mouseReleased(const MouseButtonEvent& evt) override;
 
     /** @see Sample::mouseMoved. */
-    bool mouseMoved(const MouseMotionEvent& evt);
+    bool mouseMoved(const MouseMotionEvent& evt) override;
 
 protected:
 
@@ -103,11 +104,6 @@ protected:
     /** Return current specular state. */
     bool getSpecularEnable() const { return mSpecularEnable; }
 
-    /** Set reflection map enable state. */
-    void setReflectionMapEnable(bool enable);
-
-    /** Return current reflection map state. */
-    bool getReflectionMapEnable() const { return mReflectionMapEnable; }
 
     /** Set fog per pixel enable state. */
     void setPerPixelFogEnable(bool enable);
@@ -140,9 +136,6 @@ protected:
     /** Update runtime generated shaders of the target entities in this demo. */
     void updateSystemShaders();
 
-    /** Export a given material including RTSS extended attributes.*/
-    void exportRTShaderSystemMaterial(const String& fileName, const String& materialName);
-
     /** Create shaders based techniques using the given entity based on its sub entities material set. */
     void generateShaders(Entity* entity);
 
@@ -150,29 +143,23 @@ protected:
 //  virtual void setupView();
 
     /** @see Sample::setupContent. */
-    virtual void setupContent();
+    void setupContent() override;
 
     /** Setup the UI for the sample. */
     void setupUI();
     
     /** @see Sample::setupContent. */
-    virtual void cleanupContent();
+    void cleanupContent() override;
 
     /** @see Sample::loadResources. */
-    void loadResources();
-
-    /** Create private resource group. */
-    void createPrivateResourceGroup();
+    void loadResources() override;
     
     /** @see Sample::unloadResources. */
-    void unloadResources();
+    void unloadResources() override;
 
     void createInstancedViewports();
     void destroyInstancedViewports();
     void destroyInstancedViewportsFactory();
-
-    /** Destroy private resource group. */
-    void destroyPrivateResourceGroup();
 
     /** Pick the target object. */
     void pickTargetObject( const MouseButtonEvent &evt );
@@ -182,9 +169,6 @@ protected:
 
     /** Change the current texture layer blend mode. */
     void changeTextureLayerBlendMode();
-
-    /** Update layer blend caption. */
-    void updateLayerBlendingCaption( RTShader::LayeredBlending::BlendMode nextBlendMode );
 
     ManualObject* createTextureAtlasObject();
     void createMaterialForTexture( const String & texName, bool isTextureAtlasTexture );
@@ -205,7 +189,6 @@ protected:
     SelectMenu*                         mShadowMenu;            // The shadow type menu.
     bool                                mPerPixelFogEnable;     // When true the RTSS will do per pixel fog calculations.
     bool                                mSpecularEnable;        // The current specular state.  
-    RTShader::SubRenderStateFactory*    mReflectionMapFactory;  // The custom reflection map shader extension factory.
     RTShader::SubRenderStateFactory*    mTextureAtlasFactory;
     RTShader::SubRenderState*           mInstancedViewportsSubRenderState;// todo - doc
     bool                                mInstancedViewportsEnable;      // todo - doc
@@ -221,7 +204,6 @@ protected:
     RTShader::LayeredBlending*          mLayerBlendSubRS;       // The layer blending sub render state.
     Label*                              mLayerBlendLabel;       // The layer blending label.
     Slider*                             mReflectionPowerSlider; // The reflection power controller slider.
-    bool                                mReflectionMapEnable;   // The current reflection map effect state.
     Slider*                             mModifierValueSlider;   // The value of the modifier for the layered blend controller slider.
     Entity*                             mLayeredBlendingEntity; // Entity used to show layered blending SRS
     SceneNode*                          mPointLightNode;        // Point light scene node.
@@ -234,9 +216,9 @@ protected:
     CheckBox*                           mDirLightCheckBox;      // The directional light check box.
     CheckBox*                           mPointLightCheckBox;    // The point light check box.
     CheckBox*                           mSpotLightCheckBox;     // The spot light check box.
-    String                              mExportMaterialPath;    // The path of the export material.
     CheckBox*                           mInstancedViewportsCheckBox; // The instanced viewports check box.
-    CheckBox*                           mAddLotsOfModels; // The "add lots of models" check box.                
+    CheckBox*                           mAddLotsOfModels; // The "add lots of models" check box.
+    int                                 mCurrentBlendMode;
 };
 
 #endif

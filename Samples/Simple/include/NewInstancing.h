@@ -7,7 +7,8 @@
 using namespace Ogre;
 using namespace OgreBites;
 
-#define NUM_TECHNIQUES (((int)InstanceManager::InstancingTechniquesCount) + 1)
+#define NUM_IM_TECHNIQUES (((int)InstanceManager::InstancingTechniquesCount) + 1)
+#define NUM_TECHNIQUES (NUM_IM_TECHNIQUES + 2)
 
 class _OgreSampleClassExport Sample_NewInstancing : public SdkSample
 {
@@ -15,13 +16,13 @@ public:
 
     Sample_NewInstancing();
 
-    bool frameRenderingQueued(const FrameEvent& evt);
+    bool frameRenderingQueued(const FrameEvent& evt) override;
 
-    bool keyPressed(const KeyboardEvent& evt);
+    bool keyPressed(const KeyboardEvent& evt) override;
     
 
 protected:
-    void setupContent();
+    void setupContent() override;
 
     void setupLighting();
     
@@ -29,7 +30,7 @@ protected:
 
     void switchSkinningTechnique(int index);
 
-    void createEntities();
+    void createEntities(int technique);
 
     void createInstancedEntities();
 
@@ -39,7 +40,7 @@ protected:
 
     void destroyManagers();
 
-    void cleanupContent();
+    void cleanupContent() override;
 
     void animateUnits( float timeSinceLast );
 
@@ -52,13 +53,13 @@ protected:
 
     void setupGUI();
 
-    void itemSelected(SelectMenu* menu);
+    void itemSelected(SelectMenu* menu) override;
 
-    void buttonHit( OgreBites::Button* button );
+    void buttonHit( OgreBites::Button* button ) override;
 
-    void checkBoxToggled(CheckBox* box);
+    void checkBoxToggled(CheckBox* box) override;
 
-    void sliderMoved(Slider* slider);
+    void sliderMoved(Slider* slider) override;
 
     //The difference between testCapabilities() is that features checked here aren't fatal errors.
     //which means the sample can run (with limited functionality) on those computers
@@ -81,7 +82,7 @@ protected:
     std::vector<SceneNode*>         mSceneNodes;
     std::set<AnimationState*>       mAnimations;
     InstanceManager                 *mCurrentManager;
-    bool                            mSupportedTechniques[NUM_TECHNIQUES+1];
+    std::array<bool, NUM_TECHNIQUES> mSupportedTechniques;
     const char**                        mCurrentMaterialSet;
     uint16                          mCurrentFlags;
 

@@ -271,7 +271,8 @@ namespace Ogre {
             mWorldMatrixCount = mCurrentRenderable->getNumWorldTransforms();
             if (mCameraRelativeRendering && !mCurrentRenderable->getUseIdentityView())
             {
-                for (size_t i = 0; i < mWorldMatrixCount; ++i)
+                size_t worldMatrixCount = MeshManager::getBonesUseObjectSpace() ? 1 : mWorldMatrixCount;
+                for (size_t i = 0; i < worldMatrixCount; ++i)
                 {
                     mWorldMatrix[i].setTrans(mWorldMatrix[i].getTrans() - mCameraRelativePosition);
                 }
@@ -281,18 +282,18 @@ namespace Ogre {
         return mWorldMatrixArray[0];
     }
     //-----------------------------------------------------------------------------
-    size_t AutoParamDataSource::getWorldMatrixCount(void) const
+    size_t AutoParamDataSource::getBoneMatrixCount(void) const
     {
         // trigger derivation
         getWorldMatrix();
-        return mWorldMatrixCount;
+        return mWorldMatrixCount == 1 ? 1 : mWorldMatrixCount - int(MeshManager::getBonesUseObjectSpace());
     }
     //-----------------------------------------------------------------------------
-    const Affine3* AutoParamDataSource::getWorldMatrixArray(void) const
+    const Affine3* AutoParamDataSource::getBoneMatrixArray(void) const
     {
         // trigger derivation
         getWorldMatrix();
-        return mWorldMatrixArray;
+        return mWorldMatrixArray + int(MeshManager::getBonesUseObjectSpace());
     }
     //-----------------------------------------------------------------------------
     const Affine3& AutoParamDataSource::getViewMatrix(void) const
@@ -547,9 +548,10 @@ namespace Ogre {
                 static_cast<unsigned short>(index))->_getTexturePtr();
             if (tex)
             {
-                size[0] = static_cast<Real>(tex->getWidth());
-                size[1] = static_cast<Real>(tex->getHeight());
-                size[2] = static_cast<Real>(tex->getDepth());
+                size[0] = static_cast<float>(tex->getWidth());
+                size[1] = static_cast<float>(tex->getHeight());
+                size[2] = static_cast<float>(tex->getDepth());
+                size[3] = static_cast<float>(tex->getNumMipmaps());
             }
         }
 
@@ -600,7 +602,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------------
     ColourValue AutoParamDataSource::getDerivedAmbientLightColour(void) const
     {
-        return getAmbientLightColour() * getSurfaceAmbientColour();
+        auto result = getAmbientLightColour() * getSurfaceAmbientColour();
+        result.a = getSurfaceDiffuseColour().a;
+        return result;
     }
     //-----------------------------------------------------------------------------
     ColourValue AutoParamDataSource::getDerivedSceneColour(void) const
@@ -736,15 +740,7 @@ namespace Ogre {
                     // Use camera up
                     up = Vector3::UNIT_Z;
                 }
-                // cross twice to rederive, only direction is unaltered
-                Vector3 left = dir.crossProduct(up);
-                left.normalise();
-                up = dir.crossProduct(left);
-                up.normalise();
-                // Derive quaternion from axes
-                Quaternion q;
-                q.FromAxes(left, up, dir);
-                dummyNode.setOrientation(q);
+                dummyNode.setOrientation(Math::lookRotation(dir, up));
 
                 // The view matrix here already includes camera-relative changes if necessary
                 // since they are built into the frustum position
@@ -1087,7 +1083,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------------
     const Vector4& AutoParamDataSource::getShadowSceneDepthRange(size_t index) const
     {
-        static Vector4 dummy(0, 100000, 100000, 1/100000);
+        static Vector4 dummy(0, 100000, 100000, 1.0f/100000);
 
         if (!mCurrentSceneManager->isShadowTechniqueTextureBased())
             return dummy;

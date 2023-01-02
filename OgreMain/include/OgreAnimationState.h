@@ -51,7 +51,7 @@ namespace Ogre {
     */
 
     /** Represents the state of an animation and the weight of its influence. 
-    @remarks
+
         Other classes can hold instances of this class to store the state of any animations
         they are using.
     */
@@ -97,7 +97,7 @@ namespace Ogre {
         void setWeight(Real weight);
         /** Modifies the time position, adjusting for animation length
         @param offset The amount of time, in seconds, to extend the animation.
-        @remarks
+
             This method loops at the edges if animation looping is enabled.
         */
         void addTime(Real offset);
@@ -160,21 +160,21 @@ namespace Ogre {
        * @par Stick to the setBlendMaskEntry method if you don't know exactly what you're doing.
        */
       void _setBlendMask(const BoneBlendMask* blendMask);
-      /// Get the current blend mask (const version, may be 0) 
-      const BoneBlendMask* getBlendMask() const {return mBlendMask;}
+      /// Get the current blend mask
+      const BoneBlendMask* getBlendMask() const {return &mBlendMask;}
       /// Return whether there is currently a valid blend mask set
-      bool hasBlendMask() const {return mBlendMask != 0;}
+      bool hasBlendMask() const {return !mBlendMask.empty();}
       /// Set the weight for the bone identified by the given handle
       void setBlendMaskEntry(size_t boneHandle, float weight);
       /// Get the weight for the bone identified by the given handle
       inline float getBlendMaskEntry(size_t boneHandle) const
       {
-          assert(mBlendMask && mBlendMask->size() > boneHandle);
-          return (*mBlendMask)[boneHandle];
+          assert(mBlendMask.size() > boneHandle);
+          return mBlendMask[boneHandle];
       }
     private:
         /// The blend mask (containing per bone weights)
-        BoneBlendMask* mBlendMask;
+        BoneBlendMask mBlendMask;
 
         String mAnimationName;
         AnimationStateSet* mParent;
@@ -279,7 +279,7 @@ namespace Ogre {
     };
 
     /** ControllerValue wrapper class for AnimationState.
-    @remarks
+
         In Azathoth and earlier, AnimationState was a ControllerValue but this
         actually causes memory problems since Controllers delete their values
         automatically when there are no further references to them, but AnimationState
@@ -304,13 +304,13 @@ namespace Ogre {
         static ControllerValueRealPtr create(AnimationState* targetAnimationState, bool addTime = false);
 
         /** ControllerValue implementation. */
-        Real getValue(void) const
+        Real getValue(void) const override
         {
             return mTargetAnimationState->getTimePosition() / mTargetAnimationState->getLength();
         }
 
         /** ControllerValue implementation. */
-        void setValue(Real value)
+        void setValue(Real value) override
         {
             if(mAddTime)
                 mTargetAnimationState->addTime(value);

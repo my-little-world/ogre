@@ -71,15 +71,15 @@ namespace Ogre {
         - \f$-z\f$ is away
 
         Cameras maintain their own aspect ratios, field of view, and frustum,
-        and project co-ordinates into normalised device coordinates measured from -1 to 1 in x and y,
+        and project coordinates into normalised device coordinates measured from -1 to 1 in x and y,
         and 0 to 1 in z, where
         - \f$+x\f$ is right
         - \f$+y\f$ is up
         - \f$+z\f$ is away
 
         At render time, the camera will be rendering to a
-        Viewport which will translate these parametric co-ordinates into real screen
-        co-ordinates. Obviously it is advisable that the viewport has the same
+        Viewport which will translate these parametric coordinates into real screen
+        coordinates. Obviously it is advisable that the viewport has the same
         aspect ratio as the camera to avoid distortion (unless you want it!).
     */
     class _OgreExport Camera : public Frustum
@@ -159,7 +159,7 @@ namespace Ogre {
 
 
         /** Viewing window. 
-        @remarks
+
         Generalize camera class for the case, when viewing frustum doesn't cover all viewport.
         */
         Real mWLeft, mWTop, mWRight, mWBottom;
@@ -182,15 +182,15 @@ namespace Ogre {
         PolygonMode mSceneDetail;
 
         // Internal functions for calcs
-        bool isViewOutOfDate(void) const;
+        bool isViewOutOfDate(void) const override;
         /// Signal to update frustum information.
-        void invalidateFrustum(void) const;
+        void invalidateFrustum(void) const override;
         /// Signal to update view information.
-        void invalidateView(void) const;
+        void invalidateView(void) const override;
 
 
         /** Do actual window setting, using parameters set in SetWindow call
-        @remarks
+
             The method will called on demand.
         */
         virtual void setWindowImpl(void) const;
@@ -217,7 +217,7 @@ namespace Ogre {
         SceneManager* getSceneManager(void) const;
 
         /** Sets the level of rendering detail required from this camera.
-        @remarks
+
             Each camera is set to render at full detail by default, that is
             with full texturing, lighting etc. This method lets you change
             that behaviour, allowing you to make the camera just render a
@@ -255,7 +255,7 @@ namespace Ogre {
         OGRE_DEPRECATED void moveRelative(const Vector3& vec);
 
         /** Sets the camera's direction vector.
-        @remarks
+
             Note that the 'up' vector for the camera will automatically be recalculated based on the
             current 'up' vector (i.e. the roll will remain the same).
         @deprecated attach to SceneNode and use SceneNode::setDirection
@@ -282,7 +282,7 @@ namespace Ogre {
         OGRE_DEPRECATED Vector3 getRight(void) const;
 
         /** Points the camera at a location in worldspace.
-        @remarks
+
             This is a helper method to automatically generate the
             direction vector for the camera, based on it's current position
             and the supplied look-at point.
@@ -321,7 +321,7 @@ namespace Ogre {
 
         /** Tells the camera whether to yaw around it's own local Y axis or a 
             fixed axis of choice.
-        @remarks
+
             This method allows you to change the yaw behaviour of the camera
             - by default, the camera yaws around a fixed Y axis. This is 
             often what you want - for example if you're making a first-person 
@@ -361,7 +361,7 @@ namespace Ogre {
         OGRE_DEPRECATED const Vector3& getAutoTrackOffset(void) const { return mAutoTrackOffset; }
 
         /** Enables / disables automatic tracking of a SceneNode.
-        @remarks
+
             If you enable auto-tracking, this Camera will automatically rotate to
             look at the target SceneNode every frame, no matter how
             it or SceneNode move. This is handy if you want a Camera to be focused on a
@@ -383,10 +383,8 @@ namespace Ogre {
         OGRE_DEPRECATED void setAutoTracking(bool enabled, SceneNode* const target = 0,
             const Vector3& offset = Vector3::ZERO);
 
-        /** Get the derived position of this frustum. */
-        const Vector3& getPositionForViewUpdate(void) const;
-        /** Get the derived orientation of this frustum. */
-        const Quaternion& getOrientationForViewUpdate(void) const;
+        const Vector3& getPositionForViewUpdate(void) const override;
+        const Quaternion& getOrientationForViewUpdate(void) const override;
 #endif
         /** Tells the Camera to contact the SceneManager to render from it's viewpoint.
         @param vp The viewport to render to
@@ -451,7 +449,7 @@ namespace Ogre {
         const String& getMovableType(void) const override;
 
         /** Sets the level-of-detail factor for this Camera.
-        @remarks
+
             This method can be used to influence the overall level of detail of the scenes 
             rendered using this camera. Various elements of the scene have level-of-detail
             reductions to improve rendering speed at distance; this method allows you 
@@ -468,14 +466,14 @@ namespace Ogre {
         void setLodBias(Real factor = 1.0);
 
         /** Returns the level-of-detail bias factor currently applied to this camera. 
-        @remarks
+
             See Camera::setLodBias for more details.
         */
         Real getLodBias(void) const;
 
         /** Set a pointer to the camera which should be used to determine
             LOD settings. 
-        @remarks
+
             Sometimes you don't want the LOD of a render to be based on the camera
             that's doing the rendering, you want it to be based on a different
             camera. A good example is when rendering shadow maps, since they will 
@@ -489,7 +487,7 @@ namespace Ogre {
 
         /** Get a pointer to the camera which should be used to determine 
             LOD settings. 
-        @remarks
+
             If setLodCamera hasn't been called with a different camera, this
             method will return 'this'. 
         */
@@ -510,7 +508,7 @@ namespace Ogre {
 
         /** Gets a world-space list of planes enclosing a volume based on a viewport
             rectangle. 
-        @remarks
+
             Can be useful for populating a PlaneBoundedVolumeListSceneQuery, e.g. 
             for a rubber-band selection. 
         @param screenLeft, screenTop, screenRight, screenBottom The bounds of the
@@ -530,7 +528,7 @@ namespace Ogre {
         Real _getLodBiasInverse(void) const;
 
         /** Sets the viewing window inside of viewport.
-        @remarks
+
             This method can be used to set a subset of the viewport as the rendering
             target. 
         @param left Relative to Viewport - 0 corresponds to left edge, 1 - to right edge (default - 0).
@@ -559,7 +557,7 @@ namespace Ogre {
 
         /** If set to true a viewport that owns this frustum will be able to 
             recalculate the aspect ratio whenever the frustum is resized.
-        @remarks
+
             You should set this to true only if the frustum / camera is used by 
             one viewport at the same time. Otherwise the aspect ratio for other 
             viewports may be wrong.
@@ -571,7 +569,7 @@ namespace Ogre {
         bool getAutoAspectRatio(void) const;
 
         /** Tells the camera to use a separate Frustum instance to perform culling.
-        @remarks
+
             By calling this method, you can tell the camera to perform culling
             against a different frustum to it's own. This is mostly useful for
             debug cameras that allow you to show the culling behaviour of another
@@ -586,24 +584,24 @@ namespace Ogre {
         Frustum* getCullingFrustum(void) const { return mCullFrustum; }
 
         /** Forward projects frustum rays to find forward intersection with plane.
-        @remarks
+
             Forward projection may lead to intersections at infinity.
         */
         virtual void forwardIntersect(const Plane& worldPlane, std::vector<Vector4>* intersect3d) const;
 
         /// @copydoc Frustum::isVisible(const AxisAlignedBox&, FrustumPlane*) const
-        bool isVisible(const AxisAlignedBox& bound, FrustumPlane* culledBy = 0) const;
+        bool isVisible(const AxisAlignedBox& bound, FrustumPlane* culledBy = 0) const override;
         /// @copydoc Frustum::isVisible(const Sphere&, FrustumPlane*) const
-        bool isVisible(const Sphere& bound, FrustumPlane* culledBy = 0) const;
+        bool isVisible(const Sphere& bound, FrustumPlane* culledBy = 0) const override;
         /// @copydoc Frustum::isVisible(const Vector3&, FrustumPlane*) const
-        bool isVisible(const Vector3& vert, FrustumPlane* culledBy = 0) const;
+        bool isVisible(const Vector3& vert, FrustumPlane* culledBy = 0) const override;
         /// @copydoc Frustum::getWorldSpaceCorners
-        const Corners& getWorldSpaceCorners(void) const;
+        const Corners& getWorldSpaceCorners(void) const override;
         /// @copydoc Frustum::getFrustumPlane
-        const Plane& getFrustumPlane( unsigned short plane ) const;
+        const Plane& getFrustumPlane( unsigned short plane ) const override;
         /// @copydoc Frustum::projectSphere
         bool projectSphere(const Sphere& sphere, 
-            Real* left, Real* top, Real* right, Real* bottom) const;
+            Real* left, Real* top, Real* right, Real* bottom) const override;
         /// @copydoc Frustum::getNearClipDistance
         Real getNearClipDistance(void) const;
         /// @copydoc Frustum::getFarClipDistance
@@ -612,7 +610,7 @@ namespace Ogre {
         const Affine3& getViewMatrix(void) const;
         /** Specialised version of getViewMatrix allowing caller to differentiate
             whether the custom culling frustum should be allowed or not. 
-        @remarks
+
             The default behaviour of the standard getViewMatrix is to delegate to 
             the alternate culling frustum, if it is set. This is expected when 
             performing CPU calculations, but the final rendering must be performed
@@ -631,7 +629,7 @@ namespace Ogre {
         virtual bool getUseRenderingDistance(void) const { return mUseRenderingDistance; }
 
         /** Synchronise core camera settings with another. 
-        @remarks
+
             Copies the position, orientation, clip distances, projection type, 
             FOV, focal length and aspect ratio from another camera. Other settings like query flags, 
             reflection etc are preserved.

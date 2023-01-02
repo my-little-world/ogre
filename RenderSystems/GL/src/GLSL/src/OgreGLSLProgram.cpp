@@ -128,12 +128,12 @@ namespace Ogre {
     class CmdInputOperationType : public ParamCommand
     {
     public:
-        String doGet(const void* target) const
+        String doGet(const void* target) const override
         {
             const GLSLProgram* t = static_cast<const GLSLProgram*>(target);
             return operationTypeToString(t->getInputOperationType());
         }
-        void doSet(void* target, const String& val)
+        void doSet(void* target, const String& val) override
         {
             GLSLProgram* t = static_cast<GLSLProgram*>(target);
             t->setInputOperationType(parseOperationType(val));
@@ -143,12 +143,12 @@ namespace Ogre {
     class CmdOutputOperationType : public ParamCommand
     {
     public:
-        String doGet(const void* target) const
+        String doGet(const void* target) const override
         {
             const GLSLProgram* t = static_cast<const GLSLProgram*>(target);
             return operationTypeToString(t->getOutputOperationType());
         }
-        void doSet(void* target, const String& val)
+        void doSet(void* target, const String& val) override
         {
             GLSLProgram* t = static_cast<GLSLProgram*>(target);
             t->setOutputOperationType(parseOperationType(val));
@@ -158,12 +158,12 @@ namespace Ogre {
     class CmdMaxOutputVertices : public ParamCommand
     {
     public:
-        String doGet(const void* target) const
+        String doGet(const void* target) const override
         {
             const GLSLProgram* t = static_cast<const GLSLProgram*>(target);
             return StringConverter::toString(t->getMaxOutputVertices());
         }
-        void doSet(void* target, const String& val)
+        void doSet(void* target, const String& val) override
         {
             GLSLProgram* t = static_cast<GLSLProgram*>(target);
             t->setMaxOutputVertices(StringConverter::parseInt(val));
@@ -261,11 +261,8 @@ namespace Ogre {
             mSource, *mConstantDefs, getResourceLogName());
 
         // Also parse any attached sources
-        for (GLSLProgramContainer::const_iterator i = mAttachedGLSLPrograms.begin();
-            i != mAttachedGLSLPrograms.end(); ++i)
+        for (auto childShader : mAttachedGLSLPrograms)
         {
-            GLSLShaderCommon* childShader = *i;
-
             GLSLLinkProgramManager::getSingleton().extractUniformsFromGLSL(
                 childShader->getSource(), *mConstantDefs, childShader->getName());
 
@@ -372,6 +369,8 @@ namespace Ogre {
     {
         // Tell the Link Program Manager what shader is to become inactive
         GLSLLinkProgramManager::getSingleton().setActiveShader( mType, NULL );
+        // change back to fixed pipeline
+        glUseProgramObjectARB(0);
     }
 
     //-----------------------------------------------------------------------------

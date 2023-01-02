@@ -62,16 +62,17 @@ namespace Ogre {
 
         static ControllerValueRealPtr create() { return std::make_shared<FrameTimeControllerValue>(); }
 
-        bool frameEnded(const FrameEvent &evt);
-        bool frameStarted(const FrameEvent &evt);
-        Real getValue(void) const;
-        void setValue(Real value);
-        Real getTimeFactor(void) const;
+        bool frameStarted(const FrameEvent &evt) override;
+        Real getValue(void) const override { return mFrameTime; }
+        void setValue(Real value) override { /* Do nothing - value is set from frame listener */ }
+        Real getTimeFactor(void) const { return mTimeFactor; }
+        /// @copydoc ControllerManager::setTimeFactor
         void setTimeFactor(Real tf);
-        Real getFrameDelay(void) const;
+        Real getFrameDelay(void) const { return mFrameDelay; }
+        /// @copydoc ControllerManager::setFrameDelay
         void setFrameDelay(Real fd);
-        Real getElapsedTime(void) const;
-        void setElapsedTime(Real elapsedTime);
+        Real getElapsedTime(void) const { return mElapsedTime; }
+        void setElapsedTime(Real elapsedTime) { mElapsedTime = elapsedTime; }
     };
 
     //-----------------------------------------------------------------------
@@ -92,15 +93,15 @@ namespace Ogre {
 
         /** Gets the frame number as a parametric value in the range [0,1]
         */
-        Real getValue(void) const;
+        Real getValue(void) const override;
         /** Sets the frame number as a parametric value in the range [0,1]; the actual frame number is (value * numFrames) % numFrames).
         */
-        void setValue(Real value);
+        void setValue(Real value) override;
 
     };
     //-----------------------------------------------------------------------
     /** Predefined controller value for getting / setting a texture coordinate modifications (scales and translates).
-        @remarks
+
             Effects can be applied to the scale or the offset of the u or v coordinates, or both. If separate
             modifications are required to u and v then 2 instances are required to control both independently, or 4
             if you want separate u and v scales as well as separate u and v offsets.
@@ -139,15 +140,15 @@ namespace Ogre {
             return std::make_shared<TexCoordModifierControllerValue>(t, translateU, translateV, scaleU, scaleV, rotate);
         }
 
-        Real getValue(void) const;
-        void setValue(Real value);
+        Real getValue(void) const override;
+        void setValue(Real value) override;
 
     };
 
     //-----------------------------------------------------------------------
     /** Predefined controller value for setting a single floating-
         point value in a constant parameter of a vertex or fragment program.
-    @remarks
+
         Any value is accepted, it is propagated into the 'x'
         component of the constant register identified by the index. If you
         need to use named parameters, retrieve the index from the param
@@ -179,8 +180,8 @@ namespace Ogre {
             return std::make_shared<FloatGpuParameterControllerValue>(params, index);
         }
 
-        Real getValue(void) const;
-        void setValue(Real value);
+        Real getValue(void) const override;
+        void setValue(Real value) override;
 
     };
     //-----------------------------------------------------------------------
@@ -202,7 +203,7 @@ namespace Ogre {
             return std::make_shared<PassthroughControllerFunction>(deltaInput);
         }
 
-        Real calculate(Real source);
+        Real calculate(Real source) override;
     };
 
     /** Predefined controller function for dealing with animation.
@@ -227,7 +228,7 @@ namespace Ogre {
             return std::make_shared<AnimationControllerFunction>(sequenceTime, timeOffset);
         }
 
-        Real calculate(Real source);
+        Real calculate(Real source) override;
 
         /** Set the time value manually. */
         void setTime(Real timeVal);
@@ -258,12 +259,12 @@ namespace Ogre {
             return std::make_shared<ScaleControllerFunction>(scalefactor, deltaInput);
         }
 
-        Real calculate(Real source);
+        Real calculate(Real source) override;
     };
 
     //-----------------------------------------------------------------------
     /** Predefined controller function based on a waveform.
-        @remarks
+
             A waveform function translates parametric input to parametric output based on a wave.
         @par
             Note that for simplicity of integration with the rest of the controller insfrastructure, the output of
@@ -308,7 +309,7 @@ namespace Ogre {
             return std::make_shared<WaveformControllerFunction>(wType, base, frequency, phase, amplitude, deltaInput, dutyCycle);
         }
 
-        Real calculate(Real source);
+        Real calculate(Real source) override;
     };
 
     //-----------------------------------------------------------------------
@@ -342,7 +343,7 @@ namespace Ogre {
             return std::make_shared<LinearControllerFunction>(keys, values, frequency, deltaInput);
         }
 
-        Real calculate(Real source);
+        Real calculate(Real source) override;
     };
     //-----------------------------------------------------------------------
     /** @} */

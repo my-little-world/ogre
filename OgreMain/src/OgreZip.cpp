@@ -45,41 +45,41 @@ namespace {
         ZipArchive(const String& name, const String& archType, const uint8* externBuf = 0, size_t externBufSz = 0);
         ~ZipArchive();
         /// @copydoc Archive::isCaseSensitive
-        bool isCaseSensitive(void) const { return OGRE_RESOURCEMANAGER_STRICT != 0; }
+        bool isCaseSensitive(void) const override { return OGRE_RESOURCEMANAGER_STRICT != 0; }
 
         /// @copydoc Archive::load
-        void load();
+        void load() override;
         /// @copydoc Archive::unload
-        void unload();
+        void unload() override;
 
         /// @copydoc Archive::open
-        DataStreamPtr open(const String& filename, bool readOnly = true) const;
+        DataStreamPtr open(const String& filename, bool readOnly = true) const override;
 
         /// @copydoc Archive::create
-        DataStreamPtr create(const String& filename);
+        DataStreamPtr create(const String& filename) override;
 
         /// @copydoc Archive::remove
-        void remove(const String& filename);
+        void remove(const String& filename) override;
 
         /// @copydoc Archive::list
-        StringVectorPtr list(bool recursive = true, bool dirs = false) const;
+        StringVectorPtr list(bool recursive = true, bool dirs = false) const override;
 
         /// @copydoc Archive::listFileInfo
-        FileInfoListPtr listFileInfo(bool recursive = true, bool dirs = false) const;
+        FileInfoListPtr listFileInfo(bool recursive = true, bool dirs = false) const override;
 
         /// @copydoc Archive::find
         StringVectorPtr find(const String& pattern, bool recursive = true,
-            bool dirs = false) const;
+            bool dirs = false) const override;
 
         /// @copydoc Archive::findFileInfo
         FileInfoListPtr findFileInfo(const String& pattern, bool recursive = true,
-            bool dirs = false) const;
+            bool dirs = false) const override;
 
         /// @copydoc Archive::exists
-        bool exists(const String& filename) const;
+        bool exists(const String& filename) const override;
 
         /// @copydoc Archive::getModifiedTime
-        time_t getModifiedTime(const String& filename) const;
+        time_t getModifiedTime(const String& filename) const override;
     };
 }
     //-----------------------------------------------------------------------
@@ -182,7 +182,7 @@ namespace {
         }
 
         // Construct & return stream
-        auto ret = std::make_shared<MemoryDataStream>(zip_entry_size(mZipFile));
+        auto ret = std::make_shared<MemoryDataStream>(lookUpFileName, zip_entry_size(mZipFile));
 
         if(zip_entry_noallocread(mZipFile, ret->getPtr(), ret->size()) < 0)
             OGRE_EXCEPT(Exception::ERR_FILE_NOT_FOUND, "could not read "+lookUpFileName);
@@ -204,7 +204,7 @@ namespace {
     StringVectorPtr ZipArchive::list(bool recursive, bool dirs) const
     {
         OGRE_LOCK_AUTO_MUTEX;
-        StringVectorPtr ret = StringVectorPtr(OGRE_NEW_T(StringVector, MEMCATEGORY_GENERAL)(), SPFM_DELETE_T);
+        auto ret = std::make_shared<StringVector>();
 
         FileInfoList::const_iterator i, iend;
         iend = mFileList.end();
@@ -219,21 +219,21 @@ namespace {
     FileInfoListPtr ZipArchive::listFileInfo(bool recursive, bool dirs) const
     {
         OGRE_LOCK_AUTO_MUTEX;
-        FileInfoList* fil = OGRE_NEW_T(FileInfoList, MEMCATEGORY_GENERAL)();
+        auto ret = std::make_shared<FileInfoList>();
         FileInfoList::const_iterator i, iend;
         iend = mFileList.end();
         for (i = mFileList.begin(); i != iend; ++i)
             if ((dirs == (i->compressedSize == size_t (-1))) &&
                 (recursive || i->path.empty()))
-                fil->push_back(*i);
+                ret->push_back(*i);
 
-        return FileInfoListPtr(fil, SPFM_DELETE_T);
+        return ret;
     }
     //-----------------------------------------------------------------------
     StringVectorPtr ZipArchive::find(const String& pattern, bool recursive, bool dirs) const
     {
         OGRE_LOCK_AUTO_MUTEX;
-        StringVectorPtr ret = StringVectorPtr(OGRE_NEW_T(StringVector, MEMCATEGORY_GENERAL)(), SPFM_DELETE_T);
+        auto ret = std::make_shared<StringVector>();
         // If pattern contains a directory name, do a full match
         bool full_match = (pattern.find ('/') != String::npos) ||
                           (pattern.find ('\\') != String::npos);
@@ -255,7 +255,7 @@ namespace {
         bool recursive, bool dirs) const
     {
         OGRE_LOCK_AUTO_MUTEX;
-        FileInfoListPtr ret = FileInfoListPtr(OGRE_NEW_T(FileInfoList, MEMCATEGORY_GENERAL)(), SPFM_DELETE_T);
+        auto ret = std::make_shared<FileInfoList>();
         // If pattern contains a directory name, do a full match
         bool full_match = (pattern.find ('/') != String::npos) ||
                           (pattern.find ('\\') != String::npos);

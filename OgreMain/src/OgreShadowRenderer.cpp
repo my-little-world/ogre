@@ -73,6 +73,8 @@ mShadowCasterRenderBackFaces(true)
     // set up default shadow camera setup
     mDefaultShadowCameraSetup = DefaultShadowCameraSetup::create();
 
+    mCullCameraSetup = DefaultShadowCameraSetup::create();
+
     // init shadow texture count per type.
     mShadowTextureCountPerType[Light::LT_POINT] = 1;
     mShadowTextureCountPerType[Light::LT_DIRECTIONAL] = 1;
@@ -642,8 +644,6 @@ void SceneManager::ShadowRenderer::ensureShadowTexturesCreated()
 
             // Camera names are local to SM
             String camName = shadowTex->getName() + "Cam";
-            // Material names are global to SM, make specific
-            String matName = shadowTex->getName() + "Mat" + mSceneManager->getName();
 
             RenderTexture *shadowRTT = shadowTex->getBuffer()->getRenderTarget();
 
@@ -655,8 +655,17 @@ void SceneManager::ShadowRenderer::ensureShadowTexturesCreated()
             // in prepareShadowTextures to coexist with multiple SMs
             Camera* cam = mSceneManager->createCamera(camName);
             cam->setAspectRatio((Real)shadowTex->getWidth() / (Real)shadowTex->getHeight());
-            mSceneManager->getRootSceneNode()->createChildSceneNode()->attachObject(cam);
+            auto camNode = mSceneManager->getRootSceneNode()->createChildSceneNode();
+            camNode->attachObject(cam);
             mShadowTextureCameras.push_back(cam);
+
+            // use separate culling camera, in case a focused shadow setup is used
+            // in which case we want to keep the original light frustum for culling
+            Camera* cullCam = mSceneManager->createCamera(camName+"/Cull");
+            cullCam->setAspectRatio((Real)shadowTex->getWidth() / (Real)shadowTex->getHeight());
+            cam->setCullingFrustum(cullCam);
+            camNode->attachObject(cullCam);
+
 
             // Create a viewport, if not there already
             if (shadowRTT->getNumViewports() == 0)
@@ -670,29 +679,6 @@ void SceneManager::ShadowRenderer::ensureShadowTexturesCreated()
 
             // Don't update automatically - we'll do it when required
             shadowRTT->setAutoUpdated(false);
-
-            // Also create corresponding Material used for rendering this shadow
-            MaterialPtr mat = MaterialManager::getSingleton().getByName(matName);
-            if (!mat)
-            {
-                mat = MaterialManager::getSingleton().create(
-                    matName, ResourceGroupManager::INTERNAL_RESOURCE_GROUP_NAME);
-            }
-            Pass* p = mat->getTechnique(0)->getPass(0);
-            if (p->getNumTextureUnitStates() != 1 ||
-                p->getTextureUnitState(0)->_getTexturePtr(0) != shadowTex)
-            {
-                mat->getTechnique(0)->getPass(0)->removeAllTextureUnitStates();
-                // create texture unit referring to render target texture
-                TextureUnitState* texUnit =
-                    p->createTextureUnitState(shadowTex->getName());
-                // set projective based on camera
-                texUnit->setProjectiveTexturing(!p->hasVertexProgram(), cam);
-                // clamp to border colour
-                texUnit->setSampler(mBorderSampler);
-                mat->touch();
-
-            }
 
             // insert dummy camera-light combination
             mShadowCamLightMapping[cam] = 0;
@@ -717,30 +703,13 @@ void SceneManager::ShadowRenderer::ensureShadowTexturesCreated()
 //---------------------------------------------------------------------
 void SceneManager::ShadowRenderer::destroyShadowTextures(void)
 {
-
-    ShadowTextureList::iterator i, iend;
-    iend = mShadowTextures.end();
-    for (i = mShadowTextures.begin(); i != iend; ++i)
-    {
-        TexturePtr &shadowTex = *i;
-
-        // Cleanup material that references this texture
-        String matName = shadowTex->getName() + "Mat" + mSceneManager->getName();
-        MaterialPtr mat = MaterialManager::getSingleton().getByName(matName);
-        if (mat)
-        {
-            // manually clear TUS to ensure texture ref released
-            mat->getTechnique(0)->getPass(0)->removeAllTextureUnitStates();
-            MaterialManager::getSingleton().remove(mat->getHandle());
-        }
-
-    }
-
     for (auto cam : mShadowTextureCameras)
     {
         mSceneManager->getRootSceneNode()->removeAndDestroyChild(cam->getParentSceneNode());
         // Always destroy camera since they are local to this SM
         mSceneManager->destroyCamera(cam);
+        if(auto cullcam = dynamic_cast<Camera*>(cam->getCullingFrustum()))
+            mSceneManager->destroyCamera(cullcam);
     }
     mShadowTextures.clear();
     mShadowTextureCameras.clear();
@@ -796,6 +765,7 @@ void SceneManager::ShadowRenderer::prepareShadowTextures(Camera* cam, Viewport* 
     ci = mShadowTextureCameras.begin();
     mShadowTextureIndexLightList.clear();
     size_t shadowTextureIndex = 0;
+
     for (i = lightList->begin(), si = mShadowTextures.begin(); i != iend && si != siend; ++i)
     {
         Light* light = *i;
@@ -803,6 +773,8 @@ void SceneManager::ShadowRenderer::prepareShadowTextures(Camera* cam, Viewport* 
         // skip light if shadows are disabled
         if (!light->getCastShadows())
             continue;
+
+        mDestRenderSystem->_setDepthClamp(light->getType() == Light::LT_DIRECTIONAL);
 
         // texture iteration per light.
         size_t textureCountPerLight = mShadowTextureCountPerType[light->getType()];
@@ -819,9 +791,20 @@ void SceneManager::ShadowRenderer::prepareShadowTextures(Camera* cam, Viewport* 
             texCam->setLodCamera(cam);
             // set base
             if (light->getType() != Light::LT_POINT)
+            {
+#ifdef OGRE_NODELESS_POSITIONING
                 texCam->getParentSceneNode()->setDirection(light->getDerivedDirection(), Node::TS_WORLD);
+#else
+                texCam->getParentSceneNode()->setOrientation(light->getParentNode()->_getDerivedOrientation());
+#endif
+            }
             if (light->getType() != Light::LT_DIRECTIONAL)
                 texCam->getParentSceneNode()->setPosition(light->getDerivedPosition());
+
+            // also update culling camera
+            auto cullCam = dynamic_cast<Camera*>(texCam->getCullingFrustum());
+            cullCam->_notifyViewport(shadowView);
+            mCullCameraSetup->getShadowCamera(mSceneManager, cam, vp, light, cullCam, j);
 
             // Use the material scheme of the main viewport
             // This is required to pick up the correct shadow_caster_material and similar properties.
@@ -852,6 +835,8 @@ void SceneManager::ShadowRenderer::prepareShadowTextures(Camera* cam, Viewport* 
             ++si; // next shadow texture
             ++ci; // next camera
         }
+
+        mDestRenderSystem->_setDepthClamp(false);
 
         // set the first shadow texture index for this light.
         mShadowTextureIndexLightList.push_back(shadowTextureIndex);
@@ -1298,6 +1283,8 @@ void SceneManager::ShadowRenderer::setShadowTechnique(ShadowTechnique technique)
         }
     }
 
+    if(mShadowTechnique)
+        initShadowVolumeMaterials();
 }
 //---------------------------------------------------------------------
 void SceneManager::ShadowRenderer::initShadowVolumeMaterials()
@@ -1622,12 +1609,11 @@ void SceneManager::ShadowRenderer::setShadowTextureConfig(size_t shadowIndex,
 void SceneManager::ShadowRenderer::setShadowTextureSize(unsigned short size)
 {
     // default all current
-    for (ShadowTextureConfigList::iterator i = mShadowTextureConfigList.begin();
-        i != mShadowTextureConfigList.end(); ++i)
+    for (auto & i : mShadowTextureConfigList)
     {
-        if (i->width != size || i->height != size)
+        if (i.width != size || i.height != size)
         {
-            i->width = i->height = size;
+            i.width = i.height = size;
             mShadowTextureConfigDirty = true;
         }
     }
@@ -1655,24 +1641,22 @@ void SceneManager::ShadowRenderer::setShadowTextureCount(size_t count)
 //---------------------------------------------------------------------
 void SceneManager::ShadowRenderer::setShadowTexturePixelFormat(PixelFormat fmt)
 {
-    for (ShadowTextureConfigList::iterator i = mShadowTextureConfigList.begin();
-        i != mShadowTextureConfigList.end(); ++i)
+    for (auto & i : mShadowTextureConfigList)
     {
-        if (i->format != fmt)
+        if (i.format != fmt)
         {
-            i->format = fmt;
+            i.format = fmt;
             mShadowTextureConfigDirty = true;
         }
     }
 }
 void SceneManager::ShadowRenderer::setShadowTextureFSAA(unsigned short fsaa)
 {
-    for (ShadowTextureConfigList::iterator i = mShadowTextureConfigList.begin();
-                i != mShadowTextureConfigList.end(); ++i)
+    for (auto & i : mShadowTextureConfigList)
     {
-        if (i->fsaa != fsaa)
+        if (i.fsaa != fsaa)
         {
-            i->fsaa = fsaa;
+            i.fsaa = fsaa;
             mShadowTextureConfigDirty = true;
         }
     }
@@ -1682,15 +1666,14 @@ void SceneManager::ShadowRenderer::setShadowTextureSettings(unsigned short size,
     unsigned short count, PixelFormat fmt, unsigned short fsaa, uint16 depthBufferPoolId)
 {
     setShadowTextureCount(count);
-    for (ShadowTextureConfigList::iterator i = mShadowTextureConfigList.begin();
-        i != mShadowTextureConfigList.end(); ++i)
+    for (auto & i : mShadowTextureConfigList)
     {
-        if (i->width != size || i->height != size || i->format != fmt || i->fsaa != fsaa)
+        if (i.width != size || i.height != size || i.format != fmt || i.fsaa != fsaa)
         {
-            i->width = i->height = size;
-            i->format = fmt;
-            i->fsaa = fsaa;
-            i->depthBufferPoolId = depthBufferPoolId;
+            i.width = i.height = size;
+            i.format = fmt;
+            i.fsaa = fsaa;
+            i.depthBufferPoolId = depthBufferPoolId;
             mShadowTextureConfigDirty = true;
         }
     }
@@ -1899,28 +1882,24 @@ void SceneManager::ShadowRenderer::fireShadowTexturesPreReceiver(Light* light, F
         (*i)->shadowTextureReceiverPreViewProj(light, f);
     }
 }
-void SceneManager::ShadowRenderer::sortLightsAffectingFrustum(LightList& lightList)
+void SceneManager::ShadowRenderer::sortLightsAffectingFrustum(LightList& lightList) const
 {
     if ((mShadowTechnique & SHADOWDETAILTYPE_TEXTURE) == 0)
         return;
     // Sort the lights if using texture shadows, since the first 'n' will be
     // used to generate shadow textures and we should pick the most appropriate
 
+    ListenerList listenersCopy = mListeners; // copy in case of listeners removing themselves
+
     // Allow a Listener to override light sorting
     // Reverse iterate so last takes precedence
-    bool overridden = false;
-    ListenerList listenersCopy = mListeners;
-    for (ListenerList::reverse_iterator ri = listenersCopy.rbegin();
-        ri != listenersCopy.rend(); ++ri)
+    for (auto ri = listenersCopy.rbegin(); ri != listenersCopy.rend(); ++ri)
     {
-        overridden = (*ri)->sortLightsAffectingFrustum(lightList);
-        if (overridden)
-            break;
+        if((*ri)->sortLightsAffectingFrustum(lightList))
+            return;
     }
-    if (!overridden)
-    {
-        // default sort (stable to preserve directional light ordering
-        std::stable_sort(lightList.begin(), lightList.end(), lightsForShadowTextureLess());
-    }
+
+    // default sort (stable to preserve directional light ordering
+    std::stable_sort(lightList.begin(), lightList.end(), lightsForShadowTextureLess());
 }
 }

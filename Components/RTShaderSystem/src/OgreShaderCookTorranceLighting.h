@@ -31,14 +31,11 @@ public:
 
     const String& getType() const override;
 
-    int getExecutionOrder() const { return FFP_LIGHTING; }
+    int getExecutionOrder() const override { return FFP_LIGHTING; }
 
     void copyFrom(const SubRenderState& rhs) override;
 
     bool preAddToRenderState(const RenderState* renderState, Pass* srcPass, Pass* dstPass) override;
-
-    // Type of this render state.
-    static String Type;
 
     /**
     Return the metallic-roughness map texture name.

@@ -35,14 +35,14 @@ class _OgreSampleClassExport Sample_Grass : public SdkSample
         mInfo["Help"] = "Press B to toggle bounding boxes.";
     }
 
-    bool frameRenderingQueued(const FrameEvent& evt)
+    bool frameRenderingQueued(const FrameEvent& evt) override
     {
         mLightAnimState->addTime(evt.timeSinceLastFrame);   // move the light around
         waveGrass(evt.timeSinceLastFrame);                  // wave the grass around slowly to simulate wind
         return SdkSample::frameRenderingQueued(evt);        // don't forget the parent class updates!
     }
 
-    bool keyPressed(const KeyboardEvent& evt)
+    bool keyPressed(const KeyboardEvent& evt) override
     {
         Keycode key = evt.keysym.sym;
         // toggle bounding boxes with B key unless the help dialog is visible
@@ -68,12 +68,12 @@ class _OgreSampleClassExport Sample_Grass : public SdkSample
          mMaxSize = maxSize;
      }
 
-     Real getValue () const
+     Real getValue () const override
      {
          return mIntensity;
      }
 
-     void setValue (Real value)
+     void setValue (Real value) override
      {
          mIntensity = value;
 
@@ -96,12 +96,10 @@ class _OgreSampleClassExport Sample_Grass : public SdkSample
      Real mIntensity;
  };
 
- void setupContent()
+ void setupContent() override
  {
-#ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
-     // Make this viewport work with shader generator scheme.
-     mViewport->setMaterialScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
-#endif
+     // Make this viewport work with shader generator
+     mViewport->setMaterialScheme(MSN_SHADERGEN);
      mSceneMgr->setSkyBox(true, "Examples/SpaceSkyBox");
 
      // create a mesh for our ground
@@ -263,11 +261,11 @@ class _OgreSampleClassExport Sample_Grass : public SdkSample
 
  void waveGrass(Real timeElapsed)
  {
-     static Real xinc = Math::PI * 0.3;
-     static Real zinc = Math::PI * 0.44;
-     static Real xpos = Math::RangeRandom(-Math::PI, Math::PI);
-     static Real zpos = Math::RangeRandom(-Math::PI, Math::PI);
-     static Vector4 offset(0, 0, 0, 0);
+     static float xinc = Math::PI * 0.3;
+     static float zinc = Math::PI * 0.44;
+     static float xpos = Math::RangeRandom(-Math::PI, Math::PI);
+     static float zpos = Math::RangeRandom(-Math::PI, Math::PI);
+     static Vector4f offset(0);
 
      xpos += xinc * timeElapsed;
      zpos += zinc * timeElapsed;
@@ -278,8 +276,8 @@ class _OgreSampleClassExport Sample_Grass : public SdkSample
          // a little randomness
          xpos += reg.second->getCentre().x * 0.001;
          zpos += reg.second->getCentre().z * 0.001;
-         offset.x = std::sin(xpos) * 4;
-         offset.z = std::sin(zpos) * 4;
+         offset[0] = std::sin(xpos) * 4;
+         offset[2] = std::sin(zpos) * 4;
 
          for (auto lod : reg.second->getLODBuckets())
          {
@@ -292,7 +290,7 @@ class _OgreSampleClassExport Sample_Grass : public SdkSample
      }
  }
 
- void checkBoxToggled(CheckBox* box)
+ void checkBoxToggled(CheckBox* box) override
  {
      auto mat = MaterialManager::getSingleton().getByName(box->isChecked() ? "Examples/GrassBladesWaver"
                                                                            : "Examples/GrassBlades");
@@ -308,7 +306,7 @@ class _OgreSampleClassExport Sample_Grass : public SdkSample
      }
  }
 
- void cleanupContent()
+ void cleanupContent() override
  {
      ControllerManager::getSingleton().destroyController(mLightController);
      MeshManager::getSingleton().remove("ground", ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
@@ -317,7 +315,7 @@ class _OgreSampleClassExport Sample_Grass : public SdkSample
 
  StaticGeometry* mField;
  AnimationState* mLightAnimState;
- Controller<Real>* mLightController;
+ ControllerReal* mLightController;
 };
 
 #endif

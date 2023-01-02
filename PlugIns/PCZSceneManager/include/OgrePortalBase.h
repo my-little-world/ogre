@@ -58,9 +58,9 @@ namespace Ogre
         virtual ~PortalBase();
 
         /** Retrieves the axis-aligned bounding box for this object in world coordinates. */
-        virtual const AxisAlignedBox& getWorldBoundingBox(bool derive = false) const;
+        const AxisAlignedBox& getWorldBoundingBox(bool derive = false) const override;
         /** Retrieves the worldspace bounding sphere for this object. */
-        virtual const Sphere& getWorldBoundingSphere(bool derive = false) const;
+        const Sphere& getWorldBoundingSphere(bool derive = false) const override;
 
         /** Set the SceneNode the Portal is associated with */
         void setNode(SceneNode* sn);
@@ -106,8 +106,9 @@ namespace Ogre
 
         /** Get the type of portal */
         PORTAL_TYPE getType() const {return mType;}
-        /** Retrieve the radius of the portal (calculates if necessary for quad portals) */
-        Real getRadius() const;
+        /** Retrieve the radius of the portal in world coordinates */
+        Real getDerivedRadius() const
+        { return mDerivedRadius; }
 
         /** Get the Zone the Portal is currently "in" */
         PCZone* getCurrentHomeZone()
@@ -187,29 +188,28 @@ namespace Ogre
         bool closeTo(const PortalBase* otherPortal);
 
         /** @copydoc MovableObject::getBoundingBox */
-        const AxisAlignedBox& getBoundingBox() const;
+        const AxisAlignedBox& getBoundingBox() const override;
 
         /** @copydoc MovableObject::getBoundingRadius */
-        Real getBoundingRadius() const
-        { return getRadius(); }
+        Real getBoundingRadius() const override;
 
         /** @copydoc MovableObject::_updateRenderQueue */
-        void _updateRenderQueue(RenderQueue* queue)
+        void _updateRenderQueue(RenderQueue* queue) override
         { /* Draw debug info if needed? */ }
 
         /** @copydoc MovableObject::visitRenderables */
-        void visitRenderables(Renderable::Visitor* visitor, bool debugRenderables = false)
+        void visitRenderables(Renderable::Visitor* visitor, bool debugRenderables = false) override
         { }
 
         /** Called when scene node moved. */
-        void _notifyMoved()
+        void _notifyMoved() override
         {
             updateDerivedValues();
             mWasMoved = true;
         }
 
         /** Called when attached to a scene node. */
-        void _notifyAttached(Node* parent, bool isTagPoint = false)
+        void _notifyAttached(Node* parent, bool isTagPoint = false) override
         {
             MovableObject::_notifyAttached(parent, isTagPoint);
             mDerivedUpToDate = false;
@@ -255,6 +255,8 @@ namespace Ogre
         /// Derived (world coordinates) direction of the portal
         // NOTE: Only applicable for a Quad portal
         mutable Vector3 mDerivedDirection;
+        /// Derived (world coordinates) radius of the sphere enclosing the portal
+        mutable Real mDerivedRadius;
         /// Derived (world coordinates) of portal (center point)
         mutable Vector3 mDerivedCP;
         /// Sphere of the portal centered on the derived CP

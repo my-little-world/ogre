@@ -141,11 +141,9 @@ void CompositionTargetPass::removePass(size_t index)
 //-----------------------------------------------------------------------
 void CompositionTargetPass::removeAllPasses()
 {
-    Passes::iterator i, iend;
-    iend = mPasses.end();
-    for (i = mPasses.begin(); i != iend; ++i)
+    for (auto p : mPasses)
     {
-        OGRE_DELETE (*i);
+        OGRE_DELETE (p);
     }
     mPasses.clear();
 }
@@ -165,17 +163,13 @@ CompositionTechnique *CompositionTargetPass::getParent()
 bool CompositionTargetPass::_isSupported(void)
 {
     // A target pass is supported if all passes are supported
-
-    Passes::const_iterator passi = mPasses.begin();
-    for (;passi != mPasses.end(); ++passi)
+    for (auto *p : mPasses)
     {
-        CompositionPass* pass = *passi;
-        if (!pass->_isSupported())
+        if (!p->_isSupported())
         {
             return false;
         }
     }
-
     return true;
 }
 

@@ -53,6 +53,7 @@ set(BUILD_COMMAND_COMMON ${CMAKE_COMMAND}
   -DCMAKE_INSTALL_PREFIX=${OGREDEPS_PATH}
   -G ${CMAKE_GENERATOR}
   -DCMAKE_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}
+  -DCMAKE_GENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}
   -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
   -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE # allow linking into a shared lib
   ${CROSS})
@@ -71,55 +72,57 @@ set(CMAKE_FRAMEWORK_PATH ${CMAKE_FRAMEWORK_PATH} ${OGRE_DEP_SEARCH_PATH})
 if(OGRE_BUILD_DEPENDENCIES AND NOT EXISTS ${OGREDEPS_PATH})
     message(STATUS "Building pugixml")
     file(DOWNLOAD
-        https://github.com/zeux/pugixml/releases/download/v1.10/pugixml-1.10.tar.gz
-        ${PROJECT_BINARY_DIR}/pugixml-1.10.tar.gz)
+        https://github.com/zeux/pugixml/releases/download/v1.12/pugixml-1.12.tar.gz
+        ${PROJECT_BINARY_DIR}/pugixml-1.12.tar.gz)
     execute_process(COMMAND ${CMAKE_COMMAND}
-        -E tar xf pugixml-1.10.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+        -E tar xf pugixml-1.12.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
     execute_process(COMMAND ${BUILD_COMMAND_COMMON}
         -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE # this will be linked into a shared lib
-        ${PROJECT_BINARY_DIR}/pugixml-1.10
-        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/pugixml-1.10)
+        ${PROJECT_BINARY_DIR}/pugixml-1.12
+        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/pugixml-1.12)
     execute_process(COMMAND ${CMAKE_COMMAND}
-        --build ${PROJECT_BINARY_DIR}/pugixml-1.10 ${BUILD_COMMAND_OPTS})
+        --build ${PROJECT_BINARY_DIR}/pugixml-1.12 ${BUILD_COMMAND_OPTS})
 
     #find_package(Freetype)
     if (NOT FREETYPE_FOUND)
         message(STATUS "Building freetype")
         file(DOWNLOAD
-            https://download.savannah.gnu.org/releases/freetype/freetype-2.10.1.tar.gz
-            ${PROJECT_BINARY_DIR}/freetype-2.10.1.tar.gz)
+            https://download.savannah.gnu.org/releases/freetype/freetype-2.12.1.tar.gz
+            ${PROJECT_BINARY_DIR}/freetype-2.12.1.tar.gz)
         execute_process(COMMAND ${CMAKE_COMMAND}
-            -E tar xf freetype-2.10.1.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+            -E tar xf freetype-2.12.1.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
         # patch toolchain for iOS
         execute_process(COMMAND ${CMAKE_COMMAND} -E copy
             ${PROJECT_SOURCE_DIR}/CMake/toolchain/ios.toolchain.xcode.cmake
-            freetype-2.10.1/builds/cmake/iOS.cmake
+            freetype-2.12.1/builds/cmake/iOS.cmake
             WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
         execute_process(COMMAND ${BUILD_COMMAND_COMMON}
             -DBUILD_SHARED_LIBS=${OGREDEPS_SHARED}
             -DCMAKE_DISABLE_FIND_PACKAGE_PNG=TRUE # disable third-party deps
             -DCMAKE_DISABLE_FIND_PACKAGE_HarfBuzz=TRUE
             -DCMAKE_DISABLE_FIND_PACKAGE_BZip2=TRUE
+            -DCMAKE_DISABLE_FIND_PACKAGE_BrotliDec=TRUE
             # workaround for broken iOS toolchain in freetype
-            -DPROJECT_SOURCE_DIR=${PROJECT_BINARY_DIR}/freetype-2.10.1
-            ${PROJECT_BINARY_DIR}/freetype-2.10.1
-            WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/freetype-2.10.1/objs)
+            -DPROJECT_SOURCE_DIR=${PROJECT_BINARY_DIR}/freetype-2.12.1
+            ${PROJECT_BINARY_DIR}/freetype-2.12.1
+            WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/freetype-2.12.1/objs)
         execute_process(COMMAND ${CMAKE_COMMAND}
-            --build ${PROJECT_BINARY_DIR}/freetype-2.10.1/objs ${BUILD_COMMAND_OPTS})
+            --build ${PROJECT_BINARY_DIR}/freetype-2.12.1/objs ${BUILD_COMMAND_OPTS})
     endif()
 
     if(MSVC OR MINGW OR SKBUILD) # other platforms dont need this
         message(STATUS "Building SDL2")
         file(DOWNLOAD
-            https://libsdl.org/release/SDL2-2.0.20.tar.gz
-            ${PROJECT_BINARY_DIR}/SDL2-2.0.20.tar.gz)
+            https://libsdl.org/release/SDL2-2.24.1.tar.gz
+            ${PROJECT_BINARY_DIR}/SDL2-2.24.1.tar.gz)
         execute_process(COMMAND ${CMAKE_COMMAND} 
-            -E tar xf SDL2-2.0.20.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+            -E tar xf SDL2-2.24.1.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
         execute_process(COMMAND ${CMAKE_COMMAND}
             -E make_directory ${PROJECT_BINARY_DIR}/SDL2-build)
         execute_process(COMMAND ${BUILD_COMMAND_COMMON}
             -DSDL_STATIC=FALSE
-            ${PROJECT_BINARY_DIR}/SDL2-2.0.20
+            -DCMAKE_INSTALL_LIBDIR=lib
+            ${PROJECT_BINARY_DIR}/SDL2-2.24.1
             WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/SDL2-build)
         execute_process(COMMAND ${CMAKE_COMMAND}
             --build ${PROJECT_BINARY_DIR}/SDL2-build ${BUILD_COMMAND_OPTS})
@@ -128,24 +131,24 @@ if(OGRE_BUILD_DEPENDENCIES AND NOT EXISTS ${OGREDEPS_PATH})
     if(MSVC OR MINGW OR SKBUILD) # other platforms dont need this
       message(STATUS "Building zlib") # only needed for Assimp
       file(DOWNLOAD
-          http://zlib.net/zlib-1.2.11.tar.gz
-          ${PROJECT_BINARY_DIR}/zlib-1.2.11.tar.gz
-          EXPECTED_MD5 1c9f62f0778697a09d36121ead88e08e)
+          http://zlib.net/zlib-1.2.13.tar.gz
+          ${PROJECT_BINARY_DIR}/zlib-1.2.13.tar.gz
+          EXPECTED_HASH SHA256=b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30)
       execute_process(COMMAND ${CMAKE_COMMAND}
-          -E tar xf zlib-1.2.11.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+          -E tar xf zlib-1.2.13.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
       execute_process(COMMAND ${BUILD_COMMAND_COMMON}
           -DBUILD_SHARED_LIBS=${OGREDEPS_SHARED}
-          ${PROJECT_BINARY_DIR}/zlib-1.2.11
-          WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/zlib-1.2.11)
+          ${PROJECT_BINARY_DIR}/zlib-1.2.13
+          WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/zlib-1.2.13)
       execute_process(COMMAND ${CMAKE_COMMAND}
-          --build ${PROJECT_BINARY_DIR}/zlib-1.2.11 ${BUILD_COMMAND_OPTS})
+          --build ${PROJECT_BINARY_DIR}/zlib-1.2.13 ${BUILD_COMMAND_OPTS})
 
       message(STATUS "Building Assimp")
       file(DOWNLOAD
-          https://github.com/assimp/assimp/archive/v5.1.6.tar.gz
-          ${PROJECT_BINARY_DIR}/v5.1.6.tar.gz)
+              https://github.com/assimp/assimp/archive/refs/tags/v5.2.5.zip
+          ${PROJECT_BINARY_DIR}/v5.2.5.tar.gz)
       execute_process(COMMAND ${CMAKE_COMMAND}
-          -E tar xf v5.1.6.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+          -E tar xf v5.2.5.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
       execute_process(COMMAND ${BUILD_COMMAND_COMMON}
           -DZLIB_ROOT=${OGREDEPS_PATH}
           -DBUILD_SHARED_LIBS=OFF
@@ -153,15 +156,38 @@ if(OGRE_BUILD_DEPENDENCIES AND NOT EXISTS ${OGREDEPS_PATH})
           -DASSIMP_NO_EXPORT=TRUE
           -DASSIMP_BUILD_OGRE_IMPORTER=OFF
           -DASSIMP_BUILD_ASSIMP_TOOLS=OFF
-          ${PROJECT_BINARY_DIR}/assimp-5.1.6
-          WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/assimp-5.1.6)
+          ${PROJECT_BINARY_DIR}/assimp-5.2.5
+          WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/assimp-5.2.5)
       execute_process(COMMAND ${CMAKE_COMMAND}
-        --build ${PROJECT_BINARY_DIR}/assimp-5.1.6 ${BUILD_COMMAND_OPTS})
-      # RelWithDebInfo has Release ABI
-      if(NOT OGRE_DEBUG_MODE)
-        file(REMOVE ${OGREDEPS_PATH}/lib/cmake/assimp-5.1/assimpTargets-debug.cmake)
-      endif()
+        --build ${PROJECT_BINARY_DIR}/assimp-5.2.5 ${BUILD_COMMAND_OPTS})
     endif()
+
+    message(STATUS "Building Bullet")
+    file(DOWNLOAD
+        https://github.com/bulletphysics/bullet3/archive/refs/tags/3.24.tar.gz
+        ${PROJECT_BINARY_DIR}/3.24.tar.gz)
+    execute_process(COMMAND ${CMAKE_COMMAND}
+        -E tar xf 3.24.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+    execute_process(COMMAND ${BUILD_COMMAND_COMMON}
+        -DBUILD_SHARED_LIBS=OFF
+        -DINSTALL_LIBS=ON
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DUSE_MSVC_RUNTIME_LIBRARY_DLL=ON
+        -DBUILD_PYBULLET=OFF
+        -DUSE_DOUBLE_PRECISION=OFF
+        -DBUILD_CPU_DEMOS=OFF
+        -DBUILD_BULLET2_DEMOS=OFF
+        -DBUILD_EXTRAS=OFF
+        -DBUILD_EGL=OFF
+        -DBUILD_ENET=OFF
+        -DBUILD_UNIT_TESTS=OFF
+        -DCMAKE_RELWITHDEBINFO_POSTFIX= # fixes FindBullet on MSVC
+        -DBUILD_CLSOCKET=OFF
+        ${PROJECT_BINARY_DIR}/bullet3-3.24
+        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/bullet3-3.24)
+    execute_process(COMMAND ${CMAKE_COMMAND}
+        --build ${PROJECT_BINARY_DIR}/bullet3-3.24 ${BUILD_COMMAND_OPTS})
+    set(BULLET_ROOT ${OGREDEPS_PATH})
 endif()
 
 #######################################################################
@@ -254,6 +280,10 @@ macro_log_feature(ZLIB_FOUND "zlib" "Simple data compression library" "http://ww
 find_package(assimp QUIET)
 macro_log_feature(assimp_FOUND "Assimp" "Needed for the AssimpLoader Plugin" "https://www.assimp.org/")
 
+# Bullet
+find_package(Bullet QUIET)
+macro_log_feature(BULLET_FOUND "Bullet" "Bullet physics" "https://pybullet.org")
+
 if(assimp_FOUND)
   # workaround horribly broken assimp cmake, fixed with assimp 5.1
   add_library(fix::assimp INTERFACE IMPORTED)
@@ -283,8 +313,8 @@ if(NOT ANDROID AND NOT EMSCRIPTEN)
     )
   endif()
 
-  find_package(QT NAMES Qt6 Qt5 COMPONENTS Core Gui QUIET)
-  find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core Gui QUIET)
+  find_package(QT NAMES Qt6 Qt5 COMPONENTS Core Gui QUIET CONFIG)
+  find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core Gui QUIET CONFIG)
 
   macro_log_feature(QT_FOUND "Qt" "optional integration with the Qt Library for window creation and input" "http://www.qt.io/")
 endif()

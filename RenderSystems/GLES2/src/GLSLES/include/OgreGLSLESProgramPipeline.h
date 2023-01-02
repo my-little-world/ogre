@@ -35,7 +35,7 @@ namespace Ogre
 {
     /** Specialisation of HighLevelGpuProgram to provide support for OpenGL 
      Shader Language (GLSL ES) for OpenGL ES 2.0.
-     @remarks
+
      GLSL ES has no target assembler or entry point specification like DirectX 9 HLSL.
      Vertex and Fragment shaders only have one entry point called "main".  
      When a shader is compiled, microcode is generated but can not be accessed by
@@ -63,19 +63,19 @@ namespace Ogre
         /** Updates program pipeline object uniforms using data from GpuProgramParameters.
          normally called by GLSLESGpuProgram::bindParameters() just before rendering occurs.
          */
-        virtual void updateUniforms(GpuProgramParametersSharedPtr params, uint16 mask, GpuProgramType fromProgType);
+        void updateUniforms(GpuProgramParametersSharedPtr params, uint16 mask, GpuProgramType fromProgType) override;
 
         /** Makes a program pipeline object active by making sure it is linked and then putting it in use.
          */
-        void activate(void);
+        void activate(void) override;
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_ANDROID || OGRE_PLATFORM == OGRE_PLATFORM_EMSCRIPTEN
-        virtual void notifyOnContextLost();
+        void notifyOnContextLost() override;
 #endif
 
     protected:
         /// Compiles and links the separate vertex and fragment programs
-        virtual void compileAndLink(void);
+        void compileAndLink(void) override;
 
         /// Build uniform references from active named uniforms
         virtual void buildGLUniformReferences(void);

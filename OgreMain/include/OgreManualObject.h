@@ -110,13 +110,13 @@ namespace Ogre
         virtual ~ManualObject();
 
         /** @copydoc MovableObject::_releaseManualHardwareResources */
-        void _releaseManualHardwareResources() { clear(); }
+        void _releaseManualHardwareResources() override { clear(); }
 
         //pre-declare ManualObjectSection
         class ManualObjectSection;
 
         /** Completely clear the contents of the object.
-        @remarks
+
             Clearing the contents of this object and rebuilding from scratch
             is not the optimal way to manage dynamic vertex data, since the 
             buffers are recreated. If you want to keep the same structure but
@@ -127,7 +127,7 @@ namespace Ogre
         virtual void clear(void);
         
         /** Estimate the number of vertices ahead of time.
-        @remarks
+
             Calling this helps to avoid memory reallocation when you define
             vertices. Also very handy when using beginUpdate() to manage dynamic
             data - you can make the vertex buffers a little larger than their
@@ -136,7 +136,7 @@ namespace Ogre
         virtual void estimateVertexCount(size_t vcount);
 
         /** Estimate the number of indices ahead of time.
-        @remarks
+
             Calling this helps to avoid memory reallocation when you define
             indices. Also very handy when using beginUpdate() to manage dynamic
             data - you can make the index buffer a little larger than the
@@ -145,7 +145,7 @@ namespace Ogre
         virtual void estimateIndexCount(size_t icount);
 
         /** Start defining a part of the object.
-        @remarks
+
             Each time you call this method, you start a new section of the
             object with its own material and potentially its own type of
             rendering operation (triangles, points or lines for example).
@@ -182,7 +182,7 @@ namespace Ogre
         bool getDynamic() const { return mBufferUsage & HardwareBuffer::HBU_DYNAMIC; }
 
         /** Start the definition of an update to a part of the object.
-        @remarks
+
             Using this method, you can update an existing section of the object
             efficiently. You do not have the option of changing the operation type
             obviously, since it must match the one that was used before. 
@@ -230,7 +230,7 @@ namespace Ogre
         void position(float x, float y, float z) { position({x, y, z}); }
 
         /** Add a vertex normal to the current vertex.
-        @remarks
+
             Vertex normals are most often used for dynamic lighting, and 
             their components should be normalised.
         */
@@ -247,7 +247,7 @@ namespace Ogre
         void normal(float x, float y, float z)  { normal({x, y, z}); }
 
         /** Add a vertex tangent to the current vertex.
-        @remarks
+
             Vertex tangents are most often used for dynamic lighting, and 
             their components should be normalised. 
             Also, using tangent() you enable VES_TANGENT vertex semantic, which is not
@@ -267,7 +267,7 @@ namespace Ogre
         void tangent(float x, float y, float z)  { tangent({x, y, z}); }
 
         /** Add a texture coordinate to the current vertex.
-        @remarks
+
             You can call this method multiple times between position() calls
             to add multiple texture coordinates to a vertex. Each one can have
             between 1 and 3 dimensions, depending on your needs, although 2 is
@@ -351,7 +351,7 @@ namespace Ogre
 
         /** Add a vertex index to construct faces / lines / points via indexing
             rather than just by a simple list of vertices. 
-        @remarks
+
             You will have to call this 3 times for each face for a triangle list, 
             or use the alternative 3-parameter version. Other operation types
             require different numbers of indexes, @see RenderOperation::OperationType.
@@ -427,7 +427,7 @@ namespace Ogre
 
         /** Alter the material for a subsection of this object after it has been
             specified.
-        @remarks
+
             You specify the material to use on a section of this object during the
             call to begin(), however if you want to change the material afterwards
             you can do so by calling this method.
@@ -451,7 +451,7 @@ namespace Ogre
         }
 
         /** Convert this object to a Mesh. 
-        @remarks
+
             After you've finished building this object, you may convert it to 
             a Mesh if you want in order to be able to create many instances of
             it in the world (via Entity). This is optional, since this instance
@@ -465,7 +465,7 @@ namespace Ogre
             const String& groupName = ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
 
         /** Sets whether or not to use an 'identity' projection.
-        @remarks
+
             Usually ManualObjects will use a projection matrix as determined
             by the active camera. However, if they want they can cancel this out
             and use an identity projection, which effectively projects in 2D using
@@ -476,7 +476,7 @@ namespace Ogre
         void setUseIdentityProjection(bool useIdentityProjection);
 
         /** Returns whether or not to use an 'identity' projection.
-        @remarks
+
             Usually ManualObjects will use a projection matrix as determined
             by the active camera. However, if they want they can cancel this out
             and use an identity projection, which effectively projects in 2D using
@@ -487,7 +487,7 @@ namespace Ogre
         bool getUseIdentityProjection(void) const { return mUseIdentityProjection; }
 
         /** Sets whether or not to use an 'identity' view.
-        @remarks
+
             Usually ManualObjects will use a view matrix as determined
             by the active camera. However, if they want they can cancel this out
             and use an identity matrix, which means all geometry is assumed
@@ -498,7 +498,7 @@ namespace Ogre
         void setUseIdentityView(bool useIdentityView);
 
         /** Returns whether or not to use an 'identity' view.
-        @remarks
+
             Usually ManualObjects will use a view matrix as determined
             by the active camera. However, if they want they can cancel this out
             and use an identity matrix, which means all geometry is assumed
@@ -528,7 +528,7 @@ namespace Ogre
 
         /** Sets whether or not to keep the original declaration order when 
             queuing the renderables.
-        @remarks
+
             This overrides the default behavior of the rendering queue, 
             specifically stating the desired order of rendering. Might result in a 
             performance loss, but lets the user to have more direct control when 
@@ -545,13 +545,13 @@ namespace Ogre
         // MovableObject overrides
 
         /** @copydoc MovableObject::getMovableType */
-        const String& getMovableType(void) const;
+        const String& getMovableType(void) const override;
         /** @copydoc MovableObject::getBoundingBox */
         const AxisAlignedBox& getBoundingBox(void) const override { return mAABB; }
         /** @copydoc MovableObject::getBoundingRadius */
         Real getBoundingRadius(void) const override { return mRadius; }
         /** @copydoc MovableObject::_updateRenderQueue */
-        void _updateRenderQueue(RenderQueue* queue);
+        void _updateRenderQueue(RenderQueue* queue) override;
         /** Implement this method to enable stencil shadows */
         EdgeData* getEdgeList(void) override;
         /** Implement this method to enable stencil shadows. */
@@ -600,15 +600,15 @@ namespace Ogre
             
             // Renderable overrides
             /** @copydoc Renderable::getMaterial */
-            const MaterialPtr& getMaterial(void) const;
+            const MaterialPtr& getMaterial(void) const override;
             /** @copydoc Renderable::getRenderOperation */
-            void getRenderOperation(RenderOperation& op);
+            void getRenderOperation(RenderOperation& op) override;
             /** @copydoc Renderable::getWorldTransforms */
-            void getWorldTransforms(Matrix4* xform) const;
+            void getWorldTransforms(Matrix4* xform) const override;
             /** @copydoc Renderable::getSquaredViewDepth */
-            Real getSquaredViewDepth(const Ogre::Camera *) const;
+            Real getSquaredViewDepth(const Ogre::Camera *) const override;
             /** @copydoc Renderable::getLights */
-            const LightList &getLights(void) const;
+            const LightList &getLights(void) const override;
 
             /// convert this section to a SubMesh
             void convertToSubMesh(SubMesh* sm) const;
@@ -619,7 +619,7 @@ namespace Ogre
 
         /// @copydoc MovableObject::visitRenderables
         void visitRenderables(Renderable::Visitor* visitor, 
-            bool debugRenderables = false);
+            bool debugRenderables = false) override;
         
         
     private:
@@ -700,14 +700,14 @@ namespace Ogre
     class _OgreExport ManualObjectFactory : public MovableObjectFactory
     {
     protected:
-        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params);
+        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params) override;
     public:
         ManualObjectFactory() {}
         ~ManualObjectFactory() {}
 
         static String FACTORY_TYPE_NAME;
 
-        const String& getType(void) const;
+        const String& getType(void) const override;
     };
     /** @} */
     /** @} */

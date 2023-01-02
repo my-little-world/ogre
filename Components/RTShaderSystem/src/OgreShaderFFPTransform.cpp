@@ -34,11 +34,12 @@ namespace RTShader {
 /*                                                                      */
 /************************************************************************/
 String FFPTransform::Type = "FFP_Transform";
+const String SRS_TRANSFORM = "FFP_Transform";
 
 //-----------------------------------------------------------------------
 const String& FFPTransform::getType() const
 {
-    return Type;
+    return SRS_TRANSFORM;
 }
 
 
@@ -85,6 +86,9 @@ bool FFPTransform::createCpuSubPrograms(ProgramSet* programSet)
     auto stage = vsEntry->getStage(FFP_VS_TRANSFORM);
     if(mInstanced)
     {
+        vsProgram->setInstancingIncluded(true);
+        // this at prevents software skinning, which is not supported with instancing
+        vsProgram->setSkeletalAnimationIncluded(true);
         if (isHLSL)
         {
             // set hlsl shader to use row-major matrices instead of column-major.
@@ -131,7 +135,7 @@ void FFPTransform::copyFrom(const SubRenderState& rhs)
 //-----------------------------------------------------------------------
 const String& FFPTransformFactory::getType() const
 {
-    return FFPTransform::Type;
+    return SRS_TRANSFORM;
 }
 
 //-----------------------------------------------------------------------
@@ -142,25 +146,13 @@ SubRenderState* FFPTransformFactory::createInstance(ScriptCompiler* compiler,
     {
         if(prop->values.size() > 0)
         {
-            bool hasError = false;
-            String modelType;
             int texCoordSlot = 1;
 
             auto it = prop->values.begin();
-
-            if(!SGScriptTranslator::getString(*it, &modelType))
-            {
-                hasError = true;
-            }
+            const String& modelType = (*it)->getString();
 
             if(++it != prop->values.end() && !SGScriptTranslator::getInt(*++it, &texCoordSlot))
-                hasError = true;
-
-            if(hasError)
-            {
-                compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
                 return NULL;
-            }
 
             auto ret = static_cast<FFPTransform*>(createOrRetrieveInstance(translator));
             ret->setInstancingParams(modelType == "instanced", texCoordSlot);

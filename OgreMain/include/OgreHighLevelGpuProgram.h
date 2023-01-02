@@ -42,7 +42,7 @@ namespace Ogre {
     */
     /** Abstract base class representing a high-level program (a vertex or
         fragment program).
-    @remarks
+
         High-level programs are vertex and fragment programs written in a high-level
         language such as Cg or HLSL, and as such do not require you to write assembler code
         like GpuProgram does. However, the high-level program does eventually 
@@ -100,11 +100,11 @@ namespace Ogre {
         virtual void buildConstantDefinitions() = 0;
 
         /** @copydoc Resource::loadImpl */
-        void loadImpl();
+        void loadImpl() override;
         /** @copydoc Resource::unloadImpl */
-        void unloadImpl();
+        void unloadImpl() override;
 
-        void setupBaseParamDictionary();
+        void setupBaseParamDictionary() override;
     public:
         /** Constructor, should be used only by factory classes. */
         HighLevelGpuProgram(ResourceManager* creator, const String& name, ResourceHandle handle,
@@ -113,15 +113,15 @@ namespace Ogre {
 
 
         /** Creates a new parameters object compatible with this program definition. 
-        @remarks
+
             Unlike low-level assembly programs, parameters objects are specific to the
             program and therefore must be created from it rather than by the 
             HighLevelGpuProgramManager. This method creates a new instance of a parameters
             object containing the definition of the parameters this program understands.
         */
-        GpuProgramParametersSharedPtr createParameters(void);
+        GpuProgramParametersSharedPtr createParameters(void) override;
         /** @copydoc GpuProgram::_getBindingDelegate */
-        GpuProgram* _getBindingDelegate(void) { return mAssemblerProgram.get(); }
+        GpuProgram* _getBindingDelegate(void) override { return mAssemblerProgram.get(); }
 
         /** Get the full list of GpuConstantDefinition instances.
         @note
@@ -129,7 +129,7 @@ namespace Ogre {
         */
         const GpuNamedConstants& getConstantDefinitions() override;
 
-        virtual size_t calculateSize(void) const;
+        size_t calculateSize(void) const override;
 
         /** Sets the preprocessor defines used to compile the program. */
         void setPreprocessorDefines(const String& defines) { mPreprocessorDefines = defines; }

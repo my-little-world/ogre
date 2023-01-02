@@ -39,7 +39,7 @@ namespace Ogre
     *  @{
     */
     /** Manages the target rendering window.
-        @remarks
+
             This class handles a window into which the contents
             of a scene are rendered. There is a many-to-1 relationship
             between instances of this class an instance of RenderSystem
@@ -47,7 +47,7 @@ namespace Ogre
             more than one window in the case of level editor tools etc.
             This class is abstract since there may be
             different implementations for different windowing systems.
-        @remarks
+
             Instances are created and communicated with by the render system
             although client programs can get a reference to it from
             the render system if required for resizing or moving.
@@ -73,7 +73,7 @@ namespace Ogre
             ~ 100 points per inch (probably 96 on Windows and 72 on Mac), that is independent
             of pixel density of real display, and are used through the all windowing system.
 
-            Sometimes, such view points are choosen bigger for output devices that are viewed
+            Sometimes, such view points are chosen bigger for output devices that are viewed
             from larger distances, like 30" TV comparing to 30" monitor, therefore maintaining
             constant points angular density rather than constant linear density.
 
@@ -151,7 +151,7 @@ namespace Ogre
 
         /** Hide (or show) the window. If called with hidden=true, this
             will make the window completely invisible to the user.
-        @remarks
+
             Setting a window to hidden is useful to create a dummy primary
             RenderWindow hidden from the user so that you can create and
             recreate your actual RenderWindows without having to recreate
@@ -182,7 +182,7 @@ namespace Ogre
 
         /** Overridden from RenderTarget, flags invisible windows as inactive
         */
-        virtual bool isActive(void) const { return mActive && isVisible(); }
+        bool isActive(void) const override { return mActive && isVisible(); }
 
         /** Indicates whether the window has been closed by the user.
         */
@@ -194,7 +194,7 @@ namespace Ogre
             This is the case because it holds the context for vertex,
             index buffers and textures.
         */
-        virtual bool isPrimary(void) const;
+        bool isPrimary(void) const override;
 
         /** Returns true if window is running in fullscreen mode.
         */
@@ -206,7 +206,7 @@ namespace Ogre
         void getMetrics(unsigned int& width, unsigned int& height, int& left, int& top) const;
 
         /// Override since windows don't usually have alpha
-        PixelFormat suggestPixelFormat() const { return PF_BYTE_RGB; }
+        PixelFormat suggestPixelFormat() const override { return PF_BYTE_RGB; }
 
         /** Returns true if the window will automatically de-activate itself when it loses focus.
         */

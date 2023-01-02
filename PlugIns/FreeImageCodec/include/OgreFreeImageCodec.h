@@ -42,7 +42,11 @@ namespace Ogre {
     *  @{
     */
     /** \defgroup FreeImageCodec FreeImageCodec
-    * %Codec specialized in images loaded using [FreeImage](https://freeimage.sourceforge.io/)
+    * %Codec for loading generic image formats (e.g. jpg, png) using [FreeImage](https://freeimage.sourceforge.io/)
+    *
+    * This Codec is well-suited for files that are outside of your control. This merely wraps the original libraries,
+    * so all format variants are supported and security-vulnerabilities are mitigated.
+    * The downside that all external dependencies are required and there might be superfluous pixel conversions.
     *  @{
     */
     class FreeImageCodec : public ImageCodec
@@ -55,19 +59,15 @@ namespace Ogre {
         static RegisteredCodecList msCodecList;
 
         /** Common encoding routine. */
-        FIBITMAP* encodeBitmap(const MemoryDataStreamPtr& input, const CodecDataPtr& pData) const;
+        FIBITMAP* encodeBitmap(Image* image) const;
 
     public:
         FreeImageCodec(const String &type, unsigned int fiType);
         virtual ~FreeImageCodec() { }
 
-        using ImageCodec::decode;
-        using ImageCodec::encode;
-        using ImageCodec::encodeToFile;
-
-        DataStreamPtr encode(const MemoryDataStreamPtr& input, const CodecDataPtr& pData) const override;
-        void encodeToFile(const MemoryDataStreamPtr& input, const String& outFileName, const CodecDataPtr& pData) const  override;
-        DecodeResult decode(const DataStreamPtr& input) const  override;
+        DataStreamPtr encode(const Any& input) const override;
+        void encodeToFile(const Any& input, const String& outFileName) const  override;
+        void decode(const DataStreamPtr& input, const Any& output) const  override;
 
         String getType() const override;
         String magicNumberToFileExt(const char *magicNumberPtr, size_t maxbytes) const override;
@@ -81,11 +81,11 @@ namespace Ogre {
     class _OgreFreeImageCodecExport FreeImagePlugin : public Plugin
     {
     public:
-        const String& getName() const;
-        void install() { FreeImageCodec::startup(); }
-        void uninstall() { FreeImageCodec::shutdown(); }
-        void initialise() {}
-        void shutdown() {}
+        const String& getName() const override;
+        void install() override { FreeImageCodec::startup(); }
+        void uninstall() override { FreeImageCodec::shutdown(); }
+        void initialise() override {}
+        void shutdown() override {}
     };
     /** @} */
     /** @} */

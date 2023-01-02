@@ -72,7 +72,7 @@ namespace Ogre
     };
 
     /** Class representing a font in the system.
-    @remarks
+
     This class is simply a way of getting a font texture into the OGRE system and
     to easily retrieve the texture coordinates required to accurately render them.
     Fonts can either be loaded from precreated textures, or the texture can be generated
@@ -127,12 +127,9 @@ namespace Ogre
         /// Internal method for loading from ttf
         void createTextureFromFont(void);
 
-        /// @copydoc Resource::loadImpl
-        virtual void loadImpl();
-        /// @copydoc Resource::unloadImpl
-        virtual void unloadImpl();
-        /// @copydoc Resource::calculateSize
-        size_t calculateSize(void) const { return 0; } // permanent resource is in the texture 
+        void loadImpl() override;
+        void unloadImpl() override;
+        size_t calculateSize(void) const override { return 0; } // permanent resource is in the texture
     public:
 
         /** Constructor.
@@ -149,7 +146,7 @@ namespace Ogre
         FontType getType(void) const;
 
         /** Sets the source of the font.
-        @remarks
+
             If you have created a font of type FT_IMAGE, this method tells the
             Font which image to use as the source for the characters. So the parameter 
             should be the name of an appropriate image file. Note that when using an image
@@ -182,19 +179,19 @@ namespace Ogre
         void setTrueTypeResolution(uint ttfResolution);
 
         /** Gets the point size of the font used to generate the texture.
-        @remarks
+
             Only applicable for FT_TRUETYPE Font objects.
             Note that the size of the font does not affect how big it is on the screen, 
             just how large it is in the texture and thus how detailed it is.            
         */
         Real getTrueTypeSize(void) const;
         /** Gets the resolution (dpi) of the font used to generate the texture.
-        @remarks
+
             Only applicable for FT_TRUETYPE Font objects.
         */
         uint getTrueTypeResolution(void) const;
         /** Gets the maximum baseline distance of all glyphs used in the texture.
-        @remarks
+
             Only applicable for FT_TRUETYPE Font objects.
             The baseline is the vertical origin of horizontal based glyphs.  The bearingY
             attribute is the distance from the baseline (origin) to the top of the glyph's 
@@ -214,7 +211,7 @@ namespace Ogre
         const UVRect& getGlyphTexCoords(CodePoint id) const { return getGlyphInfo(id).uvRect; }
 
         /** Sets the texture coordinates of a glyph.
-        @remarks
+
             You only need to call this if you're setting up a font loaded from a texture manually.
         @note
             Also sets the aspect ratio (width / height) of this character. textureAspect
@@ -231,7 +228,7 @@ namespace Ogre
         /** Gets the aspect ratio (width / height) of this character. */
         float getGlyphAspectRatio(CodePoint id) const { return getGlyphInfo(id).aspectRatio; }
         /** Sets the aspect ratio (width / height) of this character.
-        @remarks
+
             You only need to call this if you're setting up a font loaded from a 
             texture manually.
         */
@@ -252,15 +249,21 @@ namespace Ogre
             CodePointMap::const_iterator i = mCodePointMap.find(id);
             if (i == mCodePointMap.end())
             {
-                OGRE_EXCEPT(Exception::ERR_ITEM_NOT_FOUND,
-                            StringUtil::format("Code point %d not found in font %s", id, mName.c_str()));
+                // Try a fallback first.
+                i = mCodePointMap.find(static_cast<CodePoint>('?'));
+
+                if (i == mCodePointMap.end())
+                {
+                    OGRE_EXCEPT(Exception::ERR_ITEM_NOT_FOUND, StringUtil::format(
+                        "Code point %d and fallback 63 not found in font %s", id, mName.c_str()));
+                }
             }
             return i->second;
         }
 
         /** Adds a range of code points to the list of code point ranges to generate
             glyphs for, if this is a truetype based font.
-        @remarks
+
             In order to save texture space, only the glyphs which are actually
             needed by the application are generated into the texture. Before this
             object is loaded you must call this method as many times as necessary
@@ -285,7 +288,7 @@ namespace Ogre
             return mCodePointRangeList;
         }
         /** Gets the material generated for this font, as a weak reference. 
-        @remarks
+
             This will only be valid after the Font has been loaded. 
         */
         inline const MaterialPtr& getMaterial() const
@@ -306,7 +309,7 @@ namespace Ogre
 
         /** Sets whether or not the colour of this font is antialiased as it is generated
             from a true type font.
-        @remarks
+
             This is valid only for a FT_TRUETYPE font. If you are planning on using 
             alpha blending to draw your font, then it is a good idea to set this to
             false (which is the default), otherwise the darkening of the font will combine
@@ -331,10 +334,10 @@ namespace Ogre
         /** Implementation of ManualResourceLoader::loadResource, called
             when the Texture that this font creates needs to (re)load.
         */
-        void loadResource(Resource* resource);
+        void loadResource(Resource* resource) override;
 
         /** Manually set the material used for this font.
-        @remarks
+
             This should only be used when the font is being loaded from a
             ManualResourceLoader.
         */

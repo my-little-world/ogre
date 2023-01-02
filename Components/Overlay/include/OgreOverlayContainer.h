@@ -43,11 +43,11 @@ namespace Ogre {
     *  @{
     */
     /** A 2D element which contains other OverlayElement instances.
-    @remarks
+
         This is a specialisation of OverlayElement for 2D elements that contain other
         elements. These are also the smallest elements that can be attached directly
         to an Overlay.
-    @remarks
+
         OverlayContainers should be managed using OverlayManager. This class is responsible for
         instantiating / deleting elements, and also for accepting new types of element
         from plugins etc.
@@ -84,7 +84,7 @@ namespace Ogre {
         virtual OverlayElement* getChild(const String& name);
 
         /** @copydoc OverlayElement::initialise */
-        void initialise(void);
+        void initialise(void) override;
 
         void _addChild(OverlayElement* elem);
         void _removeChild(OverlayElement* elem) { _removeChild(elem->getName()); }
@@ -97,34 +97,34 @@ namespace Ogre {
         OGRE_DEPRECATED virtual ChildIterator getChildIterator(void);
 
         /** Gets an iterator for just the container children of this object.
-        @remarks
+
             Good for cascading updates without having to use RTTI
         */
         virtual ChildContainerIterator getChildContainerIterator(void);
 
         /** Tell the object and its children to recalculate */
-        virtual void _positionsOutOfDate(void);
+        void _positionsOutOfDate(void) override;
 
         /** Overridden from OverlayElement. */
-        virtual void _update(void);
+        void _update(void) override;
 
         /** Overridden from OverlayElement. */
-        virtual ushort _notifyZOrder(ushort newZOrder);
+        ushort _notifyZOrder(ushort newZOrder) override;
 
         /** Overridden from OverlayElement. */
-        virtual void _notifyViewport();
+        void _notifyViewport() override;
 
         /** Overridden from OverlayElement. */
-        virtual void _notifyWorldTransforms(const Matrix4& xform);
+        void _notifyWorldTransforms(const Matrix4& xform) override;
 
         /** Overridden from OverlayElement. */
-        virtual void _notifyParent(OverlayContainer* parent, Overlay* overlay);
+        void _notifyParent(OverlayContainer* parent, Overlay* overlay) override;
 
         /** Overridden from OverlayElement. */
-        virtual void _updateRenderQueue(RenderQueue* queue);
+        void _updateRenderQueue(RenderQueue* queue) override;
 
         /** Overridden from OverlayElement. */
-        inline bool isContainer() const
+        inline bool isContainer() const override
         { return true; }
 
         /** Should this container pass events to their children */
@@ -136,10 +136,10 @@ namespace Ogre {
         { mChildrenProcessEvents = val; }
 
         /** This returns a OverlayElement at position x,y. */
-        virtual OverlayElement* findElementAt(Real x, Real y);      // relative to parent
+        OverlayElement* findElementAt(Real x, Real y) override;      // relative to parent
 
-        void copyFromTemplate(OverlayElement* templateOverlay);
-        virtual OverlayElement* clone(const String& instanceName);
+        void copyFromTemplate(OverlayElement* templateOverlay) override;
+        OverlayElement* clone(const String& instanceName) override;
 
     };
 

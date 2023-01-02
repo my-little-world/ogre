@@ -33,7 +33,7 @@ namespace RTShader {
 /************************************************************************/
 /*                                                                      */
 /************************************************************************/
-String FFPFog::Type = "FFP_Fog";
+const String SRS_FOG = "FFP_Fog";
 
 //-----------------------------------------------------------------------
 FFPFog::FFPFog()
@@ -45,7 +45,7 @@ FFPFog::FFPFog()
 //-----------------------------------------------------------------------
 const String& FFPFog::getType() const
 {
-    return Type;
+    return SRS_FOG;
 }
 
 //-----------------------------------------------------------------------
@@ -112,7 +112,6 @@ bool FFPFog::resolveDependencies(ProgramSet* programSet)
     Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
 
     vsProgram->addDependency(FFP_LIB_FOG);
-    psProgram->addDependency(FFP_LIB_COMMON);
 
     // Per pixel fog.
     if (mCalcMode == CM_PER_PIXEL)
@@ -180,11 +179,8 @@ bool FFPFog::addFunctionInvocations(ProgramSet* programSet)
         auto vsFogStage = vsMain->getStage(FFP_VS_FOG);
         vsFogStage.callFunction(fogfunc, mVSOutPos, mFogParams, mVSOutFogFactor);
         //! [func_invoc]
-        psMain->getStage(FFP_VS_FOG)
-            .callFunction(FFP_FUNC_LERP, {In(mFogColour), In(mPSOutDiffuse), In(mPSInFogFactor), Out(mPSOutDiffuse)});
+        psMain->getStage(FFP_VS_FOG).callBuiltin("mix", mFogColour, mPSOutDiffuse, mPSInFogFactor, mPSOutDiffuse);
     }
-
-
 
     return true;
 }
@@ -217,7 +213,7 @@ bool FFPFog::preAddToRenderState(const RenderState* renderState, Pass* srcPass, 
 //-----------------------------------------------------------------------
 bool FFPFog::setParameter(const String& name, const String& value)
 {
-	if(name == "calc_mode")
+	if(name == "calc_mode" && !value.empty())
 	{
         CalcMode cm = value == "per_vertex" ? CM_PER_VERTEX : CM_PER_PIXEL;
 		setCalcMode(cm);
@@ -230,7 +226,7 @@ bool FFPFog::setParameter(const String& name, const String& value)
 //-----------------------------------------------------------------------
 const String& FFPFogFactory::getType() const
 {
-    return FFPFog::Type;
+    return SRS_FOG;
 }
 
 //-----------------------------------------------------------------------
@@ -241,30 +237,16 @@ SubRenderState* FFPFogFactory::createInstance(ScriptCompiler* compiler,
     {
         if(prop->values.size() >= 1)
         {
-            String strValue;
-
-            if(false == SGScriptTranslator::getString(prop->values.front(), &strValue))
-            {
-                compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-                return NULL;
-            }
-
-            if (strValue == "ffp")
+            if (prop->values.front()->getString() == "ffp")
             {
                 SubRenderState* subRenderState = createOrRetrieveInstance(translator);
-                FFPFog* fogSubRenderState = static_cast<FFPFog*>(subRenderState);
                 AbstractNodeList::const_iterator it = prop->values.begin();
 
                 if(prop->values.size() >= 2)
                 {
                     ++it;
-                    if (false == SGScriptTranslator::getString(*it, &strValue))
-                    {
-                        compiler->addError(ScriptCompiler::CE_STRINGEXPECTED, prop->file, prop->line);
-                        return NULL;
-                    }
-
-                    fogSubRenderState->setParameter("calc_mode", strValue);
+                    if(!subRenderState->setParameter("calc_mode", (*it)->getString()))
+                        compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
                 }
                 
                 return subRenderState;

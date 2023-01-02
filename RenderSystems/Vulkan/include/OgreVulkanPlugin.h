@@ -29,10 +29,12 @@ THE SOFTWARE.
 #define __VulkanPlugin_H__
 
 #include "OgrePlugin.h"
-#include "OgreVulkanRenderSystem.h"
+#include "OgreVulkanExports.h"
 
 namespace Ogre
 {
+    class VulkanRenderSystem;
+
     /** Plugin instance for Vulkan Manager */
     class _OgreVulkanExport VulkanPlugin : public Plugin
     {
@@ -40,19 +42,19 @@ namespace Ogre
         VulkanPlugin();
 
         /// @copydoc Plugin::getName
-        const String &getName() const;
+        const String &getName() const override;
 
         /// @copydoc Plugin::install
-        void install();
+        void install() override;
 
         /// @copydoc Plugin::initialise
-        void initialise();
+        void initialise() override;
 
         /// @copydoc Plugin::shutdown
-        void shutdown();
+        void shutdown() override;
 
         /// @copydoc Plugin::uninstall
-        void uninstall();
+        void uninstall() override;
 
     protected:
         VulkanRenderSystem *mRenderSystem;

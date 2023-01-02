@@ -162,6 +162,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------------
     Image& Image::operator=(const Image& img)
     {
+        if (this == &img)
+            return *this;
+
         // Only create & copy when other data was owning
         if (img.mBuffer && img.mAutoDelete)
         {
@@ -200,7 +203,7 @@ namespace Ogre {
         OgreAssert(mBuffer, "No image data loaded");
         mNumMipmaps = 0; // Image operations lose precomputed mipmaps
 
-        ushort y;
+        uint32 y;
         switch (mPixelSize)
         {
         case 1:
@@ -388,64 +391,6 @@ namespace Ogre {
         else
             return BLANKSTRING;
 
-    }
-    //-----------------------------------------------------------------------------
-    size_t Image::getSize() const
-    {
-        return mBufSize;
-    }
-
-    //-----------------------------------------------------------------------------
-    uint32 Image::getNumMipmaps() const
-    {
-        return mNumMipmaps;
-    }
-
-    //-----------------------------------------------------------------------------
-    bool Image::hasFlag(const ImageFlags imgFlag) const
-    {
-        return (mFlags & imgFlag) != 0;
-    }
-
-    //-----------------------------------------------------------------------------
-    uint32 Image::getDepth() const
-    {
-        return mDepth;
-    }
-    //-----------------------------------------------------------------------------
-    uint32 Image::getWidth() const
-    {
-        return mWidth;
-    }
-
-    //-----------------------------------------------------------------------------
-    uint32 Image::getHeight() const
-    {
-        return mHeight;
-    }
-    //-----------------------------------------------------------------------------
-    uint32 Image::getNumFaces(void) const
-    {
-        if(hasFlag(IF_CUBEMAP))
-            return 6;
-        return 1;
-    }
-    //-----------------------------------------------------------------------------
-    size_t Image::getRowSpan() const
-    {
-        return mWidth * mPixelSize;
-    }
-
-    //-----------------------------------------------------------------------------
-    PixelFormat Image::getFormat() const
-    {
-        return mFormat;
-    }
-
-    //-----------------------------------------------------------------------------
-    uchar Image::getBPP() const
-    {
-        return mPixelSize * 8;
     }
 
     //-----------------------------------------------------------------------------

@@ -107,7 +107,7 @@ namespace Ogre
         /// Get the PagedWorldSection this page belongs to
         virtual PagedWorldSection* getParentSection() const { return mParent; }
         /** Get the frame number in which this Page was last loaded or held.
-        @remarks
+
             A Page that has not been requested to be loaded or held in the recent
             past will be a candidate for removal.
         */
@@ -168,13 +168,13 @@ namespace Ogre
         const ContentCollectionList& getContentCollectionList() const;
 
         /// WorkQueue::RequestHandler override
-        bool canHandleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ);
+        bool canHandleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ) override;
         /// WorkQueue::RequestHandler override
-        WorkQueue::Response* handleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ);
+        WorkQueue::Response* handleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ) override;
         /// WorkQueue::ResponseHandler override
-        bool canHandleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ);
+        bool canHandleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ) override;
         /// WorkQueue::ResponseHandler override
-        void handleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ);
+        void handleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ) override;
 
 
         /// Tell the page that it is modified

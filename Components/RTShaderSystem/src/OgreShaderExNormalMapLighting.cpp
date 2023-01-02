@@ -28,7 +28,6 @@ THE SOFTWARE.
 #ifdef RTSHADER_SYSTEM_BUILD_EXT_SHADERS
 
 #define SGX_LIB_NORMALMAP                           "SGXLib_NormalMap"
-#define SGX_FUNC_CONSTRUCT_TBNMATRIX                "SGX_ConstructTBNMatrix"
 #define SGX_FUNC_FETCHNORMAL                        "SGX_FetchNormal"
 
 namespace Ogre {
@@ -37,7 +36,7 @@ namespace RTShader {
 /************************************************************************/
 /*                                                                      */
 /************************************************************************/
-String NormalMapLighting::Type                      = "NormalMap";
+const String SRS_NORMALMAP                      = "NormalMap";
 
 //-----------------------------------------------------------------------
 NormalMapLighting::NormalMapLighting()
@@ -52,7 +51,7 @@ NormalMapLighting::NormalMapLighting()
 //-----------------------------------------------------------------------
 const String& NormalMapLighting::getType() const
 {
-    return Type;
+    return SRS_NORMALMAP;
 }
 //-----------------------------------------------------------------------
 bool NormalMapLighting::createCpuSubPrograms(ProgramSet* programSet)
@@ -100,14 +99,14 @@ bool NormalMapLighting::createCpuSubPrograms(ProgramSet* programSet)
 
         // transform normal & tangent
         auto normalMatrix = vsProgram->resolveParameter(GpuProgramParameters::ACT_NORMAL_MATRIX);
-        vstage.callFunction(FFP_FUNC_TRANSFORM, normalMatrix, vsInNormal, vsOutNormal);
-        vstage.callFunction(FFP_FUNC_TRANSFORM, normalMatrix, vsInTangent, vsOutTangent);
+        vstage.callBuiltin("mul", normalMatrix, vsInNormal, vsOutNormal);
+        vstage.callBuiltin("normalize", vsOutNormal, vsOutNormal);
+        vstage.callBuiltin("mul", normalMatrix, In(vsInTangent).xyz(), Out(vsOutTangent).xyz());
+        vstage.callBuiltin("normalize", In(vsOutTangent).xyz(), Out(vsOutTangent).xyz());
+        vstage.assign(In(vsInTangent).w(), Out(vsOutTangent).w());
 
-        // Construct TBN matrix.
-        auto TBNMatrix = psMain->resolveLocalParameter(GCT_MATRIX_3X3, "lMatTBN");
-        fstage.callFunction(SGX_FUNC_CONSTRUCT_TBNMATRIX, viewNormal, psInTangent, TBNMatrix);
         // transform normal
-        fstage.callFunction(FFP_FUNC_TRANSFORM, TBNMatrix, newViewNormal, newViewNormal);
+        fstage.callFunction("SGX_TransformNormal", {In(viewNormal), In(psInTangent), InOut(newViewNormal)});
     }
     else if (mNormalMapSpace & NMS_OBJECT)
     {
@@ -181,13 +180,13 @@ bool NormalMapLighting::setParameter(const String& name, const String& value)
 		return false;
 	}
 
-	if(name == "texture")
+	if(name == "texture" && !value.empty())
 	{
-		setNormalMapTextureName(value);
+		mNormalMapTextureName = value;
 		return true;
 	}
 
-	if(name == "texcoord_index")
+	if(name == "texcoord_index" && !value.empty())
 	{
 		setTexCoordIndex(StringConverter::parseInt(value));
 		return true;
@@ -195,7 +194,10 @@ bool NormalMapLighting::setParameter(const String& name, const String& value)
 
     if(name == "sampler")
     {
-        setNormalMapSampler(TextureManager::getSingleton().getSampler(value));
+        auto sampler = TextureManager::getSingleton().getSampler(value);
+        if(!sampler)
+            return false;
+        mNormalMapSampler = sampler;
         return true;
     }
 
@@ -205,7 +207,7 @@ bool NormalMapLighting::setParameter(const String& name, const String& value)
 //-----------------------------------------------------------------------
 const String& NormalMapLightingFactory::getType() const
 {
-    return NormalMapLighting::Type;
+    return SRS_NORMALMAP;
 }
 
 //-----------------------------------------------------------------------
@@ -216,47 +218,24 @@ SubRenderState* NormalMapLightingFactory::createInstance(ScriptCompiler* compile
     {
         if(prop->values.size() >= 2)
         {
-            String strValue;
             AbstractNodeList::const_iterator it = prop->values.begin();
             
-            // Read light model type.
-            if(false == SGScriptTranslator::getString(*it, &strValue))
-            {
-                compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-                return NULL;
-            }
-
             // Case light model type is normal map
-            if (strValue == "normal_map")
+            if ((*it)->getString() == "normal_map")
             {
                 ++it;
-                if (false == SGScriptTranslator::getString(*it, &strValue))
-                {
-                    compiler->addError(ScriptCompiler::CE_STRINGEXPECTED, prop->file, prop->line);
-                    return NULL;
-                }
-
-                
                 SubRenderState* subRenderState = createOrRetrieveInstance(translator);
                 NormalMapLighting* normalMapSubRenderState = static_cast<NormalMapLighting*>(subRenderState);
                 
-                normalMapSubRenderState->setNormalMapTextureName(strValue);
+                subRenderState->setParameter("texture", (*it)->getString());
 
-                
                 // Read normal map space type.
                 if (prop->values.size() >= 3)
                 {                   
                     ++it;
-                    if (false == SGScriptTranslator::getString(*it, &strValue))
-                    {
-                        compiler->addError(ScriptCompiler::CE_STRINGEXPECTED, prop->file, prop->line);
-                        return NULL;
-                    }
-
-                    if(!normalMapSubRenderState->setParameter("normalmap_space", strValue))
+                    if(!subRenderState->setParameter("normalmap_space", (*it)->getString()))
                     {
                         compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-                        return NULL;
                     }
                 }
 
@@ -276,14 +255,11 @@ SubRenderState* NormalMapLightingFactory::createInstance(ScriptCompiler* compile
                 if (prop->values.size() >= 5)
                 {
                     ++it;
-                    if (false == SGScriptTranslator::getString(*it, &strValue))
-                    {
-                        compiler->addError(ScriptCompiler::CE_STRINGEXPECTED, prop->file, prop->line);
-                        return NULL;
-                    }
-
                     // sampler reference
-                    normalMapSubRenderState->setParameter("sampler", strValue);
+                    if(!normalMapSubRenderState->setParameter("sampler", (*it)->getString()))
+                    {
+                        compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
+                    }
                 }
                                 
                 return subRenderState;                              

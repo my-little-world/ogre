@@ -131,39 +131,40 @@ endif ()
 if (NOT OGRE_BUILD_PLUGIN_STBI)
   set(OGRE_COMMENT_PLUGIN_STBI "#")
 endif ()
+if (NOT OGRE_BUILD_PLUGIN_RSIMAGE OR OGRE_BUILD_PLUGIN_STBI)
+  # has to be explicitely requested by disabeling STBI
+  set(OGRE_COMMENT_PLUGIN_RSIMAGE "#")
+endif ()
 if (NOT OGRE_BUILD_PLUGIN_DOT_SCENE)
   set(OGRE_COMMENT_PLUGIN_DOT_SCENE "#")
 endif ()
 if (NOT OGRE_BUILD_PLUGIN_ASSIMP)
   set(OGRE_COMMENT_PLUGIN_ASSIMP "#")
 endif ()
-if (NOT OGRE_BUILD_PLUGIN_FREEIMAGE OR OGRE_BUILD_PLUGIN_STBI)
+if (NOT OGRE_BUILD_PLUGIN_FREEIMAGE OR OGRE_BUILD_PLUGIN_STBI OR OGRE_BUILD_PLUGIN_RSIMAGE)
   # has to be explicitely requested by disabeling STBI
   set(OGRE_COMMENT_PLUGIN_FREEIMAGE "#")
 endif ()
-if (NOT OGRE_BUILD_PLUGIN_EXRCODEC OR NOT OGRE_COMMENT_PLUGIN_FREEIMAGE)
+if (NOT OGRE_BUILD_PLUGIN_EXRCODEC OR OGRE_COMMENT_PLUGIN_FREEIMAGE OR OGRE_BUILD_PLUGIN_RSIMAGE)
   # overlaps with freeimage
   set(OGRE_COMMENT_PLUGIN_EXRCODEC "#")
-endif ()
-if (NOT OGRE_BUILD_COMPONENT_TERRAIN)
-  set(OGRE_COMMENT_COMPONENT_TERRAIN "#")
-endif ()
-if (NOT OGRE_BUILD_COMPONENT_RTSHADERSYSTEM)
-  set(OGRE_COMMENT_COMPONENT_RTSHADERSYSTEM "#")
-endif ()
-if (NOT OGRE_BUILD_COMPONENT_VOLUME)
-  set(OGRE_COMMENT_COMPONENT_VOLUME "#")
-endif ()
-if (NOT OGRE_BUILD_COMPONENT_TERRAIN OR NOT OGRE_BUILD_COMPONENT_PAGING)
-  set(OGRE_COMMENT_SAMPLE_ENDLESSWORLD "#")
 endif ()
 if(NOT OGRE_BUILD_TESTS)
   set(OGRE_COMMENT_PLAYPENTESTS "#")
 endif()
 
+set(OGRE_SAMPLE_RESOURCES "")
 
 set(OGRE_CORE_MEDIA_DIR "${OGRE_MEDIA_DIR_REL}")
+
 # CREATE CONFIG FILES - INSTALL VERSIONS
+
+if(OGRE_INSTALL_SAMPLES)
+  # deal with sample resources
+  configure_file(${OGRE_TEMPLATES_DIR}/sample_resources.cfg.in ${PROJECT_BINARY_DIR}/sample_resources.cfg)
+  file(READ ${PROJECT_BINARY_DIR}/sample_resources.cfg OGRE_SAMPLE_RESOURCES)
+endif()
+
 configure_file(${OGRE_TEMPLATES_DIR}/resources.cfg.in ${PROJECT_BINARY_DIR}/inst/bin/resources.cfg)
 configure_file(${OGRE_TEMPLATES_DIR}/plugins.cfg.in ${PROJECT_BINARY_DIR}/inst/bin/plugins.cfg)
 configure_file(${OGRE_TEMPLATES_DIR}/samples.cfg.in ${PROJECT_BINARY_DIR}/inst/bin/samples.cfg)
@@ -172,7 +173,6 @@ configure_file(${OGRE_TEMPLATES_DIR}/samples.cfg.in ${PROJECT_BINARY_DIR}/inst/b
 install(FILES 
   ${PROJECT_BINARY_DIR}/inst/bin/resources.cfg
   ${PROJECT_BINARY_DIR}/inst/bin/plugins.cfg
-  ${PROJECT_BINARY_DIR}/inst/bin/samples.cfg
   DESTINATION "${OGRE_CFG_INSTALL_PATH}"
 )
 
@@ -198,6 +198,12 @@ elseif (UNIX)
   set(OGRE_PLUGIN_DIR_REL "${PROJECT_BINARY_DIR}/lib")
   set(OGRE_SAMPLES_DIR_REL "${PROJECT_BINARY_DIR}/lib")
 endif ()
+
+if(OGRE_BUILD_SAMPLES)
+  # deal with sample resources
+  configure_file(${OGRE_TEMPLATES_DIR}/sample_resources.cfg.in ${PROJECT_BINARY_DIR}/sample_resources.cfg)
+  file(READ ${PROJECT_BINARY_DIR}/sample_resources.cfg OGRE_SAMPLE_RESOURCES)
+endif()
 
 if (WINDOWS_STORE OR WINDOWS_PHONE OR EMSCRIPTEN)
   # These platfroms requires all resources to be packaged inside the application bundle,
@@ -238,17 +244,9 @@ if (NOT OGRE_CMAKE_DIR)
   endif()
 endif()
 
-if (NOT OGRE_PLUGIN_DIR_CMAKE)
-  if(WIN32)
-    set(OGRE_PLUGIN_DIR_CMAKE "bin")
-  else()
-    set(OGRE_PLUGIN_DIR_CMAKE "${OGRE_LIB_DIRECTORY}/OGRE")
-  endif()
-endif()
-
 configure_package_config_file(${OGRE_TEMPLATES_DIR}/OGREConfig.cmake.in ${PROJECT_BINARY_DIR}/cmake/OGREConfig.cmake
     INSTALL_DESTINATION ${OGRE_CMAKE_DIR}
-    PATH_VARS OGRE_MEDIA_PATH OGRE_PLUGIN_DIR_CMAKE OGRE_CFG_INSTALL_PATH CMAKE_INSTALL_PREFIX)
+    PATH_VARS OGRE_MEDIA_PATH OGRE_PLUGINS_PATH OGRE_CFG_INSTALL_PATH CMAKE_INSTALL_PREFIX)
 write_basic_package_version_file(
     ${PROJECT_BINARY_DIR}/cmake/OGREConfigVersion.cmake 
     VERSION ${OGRE_VERSION} 

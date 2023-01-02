@@ -42,31 +42,31 @@ namespace Ogre {
     */
     /** This affector defines a plane which deflects particles which collide with it.
     */
-    class _OgreParticleFXExport DeflectorPlaneAffector : public ParticleAffector
+    class DeflectorPlaneAffector : public ParticleAffector
     {
     public:
         /** Command object for plane point (see ParamCommand).*/
         class CmdPlanePoint : public ParamCommand
         {
         public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
+            String doGet(const void* target) const override;
+            void doSet(void* target, const String& val) override;
         };
 
         /** Command object for plane normal (see ParamCommand).*/
         class CmdPlaneNormal : public ParamCommand
         {
         public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
+            String doGet(const void* target) const override;
+            void doSet(void* target, const String& val) override;
         };
 
         /** Command object for bounce (see ParamCommand).*/
         class CmdBounce : public ParamCommand
         {
         public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
+            String doGet(const void* target) const override;
+            void doSet(void* target, const String& val) override;
         };
 
         /// Default constructor

@@ -49,9 +49,9 @@ RenderState::~RenderState()
 //-----------------------------------------------------------------------
 void RenderState::reset()
 {
-    for (SubRenderStateListIterator it=mSubRenderStateList.begin(); it != mSubRenderStateList.end(); ++it)
+    for (auto & it : mSubRenderStateList)
     {
-        ShaderGenerator::getSingleton().destroySubRenderState(*it);
+        ShaderGenerator::getSingleton().destroySubRenderState(it);
     }
     mSubRenderStateList.clear();
 }
@@ -68,16 +68,24 @@ const Vector3i& RenderState::getLightCount() const
     return mLightCount;
 }
 
+void RenderState::addTemplateSubRenderStates(const StringVector& srsTypes)
+{
+    for (auto& srsType : srsTypes)
+    {
+        addTemplateSubRenderState(ShaderGenerator::getSingleton().createSubRenderState(srsType));
+    }
+}
+
 //-----------------------------------------------------------------------
 void RenderState::addTemplateSubRenderState(SubRenderState* subRenderState)
 {
     bool addSubRenderState = true;
 
     // Go over the current sub render state.
-    for (SubRenderStateListIterator it=mSubRenderStateList.begin(); it != mSubRenderStateList.end(); ++it)
+    for (auto & it : mSubRenderStateList)
     {
         // Case the same instance already exists -> do not add to list.
-        if (*it == subRenderState)
+        if (it == subRenderState)
         {
             addSubRenderState = false;
             break;
@@ -86,9 +94,9 @@ void RenderState::addTemplateSubRenderState(SubRenderState* subRenderState)
         // Case it is different sub render state instance with the same type, use the new sub render state
         // instead of the previous sub render state. This scenario is usually caused by material inheritance, so we use the derived material sub render state
         // and destroy the base sub render state.
-        else if ((*it)->getType() == subRenderState->getType())
+        else if (it->getType() == subRenderState->getType())
         {
-            removeSubRenderState(*it);
+            removeSubRenderState(it);
             break;
         }
     }
@@ -108,6 +116,17 @@ void RenderState::removeSubRenderState(SubRenderState* subRenderState)
 
     mSubRenderStateList.erase(it);
     ShaderGenerator::getSingleton().destroySubRenderState(subRenderState);
+}
+
+SubRenderState* RenderState::getSubRenderState(const String& type) const
+{
+    for (auto srs : mSubRenderStateList)
+    {
+        if (srs->getType() == type)
+            return srs;
+    }
+
+    return nullptr;
 }
 
 //-----------------------------------------------------------------------
@@ -194,21 +213,13 @@ void TargetRenderState::releasePrograms(Pass* pass)
 static void fixupFFPLighting(TargetRenderState* renderState)
 {
 #ifdef RTSHADER_SYSTEM_BUILD_CORE_SHADERS
-    const SubRenderStateList& subRenderStateList = renderState->getSubRenderStates();
-    auto it = std::find_if(subRenderStateList.begin(), subRenderStateList.end(),
-                           [](const SubRenderState* e) { return e->getType() == FFPLighting::Type; });
+    auto ffpLighting = static_cast<FFPLighting*>(renderState->getSubRenderState(SRS_PER_VERTEX_LIGHTING));
 
-    if (it == subRenderStateList.end())
+    if (!ffpLighting)
         return;
 
-    auto ffpLighting = static_cast<FFPLighting*>(*it);
-
-    it = std::find_if(subRenderStateList.begin(), subRenderStateList.end(),
-                      [](const SubRenderState* e) { return e->getType() == FFPColour::Type; });
-
-    OgreAssert(it != subRenderStateList.end(), "FFPColour required");
-
-    auto ffpColour = static_cast<FFPColour*>(*it);
+    auto ffpColour = static_cast<FFPColour*>(renderState->getSubRenderState(SRS_VERTEX_COLOUR));
+    OgreAssert(ffpColour, "SRS_VERTEX_COLOUR required");
     ffpColour->addResolveStageMask(FFPColour::SF_VS_OUTPUT_DIFFUSE);
 
     if(ffpLighting->getSpecularEnable())
@@ -227,10 +238,8 @@ void TargetRenderState::createCpuPrograms()
     programSet->setCpuProgram(std::unique_ptr<Program>(new Program(GPT_VERTEX_PROGRAM)));
     programSet->setCpuProgram(std::unique_ptr<Program>(new Program(GPT_FRAGMENT_PROGRAM)));
 
-    for (SubRenderStateListIterator it=mSubRenderStateList.begin(); it != mSubRenderStateList.end(); ++it)
+    for (auto srcSubRenderState : mSubRenderStateList)
     {
-        SubRenderState* srcSubRenderState = *it;
-
         if (!srcSubRenderState->createCpuSubPrograms(programSet))
         {
             OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
@@ -251,10 +260,8 @@ ProgramSet* TargetRenderState::createProgramSet()
 void TargetRenderState::updateGpuProgramsParams(Renderable* rend, const Pass* pass, const AutoParamDataSource* source,
                                                 const LightList* pLightList)
 {
-    for (SubRenderStateListIterator it=mSubRenderStateList.begin(); it != mSubRenderStateList.end(); ++it)
+    for (auto curSubRenderState : mSubRenderStateList)
     {
-        SubRenderState* curSubRenderState = *it;
-
         curSubRenderState->updateGpuProgramsParams(rend, pass, source, pLightList);     
     }
 }

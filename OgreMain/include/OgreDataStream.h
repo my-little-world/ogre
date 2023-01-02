@@ -43,7 +43,7 @@ namespace Ogre {
     */
 
     /** General purpose class used for encapsulating the reading and writing of data.
-    @remarks
+
         This class performs basically the same tasks as std::basic_istream, 
         except that it does not have any formatting capabilities, and is
         designed to be subclassed to receive data from multiple sources,
@@ -117,7 +117,7 @@ namespace Ogre {
         }
 
         /** Get a single line from the stream.
-        @remarks
+
             The delimiter character is not included in the data
             returned, and it is skipped over so the next read will occur
             after it. The buffer contents will include a
@@ -134,7 +134,7 @@ namespace Ogre {
         
         /** Returns a String containing the next line of data, optionally 
             trimmed for whitespace. 
-        @remarks
+
             This is a convenience method for text streams only, allowing you to 
             retrieve a String object containing the next line of data. The data
             is read up to the next newline character and the result trimmed if
@@ -149,7 +149,7 @@ namespace Ogre {
         virtual String getLine( bool trimAfter = true );
 
         /** Returns a String containing the entire stream. 
-        @remarks
+
             This is a convenience method for text streams only, allowing you to 
             retrieve a String object containing all the data in the stream.
         */
@@ -236,7 +236,7 @@ namespace Ogre {
                 bool freeOnClose = false, bool readOnly = false);
 
         /** Create a stream which pre-buffers the contents of another stream.
-        @remarks
+
             This constructor can be used to intentionally read in the entire
             contents of another stream, copying them to the internal buffer
             and thus making them available in memory as a single unit.
@@ -250,7 +250,7 @@ namespace Ogre {
                 bool freeOnClose = true, bool readOnly = false);
         
         /** Create a stream which pre-buffers the contents of another stream.
-        @remarks
+
             This constructor can be used to intentionally read in the entire
             contents of another stream, copying them to the internal buffer
             and thus making them available in memory as a single unit.
@@ -265,7 +265,7 @@ namespace Ogre {
 
         /** Create a named stream which pre-buffers the contents of 
             another stream.
-        @remarks
+
             This constructor can be used to intentionally read in the entire
             contents of another stream, copying them to the internal buffer
             and thus making them available in memory as a single unit.
@@ -281,7 +281,7 @@ namespace Ogre {
 
         /** Create a named stream which pre-buffers the contents of 
         another stream.
-        @remarks
+
         This constructor can be used to intentionally read in the entire
         contents of another stream, copying them to the internal buffer
         and thus making them available in memory as a single unit.
@@ -322,39 +322,39 @@ namespace Ogre {
         
         /** @copydoc DataStream::read
         */
-        size_t read(void* buf, size_t count);
+        size_t read(void* buf, size_t count) override;
 
         /** @copydoc DataStream::write
         */
-        size_t write(const void* buf, size_t count);
+        size_t write(const void* buf, size_t count) override;
 
         /** @copydoc DataStream::readLine
         */
-        size_t readLine(char* buf, size_t maxCount, const String& delim = "\n");
+        size_t readLine(char* buf, size_t maxCount, const String& delim = "\n") override;
         
         /** @copydoc DataStream::skipLine
         */
-        size_t skipLine(const String& delim = "\n");
+        size_t skipLine(const String& delim = "\n") override;
 
         /** @copydoc DataStream::skip
         */
-        void skip(long count);
+        void skip(long count) override;
     
         /** @copydoc DataStream::seek
         */
-        void seek( size_t pos );
+        void seek( size_t pos ) override;
         
         /** @copydoc DataStream::tell
         */
-        size_t tell(void) const;
+        size_t tell(void) const override;
 
         /** @copydoc DataStream::eof
         */
-        bool eof(void) const;
+        bool eof(void) const override;
 
         /** @copydoc DataStream::close
         */
-        void close(void);
+        void close(void) override;
 
         /** Sets whether or not to free the encapsulated memory on close. */
         void setFreeOnClose(bool free) { mFreeOnClose = free; }
@@ -412,7 +412,7 @@ namespace Ogre {
             bool freeOnClose = true);
 
         /** Construct named read-only stream from an STL stream, and tell it the size
-        @remarks
+
             This variant tells the class the size of the stream too, which 
             means this class does not need to seek to the end of the stream 
             to determine the size up-front. This can be beneficial if you have
@@ -431,7 +431,7 @@ namespace Ogre {
             bool freeOnClose = true);
 
         /** Construct named read-write stream from an STL stream, and tell it the size
-        @remarks
+
         This variant tells the class the size of the stream too, which 
         means this class does not need to seek to the end of the stream 
         to determine the size up-front. This can be beneficial if you have
@@ -453,42 +453,42 @@ namespace Ogre {
 
         /** @copydoc DataStream::read
         */
-        size_t read(void* buf, size_t count);
+        size_t read(void* buf, size_t count) override;
 
         /** @copydoc DataStream::write
         */
-        size_t write(const void* buf, size_t count);
+        size_t write(const void* buf, size_t count) override;
 
         /** @copydoc DataStream::readLine
         */
-        size_t readLine(char* buf, size_t maxCount, const String& delim = "\n");
+        size_t readLine(char* buf, size_t maxCount, const String& delim = "\n") override;
         
         /** @copydoc DataStream::skip
         */
-        void skip(long count);
+        void skip(long count) override;
     
         /** @copydoc DataStream::seek
         */
-        void seek( size_t pos );
+        void seek( size_t pos ) override;
 
         /** @copydoc DataStream::tell
         */
-        size_t tell(void) const;
+        size_t tell(void) const override;
 
         /** @copydoc DataStream::eof
         */
-        bool eof(void) const;
+        bool eof(void) const override;
 
         /** @copydoc DataStream::close
         */
-        void close(void);
+        void close(void) override;
         
         
     };
 
     /** Common subclass of DataStream for handling data from C-style file 
         handles.
-    @remarks
+
         Use of this class is generally discouraged; if you want to wrap file
         access in a DataStream, you should definitely be using the C++ friendly
         FileStreamDataStream. However, since there are quite a few applications
@@ -508,31 +508,31 @@ namespace Ogre {
 
         /** @copydoc DataStream::read
         */
-        size_t read(void* buf, size_t count);
+        size_t read(void* buf, size_t count) override;
 
         /** @copydoc DataStream::write
         */
-        size_t write(const void* buf, size_t count);
+        size_t write(const void* buf, size_t count) override;
 
         /** @copydoc DataStream::skip
         */
-        void skip(long count);
+        void skip(long count) override;
     
         /** @copydoc DataStream::seek
         */
-        void seek( size_t pos );
+        void seek( size_t pos ) override;
 
         /** @copydoc DataStream::tell
         */
-        size_t tell(void) const;
+        size_t tell(void) const override;
 
         /** @copydoc DataStream::eof
         */
-        bool eof(void) const;
+        bool eof(void) const override;
 
         /** @copydoc DataStream::close
         */
-        void close(void);
+        void close(void) override;
 
     };
     /** @} */

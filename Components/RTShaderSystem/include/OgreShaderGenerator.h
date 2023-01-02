@@ -76,7 +76,7 @@ public:
 
 
     /** Override standard Singleton retrieval.
-    @remarks
+
     Why do we do this? Well, it's because the Singleton
     implementation is in a .h file, which means it gets compiled
     into anybody who includes it. This is needed for the
@@ -440,7 +440,7 @@ public:
     */
     const String& getRTShaderScheme(size_t index) const;
 
-    /// Default material scheme of the shader generator.
+    /// same as @ref MSN_SHADERGEN
     static String DEFAULT_SCHEME_NAME;
 
 private:
@@ -785,22 +785,6 @@ private:
     /** Return a matching script translator. */
     ScriptTranslator* getTranslator(const AbstractNodePtr& node);
 
-
-    /** This method called by instance of SGMaterialSerializerListener and 
-    serialize a given pass entry attributes.
-    @param ser The material serializer.
-    @param passEntry The SGPass instance.
-    */
-    void serializePassAttributes(MaterialSerializer* ser, SGPass* passEntry);
-
-    /** This method called by instance of SGMaterialSerializerListener and 
-    serialize a given textureUnitState entry attributes.
-    @param ser The material serializer.
-    @param passEntry The SGPass instance.
-    @param srcTextureUnit The TextureUnitState being serialized.
-    */
-    void serializeTextureUnitStateAttributes(MaterialSerializer* ser, SGPass* passEntry, const TextureUnitState* srcTextureUnit);
-
     /** Finds an entry iterator in the mMaterialEntriesMap map.
     This function is able to find materials with group specified as 
     AUTODETECT_RESOURCE_GROUP_NAME 
@@ -854,8 +838,6 @@ private:
     std::unique_ptr<ProgramWriterManager> mProgramWriterManager;
     // File system layer manager.
     FileSystemLayer* mFSLayer;
-    // Fixed Function Render state builder.
-    std::unique_ptr<FFPRenderStateBuilder> mFFPRenderStateBuilder;
     // Material entries map.
     SGMaterialMap mMaterialEntriesMap;
     // Scheme entries map.
@@ -880,7 +862,6 @@ private:
     uint32 ID_RT_SHADER_SYSTEM;
 
     friend class SGPass;
-    friend class FFPRenderStateBuilder;
     friend class SGScriptTranslatorManager;
     friend class SGScriptTranslator;
     friend class SGMaterialSerializerListener;

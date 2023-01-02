@@ -33,12 +33,12 @@ THE SOFTWARE.
 namespace Ogre {
 
     /** Default pass hash function.
-    @remarks
+
         Tries to minimise the number of texture changes.
     */
     struct MinTextureStateChangeHashFunc : public Pass::HashFunc
     {
-        uint32 operator()(const Pass* p) const
+        uint32 operator()(const Pass* p) const override
         {
             OGRE_LOCK_MUTEX(p->mTexUnitChangeMutex);
             uint32 hash = 0;
@@ -56,12 +56,12 @@ namespace Ogre {
     };
     MinTextureStateChangeHashFunc sMinTextureStateChangeHashFunc;
     /** Alternate pass hash function.
-    @remarks
+
         Tries to minimise the number of GPU program changes.
     */
     struct MinGpuProgramChangeHashFunc : public Pass::HashFunc
     {
-        uint32 operator()(const Pass* p) const
+        uint32 operator()(const Pass* p) const override
         {
             OGRE_LOCK_MUTEX(p->mGpuProgramChangeMutex);
             uint32 hash = 0;
@@ -256,23 +256,19 @@ namespace Ogre {
             othUsage ? programUsage.reset(new GpuProgramUsage(*othUsage, this)) : programUsage.reset();
         }
 
-        TextureUnitStates::const_iterator i, iend;
-
         // Clear texture units but doesn't notify need recompilation in the case
         // we are cloning, The parent material will take care of this.
-        iend = mTextureUnitStates.end();
-        for (i = mTextureUnitStates.begin(); i != iend; ++i)
+        for (auto *t : mTextureUnitStates)
         {
-            OGRE_DELETE *i;
+            OGRE_DELETE t;
         }
 
         mTextureUnitStates.clear();
 
         // Copy texture units
-        iend = oth.mTextureUnitStates.end();
-        for (i = oth.mTextureUnitStates.begin(); i != iend; ++i)
+        for (auto *s : oth.mTextureUnitStates)
         {
-            TextureUnitState* t = OGRE_NEW TextureUnitState(this, *(*i));
+            TextureUnitState* t = OGRE_NEW TextureUnitState(this, *s);
             mTextureUnitStates.push_back(t);
         }
 
@@ -286,11 +282,9 @@ namespace Ogre {
         size_t memSize = 0;
 
         // Tally up TU states
-        TextureUnitStates::const_iterator i, iend;
-        iend = mTextureUnitStates.end();
-        for (i = mTextureUnitStates.begin(); i != iend; ++i)
+        for (auto *t : mTextureUnitStates)
         {
-            memSize += (*i)->calculateSize();
+            memSize += t->calculateSize();
         }
         for(const auto& u : mProgramUsage)
             memSize += u ? u->calculateSize() : 0;
@@ -378,7 +372,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Pass::addTextureUnitState(TextureUnitState* state)
     {
-            OGRE_LOCK_MUTEX(mTexUnitChangeMutex);
+        OGRE_LOCK_MUTEX(mTexUnitChangeMutex);
 
         OgreAssert(state , "TextureUnitState is NULL");
 
@@ -406,21 +400,17 @@ namespace Ogre {
     //-----------------------------------------------------------------------------
     TextureUnitState* Pass::getTextureUnitState(const String& name) const
     {
-            OGRE_LOCK_MUTEX(mTexUnitChangeMutex);
-        TextureUnitStates::const_iterator i    = mTextureUnitStates.begin();
-        TextureUnitStates::const_iterator iend = mTextureUnitStates.end();
+        OGRE_LOCK_MUTEX(mTexUnitChangeMutex);
         TextureUnitState* foundTUS = 0;
 
         // iterate through TUS Container to find a match
-        while (i != iend)
+        for (auto *t : mTextureUnitStates)
         {
-            if ( (*i)->getName() == name )
+            if (t->getName() == name)
             {
-                foundTUS = (*i);
+                foundTUS = t;
                 break;
             }
-
-            ++i;
         }
 
         return foundTUS;
@@ -480,7 +470,7 @@ namespace Ogre {
         mContentTypeLookupBuilt = false;
     }
     //-----------------------------------------------------------------------
-    void Pass::_getBlendFlags(SceneBlendType type, SceneBlendFactor& source, SceneBlendFactor& dest)
+    static void _getBlendFlags(SceneBlendType type, SceneBlendFactor& source, SceneBlendFactor& dest)
     {
         switch ( type )
         {
@@ -500,16 +490,12 @@ namespace Ogre {
             source = SBF_ONE;
             dest = SBF_ONE;
             return;
+        default:
         case SBT_REPLACE:
             source = SBF_ONE;
             dest = SBF_ZERO;
             return;
         }
-
-        // Default to SBT_REPLACE
-
-        source = SBF_ONE;
-        dest = SBF_ZERO;
     }
     //-----------------------------------------------------------------------
     void Pass::setSceneBlending(SceneBlendType sbt)
@@ -717,13 +703,10 @@ namespace Ogre {
     {
         // We assume the Technique only calls this when the material is being
         // prepared
-
         // prepare each TextureUnitState
-        TextureUnitStates::iterator i, iend;
-        iend = mTextureUnitStates.end();
-        for (i = mTextureUnitStates.begin(); i != iend; ++i)
+        for (auto *t : mTextureUnitStates)
         {
-            (*i)->_prepare();
+            t->_prepare();
         }
 
     }
@@ -731,11 +714,9 @@ namespace Ogre {
     void Pass::_unprepare(void)
     {
         // unprepare each TextureUnitState
-        TextureUnitStates::iterator i, iend;
-        iend = mTextureUnitStates.end();
-        for (i = mTextureUnitStates.begin(); i != iend; ++i)
+        for (auto *t : mTextureUnitStates)
         {
-            (*i)->_unprepare();
+            t->_unprepare();
         }
 
     }
@@ -744,13 +725,10 @@ namespace Ogre {
     {
         // We assume the Technique only calls this when the material is being
         // loaded
-
         // Load each TextureUnitState
-        TextureUnitStates::iterator i, iend;
-        iend = mTextureUnitStates.end();
-        for (i = mTextureUnitStates.begin(); i != iend; ++i)
+        for (auto *t : mTextureUnitStates)
         {
-            (*i)->_load();
+            t->_load();
         }
 
         // Load programs
@@ -767,11 +745,9 @@ namespace Ogre {
     void Pass::_unload(void)
     {
         // Unload each TextureUnitState
-        TextureUnitStates::iterator i, iend;
-        iend = mTextureUnitStates.end();
-        for (i = mTextureUnitStates.begin(); i != iend; ++i)
+        for (auto *t : mTextureUnitStates)
         {
-            (*i)->_unload();
+            t->_unload();
         }
 
         // TODO Unload programs
@@ -895,8 +871,7 @@ namespace Ogre {
         const auto& programUsage = getProgramUsage(type);
         if (!programUsage)
         {
-            OGRE_EXCEPT (Exception::ERR_INVALIDPARAMS,
-                "This pass does not have this program type assigned!");
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "This pass has no " + to_string(type) + " program");
         }
         return programUsage->getParameters();
     }
@@ -987,7 +962,7 @@ namespace Ogre {
         Material* mat = mParent->getParent();
         if (mat->isLoading() || mat->isLoaded())
         {
-                    OGRE_LOCK_MUTEX(msDirtyHashListMutex);
+            OGRE_LOCK_MUTEX(msDirtyHashListMutex);
             // Mark this hash as for follow up
             msDirtyHashList.insert(this);
             mHashDirtyQueued = false;
@@ -1013,23 +988,18 @@ namespace Ogre {
     void Pass::setTextureFiltering(TextureFilterOptions filterType)
     {
         OGRE_LOCK_MUTEX(mTexUnitChangeMutex);
-
-        TextureUnitStates::iterator i, iend;
-        iend = mTextureUnitStates.end();
-        for (i = mTextureUnitStates.begin(); i != iend; ++i)
+        for (auto *t : mTextureUnitStates)
         {
-            (*i)->setTextureFiltering(filterType);
+            t->setTextureFiltering(filterType);
         }
     }
     // --------------------------------------------------------------------
     void Pass::setTextureAnisotropy(unsigned int maxAniso)
     {
         OGRE_LOCK_MUTEX(mTexUnitChangeMutex);
-        TextureUnitStates::iterator i, iend;
-        iend = mTextureUnitStates.end();
-        for (i = mTextureUnitStates.begin(); i != iend; ++i)
+        for (auto *t : mTextureUnitStates)
         {
-            (*i)->setTextureAnisotropy(maxAniso);
+            t->setTextureAnisotropy(maxAniso);
         }
     }
     //-----------------------------------------------------------------------
@@ -1049,27 +1019,22 @@ namespace Ogre {
     void Pass::processPendingPassUpdates(void)
     {
         {
-                    OGRE_LOCK_MUTEX(msPassGraveyardMutex);
+            OGRE_LOCK_MUTEX(msPassGraveyardMutex);
             // Delete items in the graveyard
-            PassSet::iterator i, iend;
-            iend = msPassGraveyard.end();
-            for (i = msPassGraveyard.begin(); i != iend; ++i)
+            for (auto& i : msPassGraveyard)
             {
-                OGRE_DELETE *i;
+                OGRE_DELETE i;
             }
             msPassGraveyard.clear();
         }
         PassSet tempDirtyHashList;
         {
-                    OGRE_LOCK_MUTEX(msDirtyHashListMutex);
+            OGRE_LOCK_MUTEX(msDirtyHashListMutex);
             // The dirty ones will have been removed from the groups above using the old hash now
             tempDirtyHashList.swap(msDirtyHashList);
         }
-        PassSet::iterator i, iend;
-        iend = tempDirtyHashList.end();
-        for (i = tempDirtyHashList.begin(); i != iend; ++i)
+        for (auto *p : tempDirtyHashList)
         {
-            Pass* p = *i;
             p->_recalculateHash();
         }
     }

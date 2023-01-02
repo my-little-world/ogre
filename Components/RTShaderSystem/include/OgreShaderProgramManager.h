@@ -59,7 +59,7 @@ public:
 
 
     /** Override standard Singleton retrieval.
-    @remarks
+
     Why do we do this? Well, it's because the Singleton
     implementation is in a .h file, which means it gets compiled
     into anybody who includes it. This is needed for the
@@ -162,31 +162,19 @@ private:
     @param processor The instance to remove.
     */
     void removeProgramProcessor(const String& lang);
-
-    /** Destroy a GPU program by name.
-    @param gpuProgram The program to destroy.
-    */
-    void destroyGpuProgram(GpuProgramPtr& gpuProgram);
-
-    /** Flush the local GPU programs cache.
-    @param gpuProgramsMap The GPU programs cache.
-    */
-    void flushGpuProgramsCache(GpuProgramsMap& gpuProgramsMap);
     
     /** Return the number of created shaders. */
     size_t getShaderCount(GpuProgramType type) const;
 
     /** Fix the input of the pixel shader to be the same as the output of the vertex shader */
-    void synchronizePixelnToBeVertexOut(ProgramSet* programSet);
+    void matchVStoPSInterface(ProgramSet* programSet);
 
     // Map between target language and shader program processor.    
     ProgramProcessorMap mProgramProcessorsMap;
     // Holds standard shader writer factories
     ProgramWriterFactoryList mProgramWriterFactories;
-    // The generated vertex shaders.
-    GpuProgramsMap mVertexShaderMap;
-    // The generated fragment shaders.
-    GpuProgramsMap mFragmentShaderMap;
+    // The generated shaders.
+    std::vector<GpuProgramPtr> mShaderList;
     // The default program processors.
     ProgramProcessorList mDefaultProgramProcessors;
 

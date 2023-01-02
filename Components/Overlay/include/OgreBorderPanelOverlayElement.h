@@ -42,7 +42,7 @@ namespace Ogre {
     class BorderRenderable;
     
     /** A specialisation of the PanelOverlayElement to provide a panel with a border.
-    @remarks
+
         Whilst the standard panel can use a single tiled material, this class allows
         panels with a tileable backdrop plus a border texture. This is handy for large
         panels that are too big to use a single large texture with a border, or
@@ -62,14 +62,14 @@ namespace Ogre {
         BorderPanelOverlayElement(const String& name);
         virtual ~BorderPanelOverlayElement();
 
-        virtual void initialise(void);
+        void initialise(void) override;
 
         /** @copydoc OverlayElement::_releaseManualHardwareResources */
-        virtual void _releaseManualHardwareResources();
+        void _releaseManualHardwareResources() override;
         /** @copydoc OverlayElement::_restoreManualHardwareResources */
-        virtual void _restoreManualHardwareResources();
+        void _restoreManualHardwareResources() override;
 
-        const String& getTypeName(void) const;
+        const String& getTypeName(void) const override;
         /** @name Border Size
             Remember that the dimensions specified here are in relation to the size of
             the screen, so 0.1 is 1/10th of the screen width or height. Also note that because
@@ -78,7 +78,7 @@ namespace Ogre {
          */
         /// @{
         /** Sets the size of the border.
-        @remarks
+
             This method sets a constant size for all borders.
         @param size The size of the border as a factor of the screen dimensions ie 0.2 is one-fifth
             of the screen size.
@@ -86,7 +86,7 @@ namespace Ogre {
         void setBorderSize(Real size);
 
         /** Sets the size of the border, with different sizes for vertical and horizontal borders.
-        @remarks
+
             This method sets a size for the side and top / bottom borders separately.
         @param sides The size of the side borders as a factor of the screen dimensions ie 0.2 is one-fifth
             of the screen size.
@@ -95,7 +95,7 @@ namespace Ogre {
         void setBorderSize(Real sides, Real topAndBottom);
 
         /** Sets the size of the border separately for all borders.
-        @remarks
+
             This method sets a size all borders separately.
         @param left The size of the left border as a factor of the screen dimensions ie 0.2 is one-fifth
             of the screen size.
@@ -166,23 +166,23 @@ namespace Ogre {
         const String& getBorderMaterialName(void) const;
 
         /** @copydoc OverlayContainer::_updateRenderQueue */
-        void _updateRenderQueue(RenderQueue* queue);
+        void _updateRenderQueue(RenderQueue* queue) override;
         /// @copydoc OverlayElement::visitRenderables
         void visitRenderables(Renderable::Visitor* visitor, 
             bool debugRenderables = false);
 
         /** @copydoc OverlayElement::setMetricsMode */
-        void setMetricsMode(GuiMetricsMode gmm);
+        void setMetricsMode(GuiMetricsMode gmm) override;
 
         /** @copydoc OverlayElement::_update */
-        void _update(void);
+        void _update(void) override;
     private:
-        Real mLeftBorderSize;
-        Real mRightBorderSize;
-        Real mTopBorderSize;
-        Real mBottomBorderSize;
+        float mLeftBorderSize;
+        float mRightBorderSize;
+        float mTopBorderSize;
+        float mBottomBorderSize;
         struct CellUV {
-            Real u1, v1, u2, v2;
+            float u1, v1, u2, v2;
         };
         CellUV mBorderUV[8];
 
@@ -199,11 +199,11 @@ namespace Ogre {
         static String msTypeName;
 
         /// Internal method for setting up geometry, called by OverlayElement::update
-        void updatePositionGeometry(void);
+        void updatePositionGeometry(void) override;
         /// Internal method for setting up geometry, called by OverlayElement::update
-        void updateTextureGeometry(void);
+        void updateTextureGeometry(void) override;
         /// Internal method for setting up parameters
-        void addBaseParameters(void);
+        void addBaseParameters(void) override;
 
         enum BorderCellIndex {
             BCELL_TOP_LEFT = 0,
@@ -221,7 +221,7 @@ namespace Ogre {
     };
 
     /** Class for rendering the border of a BorderPanelOverlayElement.
-    @remarks
+
         We need this because we have to render twice, once with the inner panel's repeating
         material (handled by superclass) and once for the border's separate material. 
     */
@@ -237,12 +237,12 @@ namespace Ogre {
             mUseIdentityView = true;
             mPolygonModeOverrideable = parent->getPolygonModeOverrideable();
         }
-        const MaterialPtr& getMaterial(void) const { return mParent->mBorderMaterial; }
-        void getRenderOperation(RenderOperation& op) { op = mParent->mRenderOp2; }
-        void getWorldTransforms(Matrix4* xform) const { mParent->getWorldTransforms(xform); }
-        unsigned short getNumWorldTransforms(void) const { return 1; }
-        Real getSquaredViewDepth(const Camera* cam) const { return mParent->getSquaredViewDepth(cam); }
-        const LightList& getLights(void) const
+        const MaterialPtr& getMaterial(void) const override { return mParent->mBorderMaterial; }
+        void getRenderOperation(RenderOperation& op) override { op = mParent->mRenderOp2; }
+        void getWorldTransforms(Matrix4* xform) const override { mParent->getWorldTransforms(xform); }
+        unsigned short getNumWorldTransforms(void) const override { return 1; }
+        Real getSquaredViewDepth(const Camera* cam) const override { return mParent->getSquaredViewDepth(cam); }
+        const LightList& getLights(void) const override
         {
             // N/A, panels are not lit
             static LightList ll;

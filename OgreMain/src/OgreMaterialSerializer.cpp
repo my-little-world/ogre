@@ -233,8 +233,7 @@ namespace Ogre
             }
 
             // Scheme name
-            if (mDefaults ||
-                pTech->getSchemeName() != MaterialManager::DEFAULT_SCHEME_NAME)
+            if (mDefaults || pTech->getSchemeName() != MSN_DEFAULT)
             {
                 writeAttribute(2, "scheme");
                 writeValue(quoteWord(pTech->getSchemeName()));
@@ -278,10 +277,9 @@ namespace Ogre
                 writeValue(StringConverter::toString(rule.caseSensitive));
             }
             // Iterate over passes
-            Technique::Passes::const_iterator i;
-            for(i = pTech->getPasses().begin(); i != pTech->getPasses().end(); ++i)
+            for(auto& p : pTech->getPasses())
             {
-                writePass(*i);
+                writePass(p);
                 mBuffer += "\n";
             }
 
@@ -776,10 +774,9 @@ namespace Ogre
             }
 
             // Nested texture layers
-            Pass::TextureUnitStates::const_iterator it;
-            for(it = pPass->getTextureUnitStates().begin(); it != pPass->getTextureUnitStates().end(); ++it)
+            for(auto& s : pPass->getTextureUnitStates())
             {
-                writeTextureUnit(*it);
+                writeTextureUnit(s);
             }
 
             // Fire write end event.
@@ -1516,7 +1513,7 @@ namespace Ogre
 
             writeGpuProgramParameter("param_named", 
                                      paramName, autoEntry, defaultAutoEntry, 
-                                     def.isFloat(), def.isDouble(), (def.isInt() || def.isSampler()), def.isUnsignedInt(),
+                                     def.isFloat(), def.isDouble(), def.isInt(), def.isUnsignedInt(), def.isSampler(),
                                      def.physicalIndex, def.elementSize * def.arraySize,
                                      params, defaultParams, level, useMainBuffer);
         }
@@ -1553,7 +1550,7 @@ namespace Ogre
 
                 writeGpuProgramParameter("param_indexed", 
                                          StringConverter::toString(logicalIndex), autoEntry, 
-                                         defaultAutoEntry, true, false, false, false,
+                                         defaultAutoEntry, true, false, false, false, false,
                                          logicalUse.physicalIndex, logicalUse.currentSize,
                                          params, defaultParams, level, useMainBuffer);
             }
@@ -1564,7 +1561,7 @@ namespace Ogre
         const String& commandName, const String& identifier, 
         const GpuProgramParameters::AutoConstantEntry* autoEntry, 
         const GpuProgramParameters::AutoConstantEntry* defaultAutoEntry, 
-        bool isFloat, bool isDouble, bool isInt, bool isUnsignedInt,
+        bool isFloat, bool isDouble, bool isInt, bool isUnsignedInt, bool isRegister,
         size_t physicalIndex, size_t physicalSize,
         const GpuProgramParametersSharedPtr& params, GpuProgramParameters* defaultParams,
         const ushort level, const bool useMainBuffer)
@@ -1599,7 +1596,13 @@ namespace Ogre
                 // compare the non-auto (raw buffer) values
                 // param buffers are always initialised with all zeros
                 // so unset == unset
-                if (isFloat)
+                if (isRegister) {
+                    different = memcmp(
+                            params->getRegPointer(physicalIndex),
+                            defaultParams->getRegPointer(physicalIndex),
+                            sizeof(int) * physicalSize) != 0;
+                }
+                else if (isFloat)
                 {
                     different = memcmp(
                         params->getFloatPointer(physicalIndex), 
@@ -1685,7 +1688,19 @@ namespace Ogre
                 if (physicalSize > 1)
                     countLabel = StringConverter::toString(physicalSize);
 
-                if (isFloat)
+                if (isRegister)
+                {
+                    // Get pointer to start of values
+                    const int* pInt = params->getRegPointer(physicalIndex);
+
+                    writeValue("int" + countLabel, useMainBuffer);
+                    // iterate through real constants
+                    for (size_t f = 0; f < physicalSize; ++f)
+                    {
+                        writeValue(StringConverter::toString(*pInt++), useMainBuffer);
+                    }
+                }
+                else if (isFloat)
                 {
                     // Get pointer to start of values
                     const float* pFloat = params->getFloatPointer(physicalIndex);
@@ -1845,45 +1860,33 @@ namespace Ogre
     //---------------------------------------------------------------------
     void MaterialSerializer::fireMaterialEvent(SerializeEvent event, bool& skip, const Material* mat)
     {
-        ListenerListIterator it    = mListeners.begin();
-        ListenerListIterator itEnd = mListeners.end();
-
-        while (it != itEnd)
+        for (auto *l : mListeners)
         {
-            (*it)->materialEventRaised(this, event, skip, mat);         
+            l->materialEventRaised(this, event, skip, mat);
             if (skip)
                 break;
-            ++it;
         }       
     }
 
     //---------------------------------------------------------------------
     void MaterialSerializer::fireTechniqueEvent(SerializeEvent event, bool& skip, const Technique* tech)
     {
-        ListenerListIterator it    = mListeners.begin();
-        ListenerListIterator itEnd = mListeners.end();
-
-        while (it != itEnd)
+        for (auto *l : mListeners)
         {
-            (*it)->techniqueEventRaised(this, event, skip, tech);
+            l->techniqueEventRaised(this, event, skip, tech);
             if (skip)
                 break;
-            ++it;
         }
     }
 
     //---------------------------------------------------------------------
     void MaterialSerializer::firePassEvent(SerializeEvent event, bool& skip, const Pass* pass)
     {
-        ListenerListIterator it    = mListeners.begin();
-        ListenerListIterator itEnd = mListeners.end();
-
-        while (it != itEnd)
+        for (auto *l : mListeners)
         {
-            (*it)->passEventRaised(this, event, skip, pass);
+            l->passEventRaised(this, event, skip, pass);
             if (skip)
                 break;
-            ++it;
         }
     }
 
@@ -1894,15 +1897,11 @@ namespace Ogre
         const GpuProgramParametersSharedPtr& params,
         GpuProgramParameters* defaultParams)
     {
-        ListenerListIterator it    = mListeners.begin();
-        ListenerListIterator itEnd = mListeners.end();
-
-        while (it != itEnd)
+        for (auto *l : mListeners)
         {
-            (*it)->gpuProgramRefEventRaised(this, event, skip, attrib, program, params, defaultParams);
+            l->gpuProgramRefEventRaised(this, event, skip, attrib, program, params, defaultParams);
             if (skip)
                 break;
-            ++it;
         }
     }   
 
@@ -1910,15 +1909,11 @@ namespace Ogre
     void MaterialSerializer::fireTextureUnitStateEvent(SerializeEvent event, bool& skip,
         const TextureUnitState* textureUnit)
     {
-        ListenerListIterator it    = mListeners.begin();
-        ListenerListIterator itEnd = mListeners.end();
-
-        while (it != itEnd)
+        for (auto *l : mListeners)
         {
-            (*it)->textureUnitStateEventRaised(this, event, skip, textureUnit);
+            l->textureUnitStateEventRaised(this, event, skip, textureUnit);
             if (skip)
                 break;
-            ++it;
         }
     }   
 }

@@ -32,13 +32,10 @@ THE SOFTWARE.
 namespace Ogre {
     OrientationMode Viewport::mDefaultOrientationMode = OR_DEGREE_0;
     //---------------------------------------------------------------------
-    Viewport::Viewport(Camera* cam, RenderTarget* target, Real left, Real top, Real width, Real height, int ZOrder)
+    Viewport::Viewport(Camera* cam, RenderTarget* target, float left, float top, float width, float height, int ZOrder)
         : mCamera(cam)
         , mTarget(target)
-        , mRelLeft(left)
-        , mRelTop(top)
-        , mRelWidth(width)
-        , mRelHeight(height)
+        , mRelRect(left, top, left + width, top + height)
         // Actual dimensions will update later
         , mZOrder(ZOrder)
         , mBackColour(ColourValue::Black)
@@ -58,8 +55,7 @@ namespace Ogre {
         LogManager::getSingleton().stream(LML_TRIVIAL)
             << "Creating viewport on target '" << target->getName() << "'"
             << ", rendering from camera '" << (cam != 0 ? cam->getName() : "NULL") << "'"
-            << ", relative dimensions " << std::ios::fixed << std::setprecision(2) 
-            << "L: " << left << " T: " << top << " W: " << width << " H: " << height
+            << ", relative dimensions " << mRelRect
             << " Z-order: " << ZOrder;
 #endif
 
@@ -108,10 +104,7 @@ namespace Ogre {
         Real height = (Real) mTarget->getHeight();
         Real width = (Real) mTarget->getWidth();
 
-        mActLeft = (int) (mRelLeft * width);
-        mActTop = (int) (mRelTop * height);
-        mActWidth = (int) (mRelWidth * width);
-        mActHeight = (int) (mRelHeight * height);
+        mActRect = Rect(mRelRect.left * width, mRelRect.top * height, mRelRect.right * width, mRelRect.bottom * height);
 
         // This will check if the cameras getAutoAspectRatio() property is set.
         // If it's true its aspect ratio is fit to the current viewport
@@ -122,7 +115,7 @@ namespace Ogre {
         if (mCamera) 
         {
             if (mCamera->getAutoAspectRatio())
-                mCamera->setAspectRatio((Real) mActWidth / (Real) mActHeight);
+                mCamera->setAspectRatio((float)mActRect.width() / (float)mActRect.height());
 
 #if OGRE_NO_VIEWPORT_ORIENTATIONMODE == 0
             mCamera->setOrientationMode(mOrientationMode);
@@ -130,11 +123,10 @@ namespace Ogre {
         }
 
         LogManager::getSingleton().stream(LML_TRIVIAL)
-            << "Viewport for camera '" << (mCamera != 0 ? mCamera->getName() : "NULL") << "'"
-            << ", actual dimensions "   << std::ios::fixed << std::setprecision(2) 
-            << "L: " << mActLeft << " T: " << mActTop << " W: " << mActWidth << " H: " << mActHeight;
+            << "Viewport for camera '" << (mCamera ? mCamera->getName() : "NULL") << "'"
+            << ", actual dimensions " << mActRect;
 
-         mUpdated = true;
+        mUpdated = true;
 
         for (ListenerList::iterator i = mListeners.begin(); i != mListeners.end(); ++i)
         {
@@ -142,67 +134,9 @@ namespace Ogre {
         }
     }
     //---------------------------------------------------------------------
-    int Viewport::getZOrder(void) const
+    void Viewport::setDimensions(float left, float top, float width, float height)
     {
-        return mZOrder;
-    }
-    //---------------------------------------------------------------------
-    RenderTarget* Viewport::getTarget(void) const
-    {
-        return mTarget;
-    }
-    //---------------------------------------------------------------------
-    Camera* Viewport::getCamera(void) const
-    {
-        return mCamera;
-    }
-    //---------------------------------------------------------------------
-    Real Viewport::getLeft(void) const
-    {
-        return mRelLeft;
-    }
-    //---------------------------------------------------------------------
-    Real Viewport::getTop(void) const
-    {
-        return mRelTop;
-    }
-    //---------------------------------------------------------------------
-    Real Viewport::getWidth(void) const
-    {
-        return mRelWidth;
-    }
-    //---------------------------------------------------------------------
-    Real Viewport::getHeight(void) const
-    {
-        return mRelHeight;
-    }
-    //---------------------------------------------------------------------
-    int Viewport::getActualLeft(void) const
-    {
-        return mActLeft;
-    }
-    //---------------------------------------------------------------------
-    int Viewport::getActualTop(void) const
-    {
-        return mActTop;
-    }
-    //---------------------------------------------------------------------
-    int Viewport::getActualWidth(void) const
-    {
-        return mActWidth;
-    }
-    //---------------------------------------------------------------------
-    int Viewport::getActualHeight(void) const
-    {
-        return mActHeight;
-    }
-    //---------------------------------------------------------------------
-    void Viewport::setDimensions(Real left, Real top, Real width, Real height)
-    {
-        mRelLeft = left;
-        mRelTop = top;
-        mRelWidth = width;
-        mRelHeight = height;
+        mRelRect = FloatRect(left, top, left + width, top + height);
         _updateDimensions();
     }
     //---------------------------------------------------------------------
@@ -275,40 +209,10 @@ namespace Ogre {
         return mDefaultOrientationMode;
     }
     //---------------------------------------------------------------------
-    void Viewport::setBackgroundColour(const ColourValue& colour)
-    {
-        mBackColour = colour;
-    }
-    //---------------------------------------------------------------------
-    const ColourValue& Viewport::getBackgroundColour(void) const
-    {
-        return mBackColour;
-    }
-    //---------------------------------------------------------------------
-    void Viewport::setDepthClear( float depth )
-    {
-        mDepthClearValue = depth;
-    }
-    //---------------------------------------------------------------------
-    float Viewport::getDepthClear(void) const
-    {
-        return mDepthClearValue;
-    }
-    //---------------------------------------------------------------------
     void Viewport::setClearEveryFrame(bool inClear, unsigned int inBuffers)
     {
         mClearEveryFrame = inClear;
         mClearBuffers = inClear ? inBuffers : 0;
-    }
-    //---------------------------------------------------------------------
-    bool Viewport::getClearEveryFrame(void) const
-    {
-        return mClearEveryFrame;
-    }
-    //---------------------------------------------------------------------
-    unsigned int Viewport::getClearBuffers(void) const
-    {
-        return mClearBuffers;
     }
     //---------------------------------------------------------------------
     void Viewport::clear(uint32 buffers, const ColourValue& col, float depth, uint16 stencil)
@@ -328,17 +232,12 @@ namespace Ogre {
         }
     }
     //---------------------------------------------------------------------
-    Rect Viewport::getActualDimensions() const
-    {
-        return Rect(mActLeft, mActTop, mActLeft + mActWidth, mActTop + mActHeight);
-    }
-
     void Viewport::getActualDimensions(int &left, int&top, int &width, int &height) const
     {
-        left = mActLeft;
-        top = mActTop;
-        width = mActWidth;
-        height = mActHeight;
+        left = mActRect.left;
+        top = mActRect.top;
+        width = mActRect.width();
+        height = mActRect.height();
     }
     //---------------------------------------------------------------------
     unsigned int Viewport::_getNumRenderedFaces(void) const
@@ -364,7 +263,7 @@ namespace Ogre {
             // update aspect ratio of new camera if needed.
             if (cam->getAutoAspectRatio())
             {
-                cam->setAspectRatio((Real) mActWidth / (Real) mActHeight);
+                cam->setAspectRatio((float)mActRect.width() / (float)mActRect.height());
             }
 #if OGRE_NO_VIEWPORT_ORIENTATIONMODE == 0
             cam->setOrientationMode(mOrientationMode);
@@ -376,46 +275,6 @@ namespace Ogre {
         {
             (*i)->viewportCameraChanged(this);
         }
-    }
-    //---------------------------------------------------------------------
-    void Viewport::setAutoUpdated(bool inAutoUpdated)
-    {
-        mIsAutoUpdated = inAutoUpdated;
-    }
-    //---------------------------------------------------------------------
-    bool Viewport::isAutoUpdated() const
-    {
-        return mIsAutoUpdated;
-    }
-    //---------------------------------------------------------------------
-    void Viewport::setOverlaysEnabled(bool enabled)
-    {
-        mShowOverlays = enabled;
-    }
-    //---------------------------------------------------------------------
-    bool Viewport::getOverlaysEnabled(void) const
-    {
-        return mShowOverlays;
-    }
-    //---------------------------------------------------------------------
-    void Viewport::setSkiesEnabled(bool enabled)
-    {
-        mShowSkies = enabled;
-    }
-    //---------------------------------------------------------------------
-    bool Viewport::getSkiesEnabled(void) const
-    {
-        return mShowSkies;
-    }
-    //---------------------------------------------------------------------
-    void Viewport::setShadowsEnabled(bool enabled)
-    {
-        mShowShadows = enabled;
-    }
-    //---------------------------------------------------------------------
-    bool Viewport::getShadowsEnabled(void) const
-    {
-        return mShowShadows;
     }
     //-----------------------------------------------------------------------
     void Viewport::pointOrientedToScreen(const Vector2 &v, int orientationMode, Vector2 &outv)
@@ -461,30 +320,4 @@ namespace Ogre {
         if (i != mListeners.end())
             mListeners.erase(i);
     }
-	//-----------------------------------------------------------------------
-	void Viewport::setDrawBuffer(ColourBufferType colourBuffer) 
-	{
-		mColourBuffer = colourBuffer;
-	}
-	//-----------------------------------------------------------------------
-	ColourBufferType Viewport::getDrawBuffer() const
-	{
-		return mColourBuffer;
-	}
-	//-----------------------------------------------------------------------
-    //-----------------------------------------------------------------------
-    void Viewport::Listener::viewportCameraChanged(Viewport*)
-    {
-    }
-
-    //-----------------------------------------------------------------------
-    void Viewport::Listener::viewportDimensionsChanged(Viewport*)
-    {
-    }
-
-    //-----------------------------------------------------------------------
-    void Viewport::Listener::viewportDestroyed(Viewport*)
-    {
-    }
-
 }

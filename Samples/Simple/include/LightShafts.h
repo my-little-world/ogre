@@ -41,7 +41,7 @@ public:
                         "N - Change light cookie";
     }
 
-    bool frameStarted(const FrameEvent& e)
+    bool frameStarted(const FrameEvent& e) override
     {
         // Update light position
         updatePosition(e);
@@ -49,7 +49,7 @@ public:
         return SdkSample::frameStarted(e);
     }
 
-    bool keyPressed(const OgreBites::KeyboardEvent& evt)
+    bool keyPressed(const OgreBites::KeyboardEvent& evt) override
     {
         switch (evt.keysym.sym)
         {
@@ -98,14 +98,14 @@ public:
         }
     }
 
-    void setupContent(void)
+    void setupContent(void) override
     {
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
         // Make this viewport work with shader generator scheme.
-        mViewport->setMaterialScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+        mViewport->setMaterialScheme(MSN_SHADERGEN);
         RTShader::ShaderGenerator& rtShaderGen = RTShader::ShaderGenerator::getSingleton();
-        RTShader::RenderState* schemRenderState = rtShaderGen.getRenderState(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
-        RTShader::SubRenderState* subRenderState = rtShaderGen.createSubRenderState<RTShader::IntegratedPSSM3>();
+        RTShader::RenderState* schemRenderState = rtShaderGen.getRenderState(MSN_SHADERGEN);
+        RTShader::SubRenderState* subRenderState = rtShaderGen.createSubRenderState("SGX_IntegratedPSSM3");
         schemRenderState->addTemplateSubRenderState(subRenderState);
 #endif
         mSceneMgr->setShadowTechnique(SHADOWTYPE_TEXTURE_MODULATIVE_INTEGRATED);
@@ -153,8 +153,7 @@ public:
         mBillboardSet->setCastShadows(false);
         mLightCameraSN->attachObject(mBillboardSet);
 
-        // Creating a RRT for depth/shadow map
-        createLightCameraRTT(mLight0);
+        getLightCamera();
 
         // Create a rush of billboards according to the frustum of the camera(mLightCamera)
         // After it, we can use the lightcamera/billboards scenenode like a light projector
@@ -180,6 +179,8 @@ public:
 
     bool createLightShafts(BillboardSet* billboard, Camera* LightCamera, const int& NumberOfPlanes)
     {
+        mViewport->update(); // make sure LightCamera is synced to scene settings
+
         // Calculate the distance between planes
         float DistanceBetweenPlanes =
             (LightCamera->getFarClipDistance() - LightCamera->getNearClipDistance()) / NumberOfPlanes;
@@ -210,7 +211,7 @@ public:
         return true;
     }
 
-    void createLightCameraRTT(Light* light)
+    void getLightCamera()
     {
         // Create a texture for use as rtt
         TexturePtr LightCameraRTT = mSceneMgr->getShadowTexture(0);
@@ -219,13 +220,10 @@ public:
         Viewport* RT_Texture_Viewport = RT_Texture->getViewport(0);
         mLightCamera = RT_Texture_Viewport->getCamera();
 
-        mSceneMgr->getShadowCameraSetup()->getShadowCamera(mSceneMgr, mCamera, RT_Texture_Viewport, light, mLightCamera,
-                                                           0);
-
         mLightCamera->setDebugDisplayEnabled(true);
     }
 
-    void cleanupContent()
+    void cleanupContent() override
     {
         MeshManager::getSingleton().remove("FloorPlaneMesh", RGN_DEFAULT);
     }

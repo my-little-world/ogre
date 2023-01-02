@@ -64,59 +64,38 @@ ProgramManager::~ProgramManager()
 //-----------------------------------------------------------------------------
 void ProgramManager::releasePrograms(const ProgramSet* programSet)
 {
-    GpuProgramPtr vsProgram(programSet->getGpuProgram(GPT_VERTEX_PROGRAM));
-    GpuProgramPtr psProgram(programSet->getGpuProgram(GPT_FRAGMENT_PROGRAM));
-
-    GpuProgramsMapIterator itVsGpuProgram = !vsProgram ? mVertexShaderMap.end() : mVertexShaderMap.find(vsProgram->getName());
-    GpuProgramsMapIterator itFsGpuProgram = !psProgram ? mFragmentShaderMap.end() : mFragmentShaderMap.find(psProgram->getName());
-
-    if (itVsGpuProgram != mVertexShaderMap.end())
+    for(auto t : {GPT_VERTEX_PROGRAM, GPT_FRAGMENT_PROGRAM})
     {
-        if (itVsGpuProgram->second.use_count() == ResourceGroupManager::RESOURCE_SYSTEM_NUM_REFERENCE_COUNTS + 1)
-        {
-            destroyGpuProgram(itVsGpuProgram->second);
-            mVertexShaderMap.erase(itVsGpuProgram);
-        }
+        const auto& prg = programSet->getGpuProgram(t);
+        if(prg.use_count() > ResourceGroupManager::RESOURCE_SYSTEM_NUM_REFERENCE_COUNTS + 2)
+            continue;
+
+	const auto it = std::find(mShaderList.begin(), mShaderList.end(), prg);
+        // TODO: this check should not be necessary, but we observed strange prg.use_count() in the wild
+        if(it != mShaderList.end())
+            mShaderList.erase(it);
+        GpuProgramManager::getSingleton().remove(prg);
+    }
+}
+size_t ProgramManager::getShaderCount(GpuProgramType type) const
+{
+    size_t count = 0;
+
+    for(const auto& s : mShaderList)
+    {
+        count += size_t(s->getType() == type);
     }
 
-    if (itFsGpuProgram != mFragmentShaderMap.end())
-    {
-        if (itFsGpuProgram->second.use_count() == ResourceGroupManager::RESOURCE_SYSTEM_NUM_REFERENCE_COUNTS + 1)
-        {
-            destroyGpuProgram(itFsGpuProgram->second);
-            mFragmentShaderMap.erase(itFsGpuProgram);
-        }
-    }
+    return count;
 }
 //-----------------------------------------------------------------------------
 void ProgramManager::flushGpuProgramsCache()
 {
-    flushGpuProgramsCache(mVertexShaderMap);
-    flushGpuProgramsCache(mFragmentShaderMap);
-}
-
-size_t ProgramManager::getShaderCount(GpuProgramType type) const
-{
-    switch(type)
+    for(auto& s : mShaderList)
     {
-    case GPT_VERTEX_PROGRAM:
-        return mVertexShaderMap.size();
-    case GPT_FRAGMENT_PROGRAM:
-        return mFragmentShaderMap.size();
-    default:
-        return 0;
+        GpuProgramManager::getSingleton().remove(s);
     }
-}
-//-----------------------------------------------------------------------------
-void ProgramManager::flushGpuProgramsCache(GpuProgramsMap& gpuProgramsMap)
-{
-    while (gpuProgramsMap.size() > 0)
-    {
-        GpuProgramsMapIterator it = gpuProgramsMap.begin();
-
-        destroyGpuProgram(it->second);
-        gpuProgramsMap.erase(it);
-    }
+    mShaderList.clear();
 }
 //-----------------------------------------------------------------------------
 void ProgramManager::createDefaultProgramProcessors()
@@ -138,6 +117,9 @@ void ProgramManager::destroyDefaultProgramProcessors()
     // removing unknown is not an error
     for(auto lang : {"glsl", "glsles", "glslang", "hlsl"})
         removeProgramProcessor(lang);
+    for (auto processor : mDefaultProgramProcessors) {
+        OGRE_DELETE processor;
+    }
     mDefaultProgramProcessors.clear();
 }
 
@@ -147,13 +129,7 @@ void ProgramManager::createGpuPrograms(ProgramSet* programSet)
     // Before we start we need to make sure that the pixel shader input
     //  parameters are the same as the vertex output, this required by 
     //  shader models 4 and 5.
-    // This change may incrase the number of register used in older shader
-    //  models - this is why the check is present here.
-    bool isVs4 = GpuProgramManager::getSingleton().isSyntaxSupported("vs_4_0_level_9_1");
-    if (isVs4)
-    {
-        synchronizePixelnToBeVertexOut(programSet);
-    }
+    matchVStoPSInterface(programSet);
 
     // Grab the matching writer.
     const String& language = ShaderGenerator::getSingleton().getTargetLanguage();
@@ -185,9 +161,11 @@ void ProgramManager::createGpuPrograms(ProgramSet* programSet)
         programSet->setGpuProgram(gpuProgram);
     }
 
-    //update flags
-    programSet->getGpuProgram(GPT_VERTEX_PROGRAM)->setSkeletalAnimationIncluded(
-        programSet->getCpuProgram(GPT_VERTEX_PROGRAM)->getSkeletalAnimationIncluded());
+    // update VS flags
+    auto gpuVs = programSet->getGpuProgram(GPT_VERTEX_PROGRAM);
+    auto cpuVs = programSet->getCpuProgram(GPT_VERTEX_PROGRAM);
+    gpuVs->setSkeletalAnimationIncluded(cpuVs->getSkeletalAnimationIncluded());
+    gpuVs->setInstancingIncluded(cpuVs->getInstancingIncluded());
 
     // Call the post creation of GPU programs method.
     if(!programProcessor->postCreateGpuPrograms(programSet))
@@ -220,18 +198,16 @@ GpuProgramPtr ProgramManager::createGpuProgram(Program* shaderProgram,
     }
 
     // Try to get program by name.
-    HighLevelGpuProgramPtr pGpuProgram =
-        HighLevelGpuProgramManager::getSingleton().getByName(
-            programName, ResourceGroupManager::INTERNAL_RESOURCE_GROUP_NAME);
+    auto pGpuProgram = GpuProgramManager::getSingleton().getByName(programName, RGN_INTERNAL);
 
     if(pGpuProgram) {
-        return static_pointer_cast<GpuProgram>(pGpuProgram);
+        return pGpuProgram;
     }
 
     // Case the program doesn't exist yet.
     // Create new GPU program.
-    pGpuProgram = HighLevelGpuProgramManager::getSingleton().createProgram(programName,
-        ResourceGroupManager::INTERNAL_RESOURCE_GROUP_NAME, language, shaderProgram->getType());
+    pGpuProgram =
+        GpuProgramManager::getSingleton().createProgram(programName, RGN_INTERNAL, language, shaderProgram->getType());
 
     // Case cache directory specified -> create program from file.
     if (!cachePath.empty())
@@ -282,17 +258,10 @@ GpuProgramPtr ProgramManager::createGpuProgram(Program* shaderProgram,
 
     pGpuProgram->load();
 
-    // Add the created GPU program to local cache.
-    if (pGpuProgram->getType() == GPT_VERTEX_PROGRAM)
-    {
-        mVertexShaderMap[programName] = pGpuProgram;
-    }
-    else if (pGpuProgram->getType() == GPT_FRAGMENT_PROGRAM)
-    {
-        mFragmentShaderMap[programName] = pGpuProgram;
-    }
+    // Add the created GPU program to local index
+    mShaderList.push_back(pGpuProgram);
     
-    return static_pointer_cast<GpuProgram>(pGpuProgram);
+    return pGpuProgram;
 }
 
 
@@ -333,14 +302,8 @@ void ProgramManager::removeProgramProcessor(const String& lang)
 
 }
 
-//-----------------------------------------------------------------------------
-void ProgramManager::destroyGpuProgram(GpuProgramPtr& gpuProgram)
-{       
-    GpuProgramManager::getSingleton().remove(gpuProgram);
-}
-
 //-----------------------------------------------------------------------
-void ProgramManager::synchronizePixelnToBeVertexOut( ProgramSet* programSet )
+void ProgramManager::matchVStoPSInterface( ProgramSet* programSet )
 {
     Function* vertexMain = programSet->getCpuProgram(GPT_VERTEX_PROGRAM)->getMain();
     Function* pixelMain = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM)->getMain();

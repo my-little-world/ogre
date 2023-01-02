@@ -69,7 +69,7 @@ namespace Ogre
         InstancedEntity. This is obviously a limitation from instancing in general, not this particular
         implementation
 
-        @remarks
+
             Design discussion webpage
         @author
             Matias N. Goldberg ("dark_sylinc")
@@ -171,7 +171,7 @@ namespace Ogre
             Requirements to share trasnformations:
                 * Both InstancedEntities must have use the same skeleton
                 * An InstancedEntity can't be both "master" and "slave" at the same time
-            @remarks
+
             Sharing does nothing if the original mesh doesn't have a skeleton
             When an InstancedEntity is removed (@see InstanceBatch::removeInstancedEntity), it stops
             sharing the transform. If the instanced entity was the master one, all it's slaves stop
@@ -185,29 +185,29 @@ namespace Ogre
             Stops sharing the transform if this is a slave, and notifies the master we're no longer
             a slave.
             If this is a master, tells all it's slave to stop sharing
-            @remarks
+
             This function is automatically called in InstanceBatch::removeInstancedEntity
         */
         void stopSharingTransform();
 
         InstanceBatch* _getOwner() const { return mBatchOwner; }
 
-        const String& getMovableType(void) const;
+        const String& getMovableType(void) const override;
 
-        const AxisAlignedBox& getBoundingBox(void) const;
-        Real getBoundingRadius(void) const;
+        const AxisAlignedBox& getBoundingBox(void) const override;
+        Real getBoundingRadius(void) const override;
 
         /** This is used by our batch owner to get the closest entity's depth, returns infinity
             when not attached to a scene node */
         Real getSquaredViewDepth( const Camera* cam ) const;
 
         /// Overridden so we can tell the InstanceBatch it needs to update it's bounds
-        void _notifyMoved(void);
-        void _notifyAttached( Node* parent, bool isTagPoint = false );
+        void _notifyMoved(void) override;
+        void _notifyAttached( Node* parent, bool isTagPoint = false ) override;
 
         /// Do nothing, InstanceBatch takes care of this.
-        void _updateRenderQueue( RenderQueue* queue )   {}
-        void visitRenderables( Renderable::Visitor* visitor, bool debugRenderables = false ) {}
+        void _updateRenderQueue( RenderQueue* queue ) override   {}
+        void visitRenderables( Renderable::Visitor* visitor, bool debugRenderables = false ) override {}
 
         /** @see Entity::hasSkeleton */
         bool hasSkeleton(void) const { return mSkeletonInstance != 0; }
@@ -256,7 +256,7 @@ namespace Ogre
         void setInUse(bool used);
 
         /** Returns the world transform of the instanced entity including local transform */
-        virtual const Affine3& _getParentNodeFullTransform(void) const {
+        const Affine3& _getParentNodeFullTransform(void) const override {
             assert((!mNeedTransformUpdate || !mUseLocalTransform) && "Transform data should be updated at this point");
             return mUseLocalTransform ? mFullLocalTransform :
                 mParentNode ? mParentNode->_getFullTransform() : Affine3::IDENTITY;
@@ -270,7 +270,7 @@ namespace Ogre
         }
 
         /** @copydoc MovableObject::isInScene */
-        virtual bool isInScene(void) const
+        bool isInScene(void) const override
         {
             //We assume that the instanced entity is in the scene if it is in use
             //It is in the scene whether it has a parent node or not
@@ -281,15 +281,15 @@ namespace Ogre
             Because not all techniques support custom params, and some users may not need it while
             using millions of InstancedEntities, the params have been detached from InstancedEntity
             and stored in it's InstanceBatch instead, to reduce memory overhead.
-        @remarks
+
             If this function is never called, all instances default to Vector4::ZERO. Watch out!
             If you destroy an instanced entity and then create it again (remember! Instanced entities
             are pre-allocated) it's custom param will contain the old value when it was destroyed.
         @param idx of the param. In the range [0; InstanceManager::getNumCustomParams())
         @param newParam New parameter
         */
-        void setCustomParam( unsigned char idx, const Vector4 &newParam );
-        const Vector4& getCustomParam( unsigned char idx );
+        void setCustomParam( unsigned char idx, const Vector4f &newParam );
+        const Vector4f& getCustomParam( unsigned char idx );
     };
 }
 

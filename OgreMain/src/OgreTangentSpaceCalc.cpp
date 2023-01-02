@@ -107,10 +107,9 @@ namespace Ogre
             VertexBufferBinding* newBindings = HardwareBufferManager::getSingleton().createVertexBufferBinding();
             const VertexBufferBinding::VertexBufferBindingMap& bindmap = 
                 mVData->vertexBufferBinding->getBindings();
-            for (VertexBufferBinding::VertexBufferBindingMap::const_iterator i = 
-                bindmap.begin(); i != bindmap.end(); ++i)
+            for (const auto & i : bindmap)
             {
-                HardwareVertexBufferSharedPtr srcbuf = i->second;
+                HardwareVertexBufferSharedPtr srcbuf = i.second;
                 // Derive vertex count from buffer not vertex data, in case using
                 // the vertexStart option in vertex data
                 size_t newVertexCount = srcbuf->getNumVertices() + vertexSplits.size();
@@ -119,7 +118,7 @@ namespace Ogre
                     HardwareBufferManager::getSingleton().createVertexBuffer(
                     srcbuf->getVertexSize(), newVertexCount, srcbuf->getUsage(), 
                     srcbuf->hasShadowBuffer());
-                newBindings->setBinding(i->first, newBuf);
+                newBindings->setBinding(i.first, newBuf);
 
                 // Copy existing contents (again, entire buffer, not just elements referenced)
                 newBuf->copyData(*(srcbuf.get()), 0, 0, srcbuf->getNumVertices() * srcbuf->getVertexSize(), true);
@@ -127,11 +126,10 @@ namespace Ogre
                 // Split vertices, read / write from new buffer
                 HardwareBufferLockGuard newBufLock(newBuf, HardwareBuffer::HBL_NORMAL);
                 char* pBase = static_cast<char*>(newBufLock.pData);
-                for (VertexSplits::iterator spliti = vertexSplits.begin(); 
-                    spliti != vertexSplits.end(); ++spliti)
+                for (auto & vertexSplit : vertexSplits)
                 {
-                    const char* pSrcBase = pBase + spliti->first * newBuf->getVertexSize();
-                    char* pDstBase = pBase + spliti->second * newBuf->getVertexSize();
+                    const char* pSrcBase = pBase + vertexSplit.first * newBuf->getVertexSize();
+                    char* pDstBase = pBase + vertexSplit.second * newBuf->getVertexSize();
                     memcpy(pDstBase, pSrcBase, newBuf->getVertexSize());
                 }
             }
@@ -146,10 +144,9 @@ namespace Ogre
             // If vertex size requires 32bit index buffer
             if (mVData->vertexCount > 65536)
             {
-                for (size_t i = 0; i < mIDataList.size(); ++i)
+                for (auto idata : mIDataList)
                 {
                     // check index size
-                    IndexData* idata = mIDataList[i];
                     HardwareIndexBufferSharedPtr srcbuf = idata->indexBuffer;
                     if (srcbuf->getType() == HardwareIndexBuffer::IT_16BIT)
                     {
@@ -207,10 +204,8 @@ namespace Ogre
     {
         // Just run through our complete (possibly augmented) list of vertices
         // Normalise the tangents & binormals
-        for (VertexInfoArray::iterator i = mVertexArray.begin(); i != mVertexArray.end(); ++i)
+        for (auto & v : mVertexArray)
         {
-            VertexInfo& v = *i;
-
             v.tangent.normalise();
             v.binormal.normalise();
 
@@ -233,9 +228,9 @@ namespace Ogre
     void TangentSpaceCalc::processFaces(Result& result)
     {
         // Quick pre-check for triangle strips / fans
-        for (OpTypeList::iterator ot = mOpTypes.begin(); ot != mOpTypes.end(); ++ot)
+        for (auto & opType : mOpTypes)
         {
-            if (*ot != RenderOperation::OT_TRIANGLE_LIST)
+            if (opType != RenderOperation::OT_TRIANGLE_LIST)
             {
                 // Can't split strips / fans
                 setSplitMirrored(false);
@@ -647,26 +642,16 @@ namespace Ogre
         VertexBufferBinding *vBind = mVData->vertexBufferBinding ;
 
         const VertexElement *tangentsElem = vDecl->findElementBySemantic(targetSemantic, index);
-        bool needsToBeCreated = false;
         VertexElementType tangentsType = mStoreParityInW ? VET_FLOAT4 : VET_FLOAT3;
 
-        if (!tangentsElem)
-        { // no tex coords with index 1
-            needsToBeCreated = true ;
-        }
-        else if (tangentsElem->getType() != tangentsType)
-        {
-            //  buffer exists, but not 3D
-            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
-                "Target semantic set already exists but is not of the right size, therefore "
-                "cannot contain tangents. You should delete this existing entry first. ",
-                "TangentSpaceCalc::insertTangents");
-        }
+        OgreAssert(!tangentsElem || tangentsElem->getType() == tangentsType,
+                   "Target semantic set already exists but is not of the right size, therefore cannot contain "
+                   "tangents. You should delete this existing entry first");
 
         HardwareVertexBufferSharedPtr targetBuffer, origBuffer;
         unsigned char* pSrc = NULL;
 
-        if (needsToBeCreated)
+        if (!tangentsElem)
         {
             // To be most efficient with our vertex streams,
             // tack the new tangents onto the same buffer as the
@@ -712,14 +697,13 @@ namespace Ogre
             targetBuffer = origBuffer;
         }
 
-
-        unsigned char* pDest = static_cast<unsigned char*>(
-            targetBuffer->lock(HardwareBuffer::HBL_DISCARD));
+        auto pDest = static_cast<uint8*>(
+            targetBuffer->lock(pSrc ? HardwareBuffer::HBL_DISCARD : HardwareBuffer::HBL_WRITE_ONLY));
         size_t origVertSize = origBuffer->getVertexSize();
         size_t newVertSize = targetBuffer->getVertexSize();
         for (size_t v = 0; v < origBuffer->getNumVertices(); ++v)
         {
-            if (needsToBeCreated)
+            if (pSrc)
             {
                 // Copy original vertex data as well 
                 memcpy(pDest, pSrc, origVertSize);
@@ -741,7 +725,7 @@ namespace Ogre
         }
         targetBuffer->unlock();
 
-        if (needsToBeCreated)
+        if (pSrc)
         {
             origBuffer->unlock();
         }

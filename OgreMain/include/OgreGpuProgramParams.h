@@ -385,7 +385,7 @@ namespace Ogre {
     typedef std::vector<uchar> ConstantList;
 
     /** A group of manually updated parameters that are shared between many parameter sets.
-        @remarks
+
         Sometimes you want to set some common parameters across many otherwise
         different parameter sets, and keep them all in sync together. This class
         allows you to define a set of parameters that you can share across many
@@ -421,6 +421,7 @@ namespace Ogre {
 
         bool mDirty;
 
+        template <typename T> void _setNamedConstant(const String& name, const T* val, uint32 count);
     public:
         GpuSharedParameters(const String& name);
 
@@ -428,7 +429,7 @@ namespace Ogre {
         const String& getName() { return mName; }
 
         /** Add a new constant definition to this shared set of parameters.
-            @remarks
+
             Unlike GpuProgramParameters, where the parameter list is defined by the
             program being compiled, this shared parameter set is defined by the
             user. Only parameters which have been predefined here may be later
@@ -460,7 +461,7 @@ namespace Ogre {
 
         /** Mark the shared set as being clean (values successfully updated
             by the render system).
-            @remarks
+
             You do not need to call this yourself. The set is marked as clean
             whenever the render system updates dirty shared parameters.
         */
@@ -468,7 +469,7 @@ namespace Ogre {
 
         /** Mark the shared set as being dirty (values modified and not yet
             updated in render system).
-            @remarks
+
             You do not need to call this yourself. The set is marked as
             dirty whenever setNamedConstant or (non const) getFloatPointer
             et al are called.
@@ -584,7 +585,7 @@ namespace Ogre {
     };
 
     /** Collects together the program parameters used for a GpuProgram.
-        @remarks
+
         Gpu program state includes constant parameters used by the program, and
         bindings to render system state which is propagated into the constants
         by the engine automatically if requested.
@@ -629,65 +630,60 @@ namespace Ogre {
             /// The current world matrix, inverted
             ACT_INVERSE_WORLD_MATRIX,
             /** Provides transpose of world matrix.
-                Equivalent to RenderMonkey's "WorldTranspose".
             */
             ACT_TRANSPOSE_WORLD_MATRIX,
             /// The current world matrix, inverted & transposed
             ACT_INVERSE_TRANSPOSE_WORLD_MATRIX,
 
-            /// An array of world matrices, each represented as only a 3x4 matrix (3 rows of
+            /// An array of bone matrices, each represented as only a 3x4 matrix (3 rows of
             /// 4columns) usually for doing hardware skinning.
             /// You should make enough entries available in your vertex program for the number of
             /// bones in use, i.e. an array of numBones*3 float4’s.
-            ACT_WORLD_MATRIX_ARRAY_3x4,
-            /// The current array of world matrices, used for blending
-            ACT_WORLD_MATRIX_ARRAY,
-            /// The current array of world matrices transformed to an array of dual quaternions,
+            ACT_BONE_MATRIX_ARRAY_3x4,
+            ACT_WORLD_MATRIX_ARRAY_3x4 = ACT_BONE_MATRIX_ARRAY_3x4,
+            /// The current array of bone matrices, used for blending
+            ACT_BONE_MATRIX_ARRAY,
+            ACT_WORLD_MATRIX_ARRAY = ACT_BONE_MATRIX_ARRAY,
+            /// The current array of bone matrices transformed to an array of dual quaternions,
             /// represented as a 2x4 matrix
-            ACT_WORLD_DUALQUATERNION_ARRAY_2x4,
-            /// The scale and shear components of the current array of world matrices
-            ACT_WORLD_SCALE_SHEAR_MATRIX_ARRAY_3x4,
+            ACT_BONE_DUALQUATERNION_ARRAY_2x4,
+            ACT_WORLD_DUALQUATERNION_ARRAY_2x4 = ACT_BONE_DUALQUATERNION_ARRAY_2x4,
+            /// The scale and shear components of the current array of bone matrices
+            ACT_BONE_SCALE_SHEAR_MATRIX_ARRAY_3x4,
+            ACT_WORLD_SCALE_SHEAR_MATRIX_ARRAY_3x4 = ACT_BONE_SCALE_SHEAR_MATRIX_ARRAY_3x4,
 
             /// The current view matrix
             ACT_VIEW_MATRIX,
             /// The current view matrix, inverted
             ACT_INVERSE_VIEW_MATRIX,
             /** Provides transpose of view matrix.
-                Equivalent to RenderMonkey's "ViewTranspose".
             */
             ACT_TRANSPOSE_VIEW_MATRIX,
             /** Provides inverse transpose of view matrix.
-                Equivalent to RenderMonkey's "ViewInverseTranspose".
             */
             ACT_INVERSE_TRANSPOSE_VIEW_MATRIX,
 
             /// The current projection matrix
             ACT_PROJECTION_MATRIX,
             /** Provides inverse of projection matrix.
-                Equivalent to RenderMonkey's "ProjectionInverse".
             */
             ACT_INVERSE_PROJECTION_MATRIX,
             /** Provides transpose of projection matrix.
-                Equivalent to RenderMonkey's "ProjectionTranspose".
             */
             ACT_TRANSPOSE_PROJECTION_MATRIX,
             /** Provides inverse transpose of projection matrix.
-                Equivalent to RenderMonkey's "ProjectionInverseTranspose".
             */
             ACT_INVERSE_TRANSPOSE_PROJECTION_MATRIX,
 
             /// The current view & projection matrices concatenated
             ACT_VIEWPROJ_MATRIX,
             /** Provides inverse of concatenated view and projection matrices.
-                Equivalent to RenderMonkey's "ViewProjectionInverse".
             */
             ACT_INVERSE_VIEWPROJ_MATRIX,
             /** Provides transpose of concatenated view and projection matrices.
-                Equivalent to RenderMonkey's "ViewProjectionTranspose".
             */
             ACT_TRANSPOSE_VIEWPROJ_MATRIX,
             /** Provides inverse transpose of concatenated view and projection matrices.
-                Equivalent to RenderMonkey's "ViewProjectionInverseTranspose".
             */
             ACT_INVERSE_TRANSPOSE_VIEWPROJ_MATRIX,
 
@@ -696,28 +692,25 @@ namespace Ogre {
             /// The current world & view matrices concatenated, then inverted
             ACT_INVERSE_WORLDVIEW_MATRIX,
             /** Provides transpose of concatenated world and view matrices.
-                Equivalent to RenderMonkey's "WorldViewTranspose".
             */
             ACT_TRANSPOSE_WORLDVIEW_MATRIX,
             /// The current world & view matrices concatenated, then inverted & transposed
             ACT_INVERSE_TRANSPOSE_WORLDVIEW_MATRIX,
             /** Provides inverse transpose of the upper 3x3 of the worldview matrix.
-                Equivalent to "gl_NormalMatrix".
+                Equivalent to @c gl_NormalMatrix.
             */
             ACT_NORMAL_MATRIX,
 
             /// The current world, view & projection matrices concatenated
             ACT_WORLDVIEWPROJ_MATRIX,
             /** Provides inverse of concatenated world, view and projection matrices.
-                Equivalent to RenderMonkey's "WorldViewProjectionInverse".
             */
             ACT_INVERSE_WORLDVIEWPROJ_MATRIX,
             /** Provides transpose of concatenated world, view and projection matrices.
-                Equivalent to RenderMonkey's "WorldViewProjectionTranspose".
             */
             ACT_TRANSPOSE_WORLDVIEWPROJ_MATRIX,
             /** Provides inverse transpose of concatenated world, view and projection
-                matrices. Equivalent to RenderMonkey's "WorldViewProjectionInverseTranspose".
+                matrices.
             */
             ACT_INVERSE_TRANSPOSE_WORLDVIEWPROJ_MATRIX,
 
@@ -728,13 +721,14 @@ namespace Ogre {
             */
             ACT_RENDER_TARGET_FLIPPING,
 
-            /** -1 if the winding has been inverted (e.g. for reflections), +1 otherwise.
+            /** -1 if the winding has been inverted, +1 otherwise.
+             * e.g. for reflections
              */
             ACT_VERTEX_WINDING,
 
             /// Fog colour
             ACT_FOG_COLOUR,
-            /// Fog params: density, linear start, linear end, 1/(end-start)
+            /// Fog params: `(density, linear start, linear end, 1/(end-start))`
             ACT_FOG_PARAMS,
 
             /// Surface ambient colour, as set in Pass::setAmbient
@@ -752,14 +746,13 @@ namespace Ogre {
             /// @ref Pass::getAlphaRejectValue())
             ACT_SURFACE_ALPHA_REJECTION_VALUE,
 
-            /// The number of active light sources (better than gl_MaxLights)
+            /// The number of active light sources
             ACT_LIGHT_COUNT,
 
             /// The ambient light colour set in the scene
             ACT_AMBIENT_LIGHT_COLOUR,
 
-            /// Light diffuse colour (index determined by setAutoConstant call)
-            ///
+            /// Light diffuse colour (index determined by setAutoConstant call).
             /// this requires an index in the ’extra_params’ field, and relates to the ’nth’ closest
             /// light which could affect this object
             /// (i.e. 0 refers to the closest light - note that directional lights are always first
@@ -770,21 +763,21 @@ namespace Ogre {
             ACT_LIGHT_SPECULAR_COLOUR,
             /// Light attenuation parameters, Vector4(range, constant, linear, quadric)
             ACT_LIGHT_ATTENUATION,
-            /** Spotlight parameters, Vector4(innerFactor, outerFactor, falloff, isSpot)
+            /** Spotlight parameters.
+                Packed as `(innerFactor, outerFactor, falloff, isSpot)`
                 innerFactor and outerFactor are cos(angle/2)
                 The isSpot parameter is 0.0f for non-spotlights, 1.0f for spotlights.
                 Also for non-spotlights the inner and outer factors are 1 and nearly 1 respectively
             */
             ACT_SPOTLIGHT_PARAMS,
-            /** A light position in world space (index determined by setAutoConstant call)
-
+            /** A light position in world space (index determined by setAutoConstant call).
              This requires an index in the ’extra_params’ field, and relates to the ’nth’ closest
              light which could affect this object (i.e. 0 refers to the closest light).
              NB if there are no lights this close, then the parameter will be set to all zeroes.
              Note that this property will work with all kinds of lights, even directional lights,
              since the parameter is set as a 4D vector.
-             Point lights will be (pos.x, pos.y, pos.z, 1.0f) whilst directional lights will be
-             (-dir.x, -dir.y, -dir.z, 0.0f).
+             Point lights will be `(pos.x, pos.y, pos.z, 1.0f)` whilst directional lights will be
+             `(-dir.x, -dir.y, -dir.z, 0.0f)`.
              Operations like dot products will work consistently on both.
              */
             ACT_LIGHT_POSITION,
@@ -856,7 +849,7 @@ namespace Ogre {
 
             /** The derived ambient light colour, with 'r', 'g', 'b' components filled with
                 product of surface ambient colour and ambient light colour, respectively,
-                and 'a' component filled with surface ambient alpha component.
+                and 'a' component filled with surface diffuse alpha component.
             */
             ACT_DERIVED_AMBIENT_LIGHT_COLOUR,
             /** The derived scene colour, with 'r', 'g' and 'b' components filled with sum
@@ -908,8 +901,7 @@ namespace Ogre {
             /// The current camera's position in world space even when camera relative rendering is enabled
             ACT_CAMERA_RELATIVE_POSITION,
 
-            /** The view/projection matrix of the assigned texture projection frustum
-
+            /** The view/projection matrix of the assigned texture projection frustum.
              Applicable to vertex programs which have been specified as the ’shadow receiver’ vertex
              program alternative, or where a texture unit is marked as content_type shadow; this
              provides details of the view/projection matrix for the current shadow projector. The
@@ -955,47 +947,45 @@ namespace Ogre {
              */
             ACT_TIME,
             /** Single float value, which repeats itself based on given as
-                parameter "cycle time". Equivalent to RenderMonkey's "Time0_X".
+                parameter "cycle time".
             */
             ACT_TIME_0_X,
-            /// Cosine of "Time0_X". Equivalent to RenderMonkey's "CosTime0_X".
+            /// Cosine of "Time0_X".
             ACT_COSTIME_0_X,
-            /// Sine of "Time0_X". Equivalent to RenderMonkey's "SinTime0_X".
+            /// Sine of "Time0_X".
             ACT_SINTIME_0_X,
-            /// Tangent of "Time0_X". Equivalent to RenderMonkey's "TanTime0_X".
+            /// Tangent of "Time0_X".
             ACT_TANTIME_0_X,
             /** Vector of "Time0_X", "SinTime0_X", "CosTime0_X",
-                "TanTime0_X". Equivalent to RenderMonkey's "Time0_X_Packed".
+                "TanTime0_X".
             */
             ACT_TIME_0_X_PACKED,
             /** Single float value, which represents scaled time value [0..1],
                 which repeats itself based on given as parameter "cycle time".
-                Equivalent to RenderMonkey's "Time0_1".
             */
             ACT_TIME_0_1,
-            /// Cosine of "Time0_1". Equivalent to RenderMonkey's "CosTime0_1".
+            /// Cosine of "Time0_1".
             ACT_COSTIME_0_1,
-            /// Sine of "Time0_1". Equivalent to RenderMonkey's "SinTime0_1".
+            /// Sine of "Time0_1".
             ACT_SINTIME_0_1,
-            /// Tangent of "Time0_1". Equivalent to RenderMonkey's "TanTime0_1".
+            /// Tangent of "Time0_1".
             ACT_TANTIME_0_1,
             /** Vector of "Time0_1", "SinTime0_1", "CosTime0_1",
-                "TanTime0_1". Equivalent to RenderMonkey's "Time0_1_Packed".
+                "TanTime0_1".
             */
             ACT_TIME_0_1_PACKED,
             /** Single float value, which represents scaled time value [0..2*Pi],
                 which repeats itself based on given as parameter "cycle time".
-                Equivalent to RenderMonkey's "Time0_2PI".
             */
             ACT_TIME_0_2PI,
-            /// Cosine of "Time0_2PI". Equivalent to RenderMonkey's "CosTime0_2PI".
+            /// Cosine of "Time0_2PI".
             ACT_COSTIME_0_2PI,
-            /// Sine of "Time0_2PI". Equivalent to RenderMonkey's "SinTime0_2PI".
+            /// Sine of "Time0_2PI".
             ACT_SINTIME_0_2PI,
-            /// Tangent of "Time0_2PI". Equivalent to RenderMonkey's "TanTime0_2PI".
+            /// Tangent of "Time0_2PI".
             ACT_TANTIME_0_2PI,
             /** Vector of "Time0_2PI", "SinTime0_2PI", "CosTime0_2PI",
-                "TanTime0_2PI". Equivalent to RenderMonkey's "Time0_2PI_Packed".
+                "TanTime0_2PI".
             */
             ACT_TIME_0_2PI_PACKED,
             /// provides the scaled frame time, returned as a floating point value.
@@ -1004,54 +994,44 @@ namespace Ogre {
             ACT_FPS,
             // viewport-related values
             /** Current viewport width (in pixels) as floating point value.
-                Equivalent to RenderMonkey's "ViewportWidth".
             */
             ACT_VIEWPORT_WIDTH,
             /** Current viewport height (in pixels) as floating point value.
-                Equivalent to RenderMonkey's "ViewportHeight".
             */
             ACT_VIEWPORT_HEIGHT,
-            /** This variable represents 1.0/ViewportWidth.
-                Equivalent to RenderMonkey's "ViewportWidthInverse".
+            /** This variable represents `1/ViewportWidth`.
             */
             ACT_INVERSE_VIEWPORT_WIDTH,
-            /** This variable represents 1.0/ViewportHeight.
-                Equivalent to RenderMonkey's "ViewportHeightInverse".
+            /** This variable represents `1/ViewportHeight`.
             */
             ACT_INVERSE_VIEWPORT_HEIGHT,
-            /** Packed of "ViewportWidth", "ViewportHeight", "ViewportWidthInverse",
-                "ViewportHeightInverse".
+            /** Viewport dimensions.
+            Packed as `(ViewportWidth, ViewportHeight, 1/ViewportWidth, 1/ViewportHeight)`
             */
             ACT_VIEWPORT_SIZE,
 
             // view parameters
             /** This variable provides the view direction vector (world space).
-                Equivalent to RenderMonkey's "ViewDirection".
             */
             ACT_VIEW_DIRECTION,
             /** This variable provides the view side vector (world space).
-                Equivalent to RenderMonkey's "ViewSideVector".
             */
             ACT_VIEW_SIDE_VECTOR,
             /** This variable provides the view up vector (world space).
-                Equivalent to RenderMonkey's "ViewUpVector".
             */
             ACT_VIEW_UP_VECTOR,
             /** This variable provides the field of view as a floating point value.
-                Equivalent to RenderMonkey's "FOV".
             */
             ACT_FOV,
             /** This variable provides the near clip distance as a floating point value.
-                Equivalent to RenderMonkey's "NearClipPlane".
             */
             ACT_NEAR_CLIP_DISTANCE,
             /** This variable provides the far clip distance as a floating point value.
-                Equivalent to RenderMonkey's "FarClipPlane".
             */
             ACT_FAR_CLIP_DISTANCE,
 
             /** provides the pass index number within the technique
-                of the active materil.
+                of the active material.
             */
             ACT_PASS_NUMBER,
 
@@ -1083,28 +1063,27 @@ namespace Ogre {
 
             /** Provides the texel offsets required by this rendersystem to map
                 texels to pixels. Packed as
-                float4(absoluteHorizontalOffset, absoluteVerticalOffset,
-                horizontalOffset / viewportWidth, verticalOffset / viewportHeight)
+                `(absoluteHorizontalOffset, absoluteVerticalOffset, horizontalOffset / viewportWidth, verticalOffset / viewportHeight)`
             */
             ACT_TEXEL_OFFSETS,
 
             /** Provides information about the depth range of the scene as viewed
                 from the current camera.
-                Passed as float4(minDepth, maxDepth, depthRange, 1 / depthRange)
+                Passed as `(minDepth, maxDepth, depthRange, 1 / depthRange)`
             */
             ACT_SCENE_DEPTH_RANGE,
 
             /** Provides information about the depth range of the scene as viewed
                 from a given shadow camera. Requires an index parameter which maps
                 to a light index relative to the current light list.
-                Passed as float4(minDepth, maxDepth, depthRange, 1 / depthRange)
+                Passed as `(minDepth, maxDepth, depthRange, 1 / depthRange)`
             */
             ACT_SHADOW_SCENE_DEPTH_RANGE,
 
             /** Provides an array of information about the depth range of the scene as viewed
                 from a given shadow camera. Requires an index parameter which maps
                 to a light index relative to the current light list.
-                Passed as float4(minDepth, maxDepth, depthRange, 1 / depthRange)
+                Passed as `(minDepth, maxDepth, depthRange, 1 / depthRange)`
             */
             ACT_SHADOW_SCENE_DEPTH_RANGE_ARRAY,
 
@@ -1113,17 +1092,17 @@ namespace Ogre {
             */
             ACT_SHADOW_COLOUR,
             /** Provides texture size of the texture unit (index determined by setAutoConstant
-                call). Packed as float4(width, height, depth, 1)
+                call). Packed as `(width, height, depth, numMipMaps)`
             */
             ACT_TEXTURE_SIZE,
             /** Provides inverse texture size of the texture unit (index determined by
                setAutoConstant
-                call). Packed as float4(1 / width, 1 / height, 1 / depth, 1)
+                call). Packed as `(1 / width, 1 / height, 1 / depth, 1 / numMipMaps)`
             */
             ACT_INVERSE_TEXTURE_SIZE,
             /** Provides packed texture size of the texture unit (index determined by
                setAutoConstant
-                call). Packed as float4(width, height, 1 / width, 1 / height)
+                call). Packed as `(width, height, 1 / width, 1 / height)`
             */
             ACT_PACKED_TEXTURE_SIZE,
 
@@ -1152,7 +1131,8 @@ namespace Ogre {
             ACT_LOD_CAMERA_POSITION_OBJECT_SPACE,
             /** Binds custom per-light constants to the shaders. */
             ACT_LIGHT_CUSTOM,
-            /// Point params: size; constant, linear, quadratic attenuation
+            /// Point attenuation params.
+            /// Packed as `(size, constant, linear, quadratic)`
             ACT_POINT_PARAMS,
 
             ACT_UNKNOWN = 999
@@ -1274,6 +1254,8 @@ namespace Ogre {
 
         GpuSharedParamUsageList mSharedParamSets;
 
+        template <typename T> void _setNamedConstant(const String& name, const T* val, size_t count);
+
     public:
         GpuProgramParameters();
         ~GpuProgramParameters();
@@ -1367,7 +1349,7 @@ namespace Ogre {
         */
         void setConstant(size_t index, const double *val, size_t count);
         /** Sets a multiple value constant integer parameter to the program.
-            @remarks
+
             Different types of GPU programs support different types of constant parameters.
             For example, it's relatively common to find that vertex programs only support
             floating point constants, and that fragment programs only support integer (fixed point)
@@ -1382,7 +1364,7 @@ namespace Ogre {
         */
         void setConstant(size_t index, const int *val, size_t count);
         /** Sets a multiple value constant unsigned integer parameter to the program.
-            @remarks
+
             Different types of GPU programs support different types of constant parameters.
             For example, it's relatively common to find that vertex programs only support
             floating point constants, and that fragment programs only support integer (fixed point)
@@ -1539,7 +1521,7 @@ namespace Ogre {
         const AutoConstantList& getAutoConstantList() const { return mAutoConstants; }
 
         /** Sets up a constant which will automatically be updated by the system.
-            @remarks
+
             Vertex and fragment programs often need parameters which are to do with the
             current render state, or particular values which may very well change over time,
             and often between objects which are being rendered. This feature allows you
@@ -1612,7 +1594,7 @@ namespace Ogre {
         */
         const AutoConstantEntry* _findRawAutoConstantEntryFloat(size_t physicalIndex) const;
         /** Sets up a constant which will automatically be updated by the system.
-            @remarks
+
             Vertex and fragment programs often need parameters which are to do with the
             current render state, or particular values which may very well change over time,
             and often between objects which are being rendered. This feature allows you
@@ -1727,7 +1709,7 @@ namespace Ogre {
                               size_t multiple = 4);
         /// @}
         /** Find a constant definition for a named parameter.
-            @remarks
+
             This method returns null if the named parameter did not exist, unlike
             getConstantDefinition which is more strict; unless you set the
             last parameter to true.
@@ -1747,7 +1729,7 @@ namespace Ogre {
         */
         size_t _getConstantPhysicalIndex(size_t logicalIndex, size_t requestedSize, uint16 variability, BaseConstantType type);
         /** Sets whether or not we need to transpose the matrices passed in from the rest of OGRE.
-            @remarks
+
             D3D uses transposed matrices compared to GL and OGRE; this is not important when you
             use programs which are written to process row-major matrices, such as those generated
             by Cg, but if you use a program written to D3D's matrix layout you will need to enable
@@ -1767,7 +1749,7 @@ namespace Ogre {
 
         /** Copies the values of all matching named constants (including auto constants) from
             another GpuProgramParameters object.
-            @remarks
+
             This method iterates over the named constants in another parameters object
             and copies across the values where they match. This method is safe to
             use when the 2 parameters objects came from different programs, but only
@@ -1802,14 +1784,14 @@ namespace Ogre {
         /// @name Shared Parameters
         /// @{
         /** Use a set of shared parameters in this parameters object.
-            @remarks
+
             Allows you to use a set of shared parameters to automatically update
             this parameter set.
         */
         void addSharedParameters(GpuSharedParametersPtr sharedParams);
 
         /** Use a set of shared parameters in this parameters object.
-            @remarks
+
             Allows you to use a set of shared parameters to automatically update
             this parameter set.
             @param sharedParamsName The name of a shared parameter set as defined in

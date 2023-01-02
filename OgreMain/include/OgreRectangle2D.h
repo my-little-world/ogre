@@ -51,14 +51,14 @@ namespace Ogre {
     protected:
         /** Override this method to prevent parent transforms (rotation,translation,scale)
         */
-        void getWorldTransforms( Matrix4* xform ) const;
+        void getWorldTransforms( Matrix4* xform ) const override;
 
         void _initRectangle2D(bool includeTextureCoords, HardwareBuffer::Usage vBufUsage);
 
     public:
 
-        Rectangle2D(bool includeTextureCoordinates = false, HardwareBuffer::Usage vBufUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY);
-        Rectangle2D(const String& name, bool includeTextureCoordinates = false, HardwareBuffer::Usage vBufUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY);
+        Rectangle2D(bool includeTextureCoordinates = false, HardwareBuffer::Usage vBufUsage = HBU_GPU_ONLY);
+        Rectangle2D(const String& name, bool includeTextureCoordinates = false, HardwareBuffer::Usage vBufUsage = HBU_GPU_ONLY);
         ~Rectangle2D();
 
         /** Sets the corners of the rectangle, in relative coordinates.
@@ -78,7 +78,7 @@ namespace Ogre {
                         const Vector3& bottomRight);
 
         /** Sets the UVs of the rectangle
-        @remarks
+
         Doesn't do anything if the rectangle wasn't built with texture coordinates
         */
         void setUVs(const Vector2& topLeft, const Vector2& bottomLeft, const Vector2& topRight,
@@ -86,10 +86,10 @@ namespace Ogre {
 
         void setDefaultUVs();
 
-        Real getSquaredViewDepth(const Camera* cam) const
+        Real getSquaredViewDepth(const Camera* cam) const override
         { (void)cam; return 0; }
 
-        Real getBoundingRadius(void) const { return 0; }
+        Real getBoundingRadius(void) const override { return 0; }
 
         const String& getMovableType() const override;
     };

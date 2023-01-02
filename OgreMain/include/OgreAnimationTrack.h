@@ -103,7 +103,7 @@ namespace Ogre
 
     /** A 'track' in an animation sequence, i.e. a sequence of keyframes which affect a
         certain type of animable object.
-    @remarks
+
         This class is intended as a base for more complete classes which will actually
         animate specific types of object, e.g. a bone in a skeleton to affect
         skeletal animation. An animation will likely include multiple tracks each of which
@@ -111,11 +111,11 @@ namespace Ogre
         object to have it's own number of keyframes, i.e. you do not have to have the
         maximum number of keyframes for all animable objects just to cope with the most
         animated one.
-    @remarks
+
         Since the most common animable object is a Node, there are options in this class for associating
         the track with a Node which will receive keyframe updates automatically when the 'apply' method
         is called.
-    @remarks
+
         By default rotation is done using shortest-path algorithm.
         It is possible to change this behaviour using
         setUseShortestRotationPath() method.
@@ -153,7 +153,7 @@ namespace Ogre
         KeyFrame* getKeyFrame(size_t index) const { return mKeyFrames.at(index); }
 
         /** Gets the 2 KeyFrame objects which are active at the time given, and the blend value between them.
-        @remarks
+
             At any point in time  in an animation, there are either 1 or 2 keyframes which are 'active',
             1 if the time index is exactly on a keyframe, 2 at all other times i.e. the keyframe before
             and the keyframe after.
@@ -177,10 +177,8 @@ namespace Ogre
             unsigned short* firstKeyIndex = 0) const;
 
         /** Creates a new KeyFrame and adds it to this animation at the given time index.
-        @remarks
-            It is better to create KeyFrames in time order. Creating them out of order can result 
-            in expensive reordering processing. Note that a KeyFrame at time index 0.0 is always created
-            for you, so you don't need to create this one, just access it using getKeyFrame(0);
+
+            It is better to create KeyFrames in time order.
         @param timePos The time from which this KeyFrame will apply.
         */
         virtual KeyFrame* createKeyFrame(Real timePos);
@@ -193,7 +191,7 @@ namespace Ogre
 
 
         /** Gets a KeyFrame object which contains the interpolated transforms at the time index specified.
-        @remarks
+
             The KeyFrame objects held by this class are transformation snapshots at 
             discrete points in time. Normally however, you want to interpolate between these
             keyframes to produce smooth movement, and this method allows you to do this easily.
@@ -267,22 +265,16 @@ namespace Ogre
         NumericAnimationTrack(Animation* parent, unsigned short handle);
         /// Constructor, associates with an AnimableValue
         NumericAnimationTrack(Animation* parent, unsigned short handle, 
-            AnimableValuePtr& target);
+            const AnimableValuePtr& target);
 
-        /** Creates a new KeyFrame and adds it to this animation at the given time index.
-        @remarks
-            It is better to create KeyFrames in time order. Creating them out of order can result 
-            in expensive reordering processing. Note that a KeyFrame at time index 0.0 is always created
-            for you, so you don't need to create this one, just access it using getKeyFrame(0);
-        @param timePos The time from which this KeyFrame will apply.
-        */
+        /// @copydoc AnimationTrack::createKeyFrame
         virtual NumericKeyFrame* createNumericKeyFrame(Real timePos);
 
         /// @copydoc AnimationTrack::getInterpolatedKeyFrame
-        virtual void getInterpolatedKeyFrame(const TimeIndex& timeIndex, KeyFrame* kf) const;
+        void getInterpolatedKeyFrame(const TimeIndex& timeIndex, KeyFrame* kf) const override;
 
         /// @copydoc AnimationTrack::apply
-        virtual void apply(const TimeIndex& timeIndex, Real weight = 1.0, Real scale = 1.0f);
+        void apply(const TimeIndex& timeIndex, Real weight = 1.0, Real scale = 1.0f) override;
 
         /** Applies an animation track to a given animable value.
         @param anim The AnimableValue to which to apply the animation
@@ -296,11 +288,11 @@ namespace Ogre
             Real weight = 1.0, Real scale = 1.0f);
 
         /** Returns a pointer to the associated animable object (if any). */
-        virtual const AnimableValuePtr& getAssociatedAnimable(void) const;
+        const AnimableValuePtr& getAssociatedAnimable(void) const { return mTargetAnim; }
 
         /** Sets the associated animable object which will be automatically 
             affected by calls to 'apply'. */
-        virtual void setAssociatedAnimable(const AnimableValuePtr& val);
+        void setAssociatedAnimable(const AnimableValuePtr& val) { mTargetAnim = val; }
 
         /** Returns the KeyFrame at the specified index. */
         NumericKeyFrame* getNumericKeyFrame(unsigned short index) const;
@@ -314,7 +306,7 @@ namespace Ogre
         AnimableValuePtr mTargetAnim;
 
         /// @copydoc AnimationTrack::createKeyFrameImpl
-        KeyFrame* createKeyFrameImpl(Real time);
+        KeyFrame* createKeyFrameImpl(Real time) override;
 
 
     };
@@ -331,13 +323,7 @@ namespace Ogre
             Node* targetNode);
         /// Destructor
         virtual ~NodeAnimationTrack();
-        /** Creates a new KeyFrame and adds it to this animation at the given time index.
-        @remarks
-            It is better to create KeyFrames in time order. Creating them out of order can result 
-            in expensive reordering processing. Note that a KeyFrame at time index 0.0 is always created
-            for you, so you don't need to create this one, just access it using getKeyFrame(0);
-        @param timePos The time from which this KeyFrame will apply.
-        */
+        /// @copydoc AnimationTrack::createKeyFrame
         virtual TransformKeyFrame* createNodeKeyFrame(Real timePos);
         /** Returns a pointer to the associated Node object (if any). */
         virtual Node* getAssociatedNode(void) const;
@@ -356,13 +342,13 @@ namespace Ogre
         virtual bool getUseShortestRotationPath() const;
 
         /// @copydoc AnimationTrack::getInterpolatedKeyFrame
-        virtual void getInterpolatedKeyFrame(const TimeIndex& timeIndex, KeyFrame* kf) const;
+        void getInterpolatedKeyFrame(const TimeIndex& timeIndex, KeyFrame* kf) const override;
 
         /// @copydoc AnimationTrack::apply
-        virtual void apply(const TimeIndex& timeIndex, Real weight = 1.0, Real scale = 1.0f);
+        void apply(const TimeIndex& timeIndex, Real weight = 1.0, Real scale = 1.0f) override;
 
         /// @copydoc AnimationTrack::_keyFrameDataChanged
-        void _keyFrameDataChanged(void) const;
+        void _keyFrameDataChanged(void) const override;
 
         /** Returns the KeyFrame at the specified index. */
         virtual TransformKeyFrame* getNodeKeyFrame(unsigned short index) const;
@@ -372,19 +358,19 @@ namespace Ogre
             doing anything useful - can be used to determine if this track
             can be optimised out.
         */
-        virtual bool hasNonZeroKeyFrames(void) const;
+        bool hasNonZeroKeyFrames(void) const override;
 
         /** Optimise the current track by removing any duplicate keyframes. */
-        virtual void optimise(void);
+        void optimise(void) override;
 
         /** Clone this track (internal use only) */
         NodeAnimationTrack* _clone(Animation* newParent) const;
         
-        void _applyBaseKeyFrame(const KeyFrame* base);
+        void _applyBaseKeyFrame(const KeyFrame* base) override;
         
     private:
         /// Specialised keyframe creation
-        KeyFrame* createKeyFrameImpl(Real time);
+        KeyFrame* createKeyFrameImpl(Real time) override;
         // Flag indicating we need to rebuild the splines next time
         virtual void buildInterpolationSplines(void) const;
 
@@ -499,13 +485,7 @@ namespace Ogre
         /** Whether the vertex animation (if present) includes normals */
         bool getVertexAnimationIncludesNormals() const;
 
-        /** Creates a new morph KeyFrame and adds it to this animation at the given time index.
-        @remarks
-        It is better to create KeyFrames in time order. Creating them out of order can result 
-        in expensive reordering processing. Note that a KeyFrame at time index 0.0 is always created
-        for you, so you don't need to create this one, just access it using getKeyFrame(0);
-        @param timePos The time from which this KeyFrame will apply.
-        */
+        /// @copydoc AnimationTrack::createKeyFrame
         virtual VertexMorphKeyFrame* createVertexMorphKeyFrame(Real timePos);
 
         /** Creates the single pose KeyFrame and adds it to this animation.
@@ -514,10 +494,10 @@ namespace Ogre
 
         /** @copydoc AnimationTrack::getInterpolatedKeyFrame
         */
-        virtual void getInterpolatedKeyFrame(const TimeIndex& timeIndex, KeyFrame* kf) const;
+        void getInterpolatedKeyFrame(const TimeIndex& timeIndex, KeyFrame* kf) const override;
 
         /// @copydoc AnimationTrack::apply
-        virtual void apply(const TimeIndex& timeIndex, Real weight = 1.0, Real scale = 1.0f);
+        void apply(const TimeIndex& timeIndex, Real weight = 1.0, Real scale = 1.0f) override;
 
         /** As the 'apply' method but applies to specified VertexData instead of 
             associated data. */
@@ -546,15 +526,15 @@ namespace Ogre
         doing anything useful - can be used to determine if this track
         can be optimised out.
         */
-        virtual bool hasNonZeroKeyFrames(void) const;
+        bool hasNonZeroKeyFrames(void) const override;
 
         /** Optimise the current track by removing any duplicate keyframes. */
-        virtual void optimise(void);
+        void optimise(void) override;
 
         /** Clone this track (internal use only) */
         VertexAnimationTrack* _clone(Animation* newParent) const;
         
-        void _applyBaseKeyFrame(const KeyFrame* base);
+        void _applyBaseKeyFrame(const KeyFrame* base) override;
 
     private:
         /// Animation type
@@ -565,7 +545,7 @@ namespace Ogre
         VertexData* mTargetVertexData;
 
         /// @copydoc AnimationTrack::createKeyFrameImpl
-        KeyFrame* createKeyFrameImpl(Real time);
+        KeyFrame* createKeyFrameImpl(Real time) override;
 
         /// Utility method for applying pose animation
         void applyPoseToVertexData(const Pose* pose, VertexData* data, Real influence);

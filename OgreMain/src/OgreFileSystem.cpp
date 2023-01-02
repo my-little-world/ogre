@@ -78,41 +78,41 @@ namespace {
         ~FileSystemArchive();
 
         /// @copydoc Archive::isCaseSensitive
-        bool isCaseSensitive(void) const;
+        bool isCaseSensitive(void) const override;
 
         /// @copydoc Archive::load
-        void load();
+        void load() override;
         /// @copydoc Archive::unload
-        void unload();
+        void unload() override;
 
         /// @copydoc Archive::open
-        DataStreamPtr open(const String& filename, bool readOnly = true) const;
+        DataStreamPtr open(const String& filename, bool readOnly = true) const override;
 
         /// @copydoc Archive::create
-        DataStreamPtr create(const String& filename);
+        DataStreamPtr create(const String& filename) override;
 
         /// @copydoc Archive::remove
-        void remove(const String& filename);
+        void remove(const String& filename) override;
 
         /// @copydoc Archive::list
-        StringVectorPtr list(bool recursive = true, bool dirs = false) const;
+        StringVectorPtr list(bool recursive = true, bool dirs = false) const override;
 
         /// @copydoc Archive::listFileInfo
-        FileInfoListPtr listFileInfo(bool recursive = true, bool dirs = false) const;
+        FileInfoListPtr listFileInfo(bool recursive = true, bool dirs = false) const override;
 
         /// @copydoc Archive::find
         StringVectorPtr find(const String& pattern, bool recursive = true,
-            bool dirs = false) const;
+            bool dirs = false) const override;
 
         /// @copydoc Archive::findFileInfo
         FileInfoListPtr findFileInfo(const String& pattern, bool recursive = true,
-            bool dirs = false) const;
+            bool dirs = false) const override;
 
         /// @copydoc Archive::exists
-        bool exists(const String& filename) const;
+        bool exists(const String& filename) const override;
 
         /// @copydoc Archive::getModifiedTime
-        time_t getModifiedTime(const String& filename) const;
+        time_t getModifiedTime(const String& filename) const override;
     };
 
     bool gIgnoreHidden = true;
@@ -455,8 +455,7 @@ namespace {
     StringVectorPtr FileSystemArchive::list(bool recursive, bool dirs) const
     {
         // directory change requires locking due to saved returns
-        // Note that we have to tell the SharedPtr to use OGRE_DELETE_T not OGRE_DELETE by passing category
-        StringVectorPtr ret(OGRE_NEW_T(StringVector, MEMCATEGORY_GENERAL)(), SPFM_DELETE_T);
+        auto ret = std::make_shared<StringVector>();
 
         findFiles("*", recursive, dirs, ret.get(), 0);
 
@@ -465,8 +464,7 @@ namespace {
     //-----------------------------------------------------------------------
     FileInfoListPtr FileSystemArchive::listFileInfo(bool recursive, bool dirs) const
     {
-        // Note that we have to tell the SharedPtr to use OGRE_DELETE_T not OGRE_DELETE by passing category
-        FileInfoListPtr ret(OGRE_NEW_T(FileInfoList, MEMCATEGORY_GENERAL)(), SPFM_DELETE_T);
+        auto ret = std::make_shared<FileInfoList>();
 
         findFiles("*", recursive, dirs, 0, ret.get());
 
@@ -476,8 +474,7 @@ namespace {
     StringVectorPtr FileSystemArchive::find(const String& pattern,
                                             bool recursive, bool dirs) const
     {
-        // Note that we have to tell the SharedPtr to use OGRE_DELETE_T not OGRE_DELETE by passing category
-        StringVectorPtr ret(OGRE_NEW_T(StringVector, MEMCATEGORY_GENERAL)(), SPFM_DELETE_T);
+        auto ret = std::make_shared<StringVector>();
 
         findFiles(pattern, recursive, dirs, ret.get(), 0);
 
@@ -488,8 +485,7 @@ namespace {
     FileInfoListPtr FileSystemArchive::findFileInfo(const String& pattern, 
         bool recursive, bool dirs) const
     {
-        // Note that we have to tell the SharedPtr to use OGRE_DELETE_T not OGRE_DELETE by passing category
-        FileInfoListPtr ret(OGRE_NEW_T(FileInfoList, MEMCATEGORY_GENERAL)(), SPFM_DELETE_T);
+        auto ret = std::make_shared<FileInfoList>();
 
         findFiles(pattern, recursive, dirs, 0, ret.get());
 

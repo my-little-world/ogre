@@ -33,7 +33,7 @@
 
 namespace Ogre {
 
-    GLSLProgramManagerCommon::GLSLProgramManagerCommon()
+    GLSLProgramManagerCommon::GLSLProgramManagerCommon() : mActiveProgram(NULL)
     {
         mActiveShader.fill(NULL);
 
@@ -178,30 +178,38 @@ namespace Ogre {
     GLSLProgramManagerCommon::~GLSLProgramManagerCommon()
     {
         // iterate through map container and delete link programs
-        for (ProgramIterator currentProgram = mPrograms.begin();
-             currentProgram != mPrograms.end(); ++currentProgram)
+        for (auto & p : mPrograms)
         {
-            delete currentProgram->second;
+            delete p.second;
         }
     }
 
     void GLSLProgramManagerCommon::destroyAllByShader(GLSLShaderCommon* shader)
     {
         std::vector<uint32> keysToErase;
-        for (ProgramIterator currentProgram = mPrograms.begin();
-            currentProgram != mPrograms.end(); ++currentProgram)
+        for (auto & p : mPrograms)
         {
-            GLSLProgramCommon* prgm = currentProgram->second;
+            GLSLProgramCommon* prgm = p.second;
             if(prgm->isUsingShader(shader))
             {
                 OGRE_DELETE prgm;
-                keysToErase.push_back(currentProgram->first);
+                keysToErase.push_back(p.first);
             }
         }
 
-        for(size_t i = 0; i < keysToErase.size(); ++i)
+        for(unsigned int & i : keysToErase)
         {
-            mPrograms.erase(mPrograms.find(keysToErase[i]));
+            mPrograms.erase(mPrograms.find(i));
+        }
+    }
+
+    void GLSLProgramManagerCommon::setActiveShader(GpuProgramType type, GLSLShaderCommon* shader)
+    {
+        if (mActiveShader[type] != shader)
+        {
+            mActiveShader[type] = shader;
+            // ActiveMonolithicProgram is no longer valid
+            mActiveProgram = NULL;
         }
     }
 
@@ -222,10 +230,10 @@ namespace Ogre {
         // Split into tokens
         StringVector parts = StringUtil::split(line, ", \t\r\n");
 
-        for (StringVector::iterator i = parts.begin(); i != parts.end(); ++i)
+        for (auto & part : parts)
         {
             // Is this a type?
-            StringToEnumMap::iterator typei = mTypeEnumMap.find(*i);
+            StringToEnumMap::iterator typei = mTypeEnumMap.find(part);
             if (typei != mTypeEnumMap.end())
             {
                 def.constType = typei->second;
@@ -235,20 +243,20 @@ namespace Ogre {
             else
             {
                 // if this is not a type, and not empty, it should be a name
-                StringUtil::trim(*i);
-                if (i->empty()) continue;
+                StringUtil::trim(part);
+                if (part.empty()) continue;
 
                 // Skip over precision keywords
-                if(StringUtil::match((*i), "lowp") ||
-                   StringUtil::match((*i), "mediump") ||
-                   StringUtil::match((*i), "highp"))
+                if(StringUtil::match(part, "lowp") ||
+                   StringUtil::match(part, "mediump") ||
+                   StringUtil::match(part, "highp"))
                     continue;
 
-                String::size_type arrayStart = i->find("[", 0);
+                String::size_type arrayStart = part.find("[", 0);
                 if (arrayStart != String::npos)
                 {
                     // potential name (if butted up to array)
-                    String name = i->substr(0, arrayStart);
+                    String name = part.substr(0, arrayStart);
                     StringUtil::trim(name);
                     if (!name.empty())
                         paramName = name;
@@ -257,20 +265,20 @@ namespace Ogre {
 
                     // N-dimensional arrays
                     while (arrayStart != String::npos) {
-                        String::size_type arrayEnd = i->find("]", arrayStart);
-                        String arrayDimTerm = i->substr(arrayStart + 1, arrayEnd - arrayStart - 1);
+                        String::size_type arrayEnd = part.find("]", arrayStart);
+                        String arrayDimTerm = part.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
                         StringUtil::trim(arrayDimTerm);
                         //TODO
                         // the array term might be a simple number or it might be
                         // an expression (e.g. 24*3) or refer to a constant expression
                         // we'd have to evaluate the expression which could get nasty
                         def.arraySize *= StringConverter::parseInt(arrayDimTerm);
-                        arrayStart = i->find("[", arrayEnd);
+                        arrayStart = part.find("[", arrayEnd);
                     }
                 }
                 else
                 {
-                    paramName = *i;
+                    paramName = part;
                     def.arraySize = 1;
                 }
 
@@ -314,6 +322,75 @@ namespace Ogre {
                 }
             }
         }
+    }
+
+    //---------------------------------------------------------------------
+    static bool findUniformDataSource(const String& paramName, const GpuConstantDefinitionMap* (&constantDefs)[6],
+                               GLUniformReference& refToUpdate)
+    {
+        for (int i = 0; i < 6; i++)
+        {
+            if (constantDefs[i])
+            {
+                auto parami = constantDefs[i]->find(paramName);
+                if (parami != constantDefs[i]->end())
+                {
+                    refToUpdate.mSourceProgType = static_cast<GpuProgramType>(i);
+                    refToUpdate.mConstantDef = &(parami->second);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool GLSLProgramManagerCommon::validateParam(String paramName, uint32 numActiveArrayElements,
+                                                 const GpuConstantDefinitionMap* (&constantDefs)[6],
+                                                 GLUniformReference& refToUpdate)
+    {
+        // Don't add built in uniforms, atomic counters, or uniform block parameters.
+        if (refToUpdate.mLocation < 0)
+            return false;
+
+        // ATI drivers (Catalyst 7.2 and earlier) and
+        // older NVidia drivers will include all array
+        // elements as uniforms but we only want the root
+        // array name and location. Also note that ATI Catalyst
+        // 6.8 to 7.2 there is a bug with glUniform that does
+        // not allow you to update a uniform array past the
+        // first uniform array element ie you can't start
+        // updating an array starting at element 1, must
+        // always be element 0.
+
+        // If the uniform name ends with "]" then its an array element uniform
+        if (paramName.back() == ']')
+        {
+            // if not the first array element then skip it and continue to the next uniform
+            if (paramName.compare(paramName.size() - 3, 3, "[0]") != 0)
+                return false;
+            paramName.resize(paramName.size() - 3);
+        }
+
+        // Find out which params object this comes from
+        bool foundSource = findUniformDataSource(paramName, constantDefs, refToUpdate);
+
+        if(!foundSource)
+            return false;
+
+        // Note that numActiveArrayElements comes from glGetActiveUniformARB()
+        // which returns the index of the highest active array element (that is
+        // an element actually used by the shader) plus one. That is, if some array
+        // elements are not used by the shader (possibly optimized away), then
+        // numActiveArrayElements can well be less than
+        // newGLUniformReference.mConstantDef->arraySize.
+        // Keep in mind that glUniform*v() faimily of functions does allow specifying
+        // a number of elements to update greater than the number of active
+        // elements in the shader.
+        OgreAssertDbg(numActiveArrayElements <= refToUpdate.mConstantDef->arraySize,
+                      "We provide less array elements than what shader actually uses");
+
+        // Only add this parameter if we found the source
+        return true;
     }
 
     void GLSLProgramManagerCommon::extractUniformsFromGLSL(const String& src,

@@ -29,7 +29,6 @@ THE SOFTWARE.
 
 #include "OgreStableHeaders.h"
 #include "OgreShadowCameraSetupLiSPSM.h"
-#include "OgreLight.h"
 
 namespace Ogre
 {
@@ -205,13 +204,11 @@ namespace Ogre
         OgreAssert(cam != NULL, "Camera (viewer) is NULL");
         OgreAssert(light != NULL, "Light is NULL");
         OgreAssert(texCam != NULL, "Camera (texture) is NULL");
-        mLightFrustumCameraCalculated = false;
-
 
         // calculate standard shadow mapping matrix
-        Affine3 LView; Matrix4 LProj;
-        calculateShadowMappingMatrix(*sm, *cam, *light, &LView, &LProj, NULL);
-        
+        DefaultShadowCameraSetup::getShadowCamera(sm, cam, vp, light, texCam, iteration);
+        mLightFrustumCamera = texCam;
+
         // if the direction of the light and the direction of the camera tend to be parallel,
         // then tweak up the adjust factor
         Real dot = Math::Abs(cam->getDerivedDirection().dotProduct(light->getDerivedDirection()));
@@ -234,8 +231,6 @@ namespace Ogre
         // return the standard shadow mapping matrix
         if (sceneBB.isNull())
         {
-            texCam->setCustomViewMatrix(true, LView);
-            texCam->setCustomProjectionMatrix(true, LProj);
             return;
         }
 
@@ -247,10 +242,11 @@ namespace Ogre
         // simply return the standard shadow mapping matrix
         if (mPointListBodyB.getPointCount() == 0)
         {
-            texCam->setCustomViewMatrix(true, LView);
-            texCam->setCustomProjectionMatrix(true, LProj);
             return;
         }
+
+        auto LView = texCam->getViewMatrix();
+        auto LProj = texCam->getProjectionMatrix();
 
         // transform to light space: y -> -z, z -> y
         LProj = msNormalToLightSpace * LProj;

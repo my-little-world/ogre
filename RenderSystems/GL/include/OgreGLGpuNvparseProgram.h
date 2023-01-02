@@ -44,23 +44,16 @@ public:
 
 
     /// Execute the binding functions for this program
-    void bindProgram(void);
+    void bindProgram(void) override;
     /// Execute the unbinding functions for this program
-    void unbindProgram(void);
+    void unbindProgram(void) override;
     /// Execute the param binding functions for this program
-    void bindProgramParameters(GpuProgramParametersSharedPtr params, uint16 mask);
-
-    /// Get the assigned GL program id
-    GLuint getProgramID(void) const
-    { return mProgramID; }
+    void bindProgramParameters(GpuProgramParametersSharedPtr params, uint16 mask) override;
 
 protected:
     /// @copydoc Resource::unload
-    void unloadImpl(void);
-    void loadFromSource(void);
-
-private:
-    GLuint mProgramID;
+    void unloadImpl(void) override;
+    void loadFromSource(void) override;
 };
 
 } // namespace Ogre

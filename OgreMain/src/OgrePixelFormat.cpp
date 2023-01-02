@@ -92,7 +92,7 @@ namespace Ogre {
         return _pixelFormats[ord];
     }
     //-----------------------------------------------------------------------
-    size_t PixelUtil::getNumElemBytes( PixelFormat format )
+    uint8 PixelUtil::getNumElemBytes( PixelFormat format )
     {
         return getDescriptionFor(format).elemBytes;
     }
@@ -139,16 +139,13 @@ namespace Ogre {
                 case PF_PVRTC2_4BPP:
                     return (std::max((int)width, 8) * std::max((int)height, 8) * 4 + 7) / 8;
 
-                // Size calculations from the ETC spec
-                // https://www.khronos.org/registry/OpenGL/extensions/OES/OES_compressed_ETC1_RGB8_texture.txt
+                // see https://registry.khronos.org/OpenGL-Refpages/es3/html/glCompressedTexImage2D.xhtml
                 case PF_ETC1_RGB8:
                 case PF_ETC2_RGB8:
-                case PF_ETC2_RGBA8:
                 case PF_ETC2_RGB8A1:
-                    return ((width + 3) / 4) * ((height + 3) / 4) * 8;
-
                 case PF_ATC_RGB:
                     return ((width + 3) / 4) * ((height + 3) / 4) * 8;
+                case PF_ETC2_RGBA8:
                 case PF_ATC_RGBA_EXPLICIT_ALPHA:
                 case PF_ATC_RGBA_INTERPOLATED_ALPHA:
                     return ((width + 3) / 4) * ((height + 3) / 4) * 16;
@@ -192,7 +189,7 @@ namespace Ogre {
         }
     }
     //-----------------------------------------------------------------------
-    size_t PixelUtil::getNumElemBits( PixelFormat format )
+    uint8 PixelUtil::getNumElemBits( PixelFormat format )
     {
         return getDescriptionFor(format).elemBytes * 8;
     }
@@ -280,7 +277,7 @@ namespace Ogre {
         return des.componentType;
     }
     //-----------------------------------------------------------------------
-    size_t PixelUtil::getComponentCount(PixelFormat fmt)
+    uint8 PixelUtil::getComponentCount(PixelFormat fmt)
     {
         const PixelFormatDescription &des = getDescriptionFor(fmt);
         return des.componentCount;
@@ -512,16 +509,6 @@ namespace Ogre {
             case PF_A8:
                 ((uint8*)dest)[0] = (uint8)Bitwise::floatToFixed(r, 8);
                 break;
-            case PF_A2B10G10R10:
-            {
-                const uint16 ir = static_cast<uint16>( Math::saturate( r ) * 1023.0f + 0.5f );
-                const uint16 ig = static_cast<uint16>( Math::saturate( g ) * 1023.0f + 0.5f );
-                const uint16 ib = static_cast<uint16>( Math::saturate( b ) * 1023.0f + 0.5f );
-                const uint16 ia = static_cast<uint16>( Math::saturate( a ) * 3.0f + 0.5f );
-
-                ((uint32*)dest)[0] = (ia << 30u) | (ir << 20u) | (ig << 10u) | (ib);
-                break;
-            }
             default:
                 // Not yet supported
                 OGRE_EXCEPT(
@@ -676,38 +663,29 @@ namespace Ogre {
         // Check for compressed formats, we don't support decompression, compression or recoding
         if(PixelUtil::isCompressed(src.format) || PixelUtil::isCompressed(dst.format))
         {
-            if(src.format == dst.format && src.isConsecutive() && dst.isConsecutive())
-            {
-                // we can copy with slice granularity, useful for Tex2DArray handling
-                size_t bytesPerSlice = getMemorySize(src.getWidth(), src.getHeight(), 1, src.format);
-                memcpy(dst.data + bytesPerSlice * dst.front,
-                    src.data + bytesPerSlice * src.front,
-                    bytesPerSlice * src.getDepth());
-                return;
-            }
-            else
-            {
-                OGRE_EXCEPT(Exception::ERR_NOT_IMPLEMENTED,
-                    "This method can not be used to compress or decompress images",
-                    "PixelUtil::bulkPixelConversion");
-            }
+            OgreAssert(src.format == dst.format && src.isConsecutive() && dst.isConsecutive(),
+                       "This method can not be used to compress or decompress images");
+            // we can copy with slice granularity, useful for Tex2DArray handling
+            size_t bytesPerSlice = getMemorySize(src.getWidth(), src.getHeight(), 1, src.format);
+            memcpy(dst.data + bytesPerSlice * dst.front, src.data + bytesPerSlice * src.front,
+                   bytesPerSlice * src.getDepth());
+            return;
         }
 
         // The easy case
         if(src.format == dst.format) {
+            uint8 *srcptr = src.getTopLeftFrontPixelPtr();
+            uint8 *dstptr = dst.getTopLeftFrontPixelPtr();
+
             // Everything consecutive?
             if(src.isConsecutive() && dst.isConsecutive())
             {
-                memcpy(dst.getTopLeftFrontPixelPtr(), src.getTopLeftFrontPixelPtr(), src.getConsecutiveSize());
+                memcpy(dstptr, srcptr, src.getConsecutiveSize());
                 return;
             }
 
             const size_t srcPixelSize = PixelUtil::getNumElemBytes(src.format);
             const size_t dstPixelSize = PixelUtil::getNumElemBytes(dst.format);
-            uint8 *srcptr = src.data
-                + (src.left + src.top * src.rowPitch + src.front * src.slicePitch) * srcPixelSize;
-            uint8 *dstptr = dst.data
-                + (dst.left + dst.top * dst.rowPitch + dst.front * dst.slicePitch) * dstPixelSize;
 
             // Calculate pitches+skips in bytes
             const size_t srcRowPitchBytes = src.rowPitch*srcPixelSize;
@@ -768,11 +746,9 @@ namespace Ogre {
 
         const size_t srcPixelSize = PixelUtil::getNumElemBytes(src.format);
         const size_t dstPixelSize = PixelUtil::getNumElemBytes(dst.format);
-        uint8 *srcptr = src.data
-            + (src.left + src.top * src.rowPitch + src.front * src.slicePitch) * srcPixelSize;
-        uint8 *dstptr = dst.data
-            + (dst.left + dst.top * dst.rowPitch + dst.front * dst.slicePitch) * dstPixelSize;
-        
+        uint8* srcptr = src.getTopLeftFrontPixelPtr();
+        uint8* dstptr = dst.getTopLeftFrontPixelPtr();
+
         // Old way, not taking into account box dimensions
         //uint8 *srcptr = static_cast<uint8*>(src.data), *dstptr = static_cast<uint8*>(dst.data);
 
@@ -806,22 +782,16 @@ namespace Ogre {
     void PixelUtil::bulkPixelVerticalFlip(const PixelBox &box)
     {
         // Check for compressed formats, we don't support decompression, compression or recoding
-        if(PixelUtil::isCompressed(box.format))
-        {
-            OGRE_EXCEPT(Exception::ERR_NOT_IMPLEMENTED,
-                        "This method can not be used for compressed formats",
-                        "PixelUtil::bulkPixelVerticalFlip");
-        }
+        OgreAssert(!PixelUtil::isCompressed(box.format), "This method can not be used for compressed formats");
         
         const size_t pixelSize = PixelUtil::getNumElemBytes(box.format);
-        const size_t copySize = (box.right - box.left) * pixelSize;
+        const size_t copySize = box.getWidth() * pixelSize;
 
         // Calculate pitches in bytes
         const size_t rowPitchBytes = box.rowPitch * pixelSize;
         const size_t slicePitchBytes = box.slicePitch * pixelSize;
 
-        uint8 *basesrcptr = box.data
-            + (box.left + box.top * box.rowPitch + box.front * box.slicePitch) * pixelSize;
+        uint8 *basesrcptr = box.getTopLeftFrontPixelPtr();
         uint8 *basedstptr = basesrcptr + (box.bottom - box.top - 1) * rowPitchBytes;
         uint8* tmpptr = (uint8*)OGRE_MALLOC_SIMD(copySize, MEMCATEGORY_GENERAL);
         

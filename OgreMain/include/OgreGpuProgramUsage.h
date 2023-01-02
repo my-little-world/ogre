@@ -44,7 +44,7 @@ namespace Ogre
     */
     /** This class makes the usage of a vertex and fragment programs (low-level or high-level), 
         with a given set of parameters, explicit.
-    @remarks
+
         Using a vertex or fragment program can get fairly complex; besides the fairly rudimentary
         process of binding a program to the GPU for rendering, managing usage has few
         complications, such as:
@@ -67,7 +67,7 @@ namespace Ogre
         compiled, this class will then validate the parameters you supplied earlier and turn them
         into runtime parameters.
     @par
-        Just incase it wasn't clear from the above, this class provides linkage to both 
+        Just in case it wasn't clear from the above, this class provides linkage to both
         GpuProgram and HighLevelGpuProgram, despite its name.
     */
     class _OgreExport GpuProgramUsage : public Resource::Listener, public PassAlloc
@@ -113,7 +113,7 @@ namespace Ogre
         */
         void setProgramName(const String& name, bool resetParams = true);
         /** Sets the program to use.
-        @remarks
+
             Note that this will create a fresh set of parameters from the
             new program being linked, so if you had previously set parameters
             you will have to set them again.
@@ -142,8 +142,8 @@ namespace Ogre
         size_t calculateSize(void) const;
 
         // Resource Listener
-        void unloadingComplete(Resource* prog);
-        void loadingComplete(Resource* prog);
+        void unloadingComplete(Resource* prog) override;
+        void loadingComplete(Resource* prog) override;
 
         static GpuProgramPtr _getProgramByName(const String& name, const String& group,
                                                GpuProgramType type);

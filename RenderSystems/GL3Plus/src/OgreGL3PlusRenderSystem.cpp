@@ -32,8 +32,6 @@ Copyright (c) 2000-2014 Torus Knot Software Ltd
 #include "OgreRenderSystem.h"
 #include "OgreLogManager.h"
 #include "OgreStringConverter.h"
-#include "OgreLight.h"
-#include "OgreCamera.h"
 #include "OgreGL3PlusTextureManager.h"
 #include "OgreGL3PlusHardwareBuffer.h"
 #include "OgreGLSLShader.h"
@@ -432,6 +430,7 @@ namespace Ogre {
                 rsc->setCapability(RSC_CAN_GET_COMPILED_SHADER_BUFFER);
         }
 
+        rsc->setCapability(RSC_VERTEX_FORMAT_INT_10_10_10_2);
         rsc->setCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA);
 
         // Check for Float textures
@@ -704,9 +703,7 @@ namespace Ogre {
 
     void GL3PlusRenderSystem::_setTexture(size_t stage, bool enabled, const TexturePtr &texPtr)
     {
-        if (!mStateCacheManager->activateGLTextureUnit(stage))
-            return;
-
+        mStateCacheManager->activateGLTextureUnit(stage);
         if (enabled)
         {
             GL3PlusTexturePtr tex = static_pointer_cast<GL3PlusTexture>(texPtr);
@@ -731,8 +728,7 @@ namespace Ogre {
 
     void GL3PlusRenderSystem::_setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw)
     {
-        if (!mStateCacheManager->activateGLTextureUnit(stage))
-            return;
+        mStateCacheManager->activateGLTextureUnit(stage);
         mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_S,
                                              GL3PlusSampler::getTextureAddressingMode(uvw.u));
         mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_T,
@@ -1022,9 +1018,7 @@ namespace Ogre {
 
     void GL3PlusRenderSystem::_setTextureUnitFiltering(size_t unit, FilterType ftype, FilterOptions fo)
     {
-        if (!mStateCacheManager->activateGLTextureUnit(unit))
-            return;
-
+        mStateCacheManager->activateGLTextureUnit(unit);
         switch (ftype)
         {
         case FT_MIN:
@@ -1083,16 +1077,6 @@ namespace Ogre {
         // Call super class.
         RenderSystem::_render(op);
 
-        // Create variables related to instancing.
-        HardwareVertexBufferSharedPtr globalInstanceVertexBuffer = getGlobalInstanceVertexBuffer();
-        VertexDeclaration* globalVertexDeclaration = getGlobalInstanceVertexBufferVertexDeclaration();
-        size_t numberOfInstances = op.numberOfInstances;
-
-        if (op.useGlobalInstancingVertexBufferIsAvailable)
-        {
-            numberOfInstances *= getGlobalNumberOfInstances();
-        }
-
         if (!mProgramManager->getActiveProgram())
         {
             LogManager::getSingleton().logError("Failed to create shader program.");
@@ -1113,17 +1097,7 @@ namespace Ogre {
             mStateCacheManager->bindGLBuffer(GL_ELEMENT_ARRAY_BUFFER,
                 op.indexData->indexBuffer->_getImpl<GL3PlusHardwareBuffer>()->getGLBufferId());
 
-        // unconditionally modify VAO for global instance data (FIXME bad API)
-        VertexDeclaration::VertexElementList::const_iterator elemIter, elemEnd;
-        if ( globalInstanceVertexBuffer && globalVertexDeclaration )
-        {
-            elemEnd = globalVertexDeclaration->getElements().end();
-            for (elemIter = globalVertexDeclaration->getElements().begin(); elemIter != elemEnd; ++elemIter)
-            {
-                const VertexElement & elem = *elemIter;
-                bindVertexElementToGpu(elem, globalInstanceVertexBuffer, 0);
-            }
-        }
+        auto numberOfInstances = op.numberOfInstances;
 
         int operationType = op.operationType;
         // Use adjacency if there is a geometry program and it requested adjacency info
@@ -1433,9 +1407,9 @@ namespace Ogre {
     {
         static_cast<GL3PlusHardwareBufferManager*>(HardwareBufferManager::getSingletonPtr())->notifyContextDestroyed(context);
 
-        for(RenderTargetMap::iterator it = mRenderTargets.begin(); it!=mRenderTargets.end(); ++it)
+        for(auto & rt : mRenderTargets)
         {
-            if(auto target = dynamic_cast<GLRenderTarget*>(it->second))
+            if(auto target = dynamic_cast<GLRenderTarget*>(rt.second))
             {
                 if(auto fbo = target->getFBO())
                     fbo->notifyContextDestroyed(context);
@@ -1848,6 +1822,7 @@ namespace Ogre {
         case VET_USHORT2_NORM:
         case VET_SHORT4_NORM:
         case VET_USHORT4_NORM:
+        case VET_INT_10_10_10_2_NORM:
             normalised = GL_TRUE;
             break;
         default:

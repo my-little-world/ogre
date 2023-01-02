@@ -39,7 +39,7 @@ namespace Ogre {
 	*/
 
     /** Codec specialized in loading ASTC (ARM Adaptive Scalable Texture Compression) images.
-	@remarks
+
 		We implement our own codec here since we need to be able to keep ASTC
 		data compressed if the card supports it.
     */
@@ -55,8 +55,7 @@ namespace Ogre {
         ASTCCodec();
         virtual ~ASTCCodec() { }
 
-		using ImageCodec::decode;
-        DecodeResult decode(const DataStreamPtr& input) const override;
+        void decode(const DataStreamPtr& input, const Any& output) const override;
 		String magicNumberToFileExt(const char *magicNumberPtr, size_t maxbytes) const override;
         String getType() const override;
 

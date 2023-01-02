@@ -41,29 +41,29 @@ namespace Ogre {
     */
     /** Particle emitter which emits particles randomly from points inside a hollow ellipsoid.
     */
-    class _OgreParticleFXExport HollowEllipsoidEmitter : public EllipsoidEmitter
+    class HollowEllipsoidEmitter : public EllipsoidEmitter
     {
     public:
         /** Command object for inner size (see ParamCommand).*/
         class CmdInnerX : public ParamCommand
         {
         public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
+            String doGet(const void* target) const override;
+            void doSet(void* target, const String& val) override;
         };
         /** Command object for inner size (see ParamCommand).*/
         class CmdInnerY : public ParamCommand
         {
         public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
+            String doGet(const void* target) const override;
+            void doSet(void* target, const String& val) override;
         };
         /** Command object for inner size (see ParamCommand).*/
         class CmdInnerZ : public ParamCommand
         {
         public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
+            String doGet(const void* target) const override;
+            void doSet(void* target, const String& val) override;
         };
         // See AreaEmitter
 

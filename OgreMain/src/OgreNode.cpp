@@ -544,11 +544,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Node::removeAllChildren(void)
     {
-        ChildNodeMap::iterator i, iend;
-        iend = mChildren.end();
-        for (i = mChildren.begin(); i != iend; ++i)
+        for (auto *c : mChildren)
         {
-            (*i)->setParent(0);
+            c->setParent(0);
         }
         mChildren.clear();
         mChildrenToUpdate.clear();
@@ -729,12 +727,10 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Node::processQueuedUpdates(void)
     {
-        for (QueuedUpdates::iterator i = msQueuedUpdates.begin();
-            i != msQueuedUpdates.end(); ++i)
+        for (auto *n : msQueuedUpdates)
         {
             // Update, and force parent update since chances are we've ended
             // up with some mixed state in there due to re-entrancy
-            Node* n = *i;
             n->mQueuedForUpdate = false;
             n->needUpdate(true);
         }

@@ -45,7 +45,7 @@ namespace Ogre {
     */
     /** Definition of a Plane that may be attached to a node, and the derived
         details of it retrieved simply.
-    @remarks
+
         This plane is not here for rendering purposes, it's to allow you to attach
         planes to the scene in order to have them move and follow nodes on their
         own, which is useful if you're using the plane for some kind of calculation,
@@ -70,20 +70,20 @@ namespace Ogre {
             const Vector3& rkPoint2);
         ~MovablePlane() {}
         /// Overridden from MovableObject
-        void _notifyCurrentCamera(Camera*) { /* don't care */ }
+        void _notifyCurrentCamera(Camera*) override { /* don't care */ }
         /// Overridden from MovableObject
-        const AxisAlignedBox& getBoundingBox(void) const { return AxisAlignedBox::BOX_NULL; }
+        const AxisAlignedBox& getBoundingBox(void) const override { return AxisAlignedBox::BOX_NULL; }
         /// Overridden from MovableObject
-        Real getBoundingRadius(void) const { return 0.0f; }
+        Real getBoundingRadius(void) const override { return 0.0f; }
         /// Overridden from MovableObject
-        void _updateRenderQueue(RenderQueue*) { /* do nothing */}
+        void _updateRenderQueue(RenderQueue*) override { /* do nothing */}
         /// Overridden from MovableObject
-        const String& getMovableType(void) const;
+        const String& getMovableType(void) const override;
         /// Get the derived plane as transformed by its parent node. 
         const Plane& _getDerivedPlane(void) const;
         /// @copydoc MovableObject::visitRenderables
         void visitRenderables(Renderable::Visitor* visitor, 
-            bool debugRenderables = false)
+            bool debugRenderables = false) override
                 {
                     /* do nothing */
                     (void)visitor;

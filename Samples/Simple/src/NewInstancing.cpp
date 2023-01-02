@@ -13,6 +13,7 @@ static const char *c_instancingTechniques[] =
     "Hardware Instancing Basic",
     "Hardware Instancing + VTF",
     "Limited Animation - Hardware Instancing + VTF",
+    "Automatic HW Instancing",
     "No Instancing"
 };
 
@@ -23,6 +24,7 @@ static const char *c_materialsTechniques[] =
     "Examples/Instancing/HWBasic/Robot",
     "Examples/Instancing/VTF/HW/Robot",
     "Examples/Instancing/VTF/HW/LUT/Robot",
+    "Examples/Instancing/HWBasic/Robot",
     "Examples/Instancing/RTSS/Robot"
 };
 
@@ -33,6 +35,7 @@ static const char *c_materialsTechniques_dq[] =
     "Examples/Instancing/HWBasic/Robot",
     "Examples/Instancing/VTF/HW/Robot_dq",
     "Examples/Instancing/VTF/HW/LUT/Robot_dq",
+    "Examples/Instancing/HWBasic/Robot",
     "Examples/Instancing/RTSS/Robot_dq"
 };
 
@@ -43,6 +46,7 @@ static const char *c_materialsTechniques_dq_two_weights[] =
     "Examples/Instancing/HWBasic/spine",
     "Examples/Instancing/VTF/HW/spine_dq_two_weights",
     "Examples/Instancing/VTF/HW/LUT/spine_dq_two_weights",
+    "Examples/Instancing/HWBasic/spine",
     "Examples/Instancing/RTSS/spine_dq_two_weights"
 };
 
@@ -95,7 +99,7 @@ bool Sample_NewInstancing::keyPressed(const KeyboardEvent& evt)
 
     //Switch to next instancing technique with space bar
     if (key == SDLK_SPACE && !mTrayMgr->isDialogVisible())
-        mTechniqueMenu->selectItem( (mTechniqueMenu->getSelectionIndex() + 1) % (NUM_TECHNIQUES+1) );
+        mTechniqueMenu->selectItem( (mTechniqueMenu->getSelectionIndex() + 1) % NUM_TECHNIQUES );
 
     return SdkSample::keyPressed(evt);
 }
@@ -105,22 +109,21 @@ void Sample_NewInstancing::setupContent()
 {
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
     // Make this viewport work with shader generator scheme.
-    mViewport->setMaterialScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+    mViewport->setMaterialScheme(MSN_SHADERGEN);
     RTShader::ShaderGenerator& rtShaderGen = RTShader::ShaderGenerator::getSingleton();
-    RTShader::RenderState* schemRenderState = rtShaderGen.getRenderState(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
-    RTShader::SubRenderState* subRenderState = rtShaderGen.createSubRenderState<RTShader::IntegratedPSSM3>();
+    RTShader::RenderState* schemRenderState = rtShaderGen.getRenderState(MSN_SHADERGEN);
+    RTShader::SubRenderState* subRenderState = rtShaderGen.createSubRenderState(RTShader::SRS_INTEGRATED_PSSM3);
     schemRenderState->addTemplateSubRenderState(subRenderState);
 
     //Add the hardware skinning to the shader generator default render state
-    subRenderState = mShaderGenerator->createSubRenderState<RTShader::HardwareSkinning>();
+    subRenderState = mShaderGenerator->createSubRenderState(RTShader::SRS_HARDWARE_SKINNING);
     schemRenderState->addTemplateSubRenderState(subRenderState);
 
     // increase max bone count for higher efficiency
     RTShader::HardwareSkinningFactory::getSingleton().setMaxCalculableBoneCount(80);
 
     // re-generate shaders to include new SRSs
-    rtShaderGen.invalidateScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
-    rtShaderGen.validateScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+    rtShaderGen.invalidateScheme(MSN_SHADERGEN);
 
     // update scheme for FFP supporting rendersystems
     MaterialManager::getSingleton().setActiveScheme(mViewport->getMaterialScheme());
@@ -170,10 +173,7 @@ void Sample_NewInstancing::setupContent()
     mCameraNode->setPosition( 0, 120, 100 );
 
     setupGUI();
-
-#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
     setDragLook(true);
-#endif
 
     switchInstancingTechnique();
 }
@@ -190,12 +190,12 @@ void Sample_NewInstancing::setupLighting()
     n->attachObject(light);
     n->setDirection(0, -1, -1);
     light->setSpecularColour( 0.6, 0.82, 1.0 );
+    light->setShadowFarDistance( 10000 );
 }
 
 //------------------------------------------------------------------------------
 void Sample_NewInstancing::switchInstancingTechnique()
 {
-    //mInstancingTechnique = (mInstancingTechnique+1) % (NUM_TECHNIQUES+1);
     mInstancingTechnique = mTechniqueMenu->getSelectionIndex();
 
     if( mCurrentManager )
@@ -210,7 +210,7 @@ void Sample_NewInstancing::switchInstancingTechnique()
         return;
     }
 
-    if( mInstancingTechnique < NUM_TECHNIQUES )
+    if( mInstancingTechnique < NUM_IM_TECHNIQUES )
     {
         //Instancing
 
@@ -256,7 +256,7 @@ void Sample_NewInstancing::switchInstancingTechnique()
     else
     {
         //Non-instancing
-        createEntities();
+        createEntities(mInstancingTechnique);
 
         //Hide GUI features available only to instancing
         mCurrentManager = 0;
@@ -277,7 +277,7 @@ void Sample_NewInstancing::switchInstancingTechnique()
     }
     else
         mSetStatic->hide();
-    if( mInstancingTechnique < NUM_TECHNIQUES)
+    if( mInstancingTechnique < NUM_IM_TECHNIQUES)
     {
         mUseSceneNodes->show();
     }
@@ -315,7 +315,7 @@ void Sample_NewInstancing::switchSkinningTechnique(int index)
 }
 
 //------------------------------------------------------------------------------
-void Sample_NewInstancing::createEntities()
+void Sample_NewInstancing::createEntities(int technique)
 {
     std::mt19937 rng;
     for( int i=0; i<NUM_INST_ROW * NUM_INST_COLUMN; ++i )
@@ -324,15 +324,18 @@ void Sample_NewInstancing::createEntities()
         //a. To prove we can (runs without modification! :-) )
         //b. Make a fair comparison
         Entity *ent = mSceneMgr->createEntity( c_meshNames[mCurrentMesh] );
-        ent->setMaterialName( mCurrentMaterialSet[NUM_TECHNIQUES] );
+        ent->setMaterialName( mCurrentMaterialSet[technique] );
         mEntities.push_back( ent );
+
+        if(technique == NUM_IM_TECHNIQUES)
+            continue;
 
         //Get the animation
         AnimationState *anim = ent->getAnimationState( "Walk" );
         if (mAnimations.insert( anim ).second)
         {
             anim->setEnabled( true );
-            anim->addTime( float(rng())/float(rng.max()) * 10 ); //Random start offset
+            anim->addTime( double(rng())/rng.max() * 10 ); //Random start offset
         }
     }
 }
@@ -355,11 +358,11 @@ void Sample_NewInstancing::createInstancedEntities()
                 //Get the animation
                 AnimationState *anim = ent->getAnimationState( "Walk" );
                 anim->setEnabled( true );
-                anim->addTime( float(rng())/float(rng.max()) * 10); //Random start offset
+                anim->addTime( double(rng())/rng.max() * 10); //Random start offset
                 mAnimations.insert( anim );
             }
 
-            if ((mInstancingTechnique < NUM_TECHNIQUES) && (!mUseSceneNodes->isChecked()))
+            if ((mInstancingTechnique < NUM_IM_TECHNIQUES) && (!mUseSceneNodes->isChecked()))
             {
                 mMovedInstances.push_back( ent );
                 ent->setOrientation(Quaternion(Radian(float(orng())/float(orng.max()) * 10 * Math::PI), Vector3::UNIT_Y));
@@ -382,11 +385,11 @@ void Sample_NewInstancing::createSceneNodes()
         for( int j=0; j<NUM_INST_COLUMN; ++j )
         {
             int idx = i * NUM_INST_COLUMN + j;
-            if ((mInstancingTechnique >= NUM_TECHNIQUES) || (mUseSceneNodes->isChecked()))
+            if ((mInstancingTechnique >= NUM_IM_TECHNIQUES) || (mUseSceneNodes->isChecked()))
             {
                 SceneNode *sceneNode = rootNode->createChildSceneNode();
                 sceneNode->attachObject( mEntities[idx] );
-                sceneNode->yaw( Radian( float(rng())/float(rng.max()) * 10 * Math::PI )); //Random orientation
+                sceneNode->yaw( Radian( double(rng())/rng.max() * 10 * Math::PI )); //Random orientation
                 sceneNode->setPosition( mEntities[idx]->getBoundingRadius() * (i - NUM_INST_ROW * 0.5f), 0,
                     mEntities[idx]->getBoundingRadius() * (j - NUM_INST_COLUMN * 0.5f) );
                 mSceneNodes.push_back( sceneNode );
@@ -411,7 +414,7 @@ void Sample_NewInstancing::clearScene()
             sceneNode->detachAllObjects();
             sceneNode->getParentSceneNode()->removeAndDestroyChild( sceneNode );
         }
-        if( mInstancingTechnique == NUM_TECHNIQUES )
+        if( mInstancingTechnique >= NUM_IM_TECHNIQUES )
             mSceneMgr->destroyEntity( (*itor)->getName() );
         else
             mSceneMgr->destroyInstancedEntity( static_cast<InstancedEntity*>(*itor) );
@@ -582,7 +585,7 @@ void Sample_NewInstancing::setupGUI()
 {
     mTechniqueMenu = mTrayMgr->createLongSelectMenu(
         TL_TOPLEFT, "TechniqueSelectMenu", "Technique", 450, 350, 5);
-    for( int i=0; i<NUM_TECHNIQUES+1; ++i )
+    for( int i=0; i<NUM_TECHNIQUES; ++i )
     {
         String text = c_instancingTechniques[i];
         if( !mSupportedTechniques[i] )
@@ -685,8 +688,11 @@ void Sample_NewInstancing::sliderMoved( Slider* slider )
 
 void Sample_NewInstancing::checkHardwareSupport()
 {
+    //Non instancing is always supported
+    mSupportedTechniques.fill(true);
+
     //Check Technique support
-    for( int i=0; i<NUM_TECHNIQUES; ++i )
+    for( int i=0; i<NUM_IM_TECHNIQUES; ++i )
     {
         InstanceManager::InstancingTechnique technique;
         switch( i )
@@ -710,7 +716,4 @@ void Sample_NewInstancing::checkHardwareSupport()
 
         mSupportedTechniques[i] = numInstances > 0;
     }
-
-    //Non instancing is always supported
-    mSupportedTechniques[NUM_TECHNIQUES] = true;
 }

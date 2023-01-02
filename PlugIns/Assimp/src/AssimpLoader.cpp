@@ -60,7 +60,7 @@ struct OgreLogStream : public Assimp::LogStream
     LogMessageLevel _lml;
     OgreLogStream(LogMessageLevel lml) : _lml(lml) {}
 
-    void write(const char* message)
+    void write(const char* message) override
     {
         String msg(message);
         StringUtil::trim(msg);
@@ -74,16 +74,16 @@ struct OgreIOStream : public Assimp::IOStream
 
     OgreIOStream(DataStreamPtr _stream) : stream(_stream) {}
 
-    size_t Read(void* pvBuffer, size_t pSize, size_t pCount)
+    size_t Read(void* pvBuffer, size_t pSize, size_t pCount) override
     {
         size_t bytes = stream->read(pvBuffer, pSize * pCount);
         return bytes / pSize;
     }
-    size_t Tell() const { return stream->tell(); }
-    size_t FileSize() const { return stream->size(); }
+    size_t Tell() const override { return stream->tell(); }
+    size_t FileSize() const override { return stream->size(); }
 
-    size_t Write(const void* pvBuffer, size_t pSize, size_t pCount) { return 0; }
-    aiReturn Seek(size_t pOffset, aiOrigin pOrigin)
+    size_t Write(const void* pvBuffer, size_t pSize, size_t pCount) override { return 0; }
+    aiReturn Seek(size_t pOffset, aiOrigin pOrigin) override
     {
         if (pOrigin != aiOrigin_SET)
             return AI_FAILURE;
@@ -91,7 +91,7 @@ struct OgreIOStream : public Assimp::IOStream
         stream->seek(pOffset);
         return AI_SUCCESS;
     }
-    void Flush() {}
+    void Flush() override {}
 };
 
 struct OgreIOSystem : public Assimp::IOSystem
@@ -102,7 +102,7 @@ struct OgreIOSystem : public Assimp::IOSystem
 
     OgreIOSystem(const DataStreamPtr& _source, const String& group) : source(_source), _group(group) {}
 
-    bool Exists(const char* pFile) const
+    bool Exists(const char* pFile) const override
     {
         String file = StringUtil::normalizeFilePath(pFile, false);
         if (file == source->getName())
@@ -367,6 +367,10 @@ bool AssimpLoader::_load(const char* name, Assimp::Importer& importer, Mesh* mes
         flags |= aiProcess_JoinIdenticalVertices;
 
     flags |= options.postProcessSteps;
+
+    if((flags & (aiProcess_GenSmoothNormals | aiProcess_GenNormals)) != aiProcess_GenNormals)
+        flags &= ~aiProcess_GenNormals; // prefer smooth normals
+
     importer.SetPropertyFloat("PP_GSN_MAX_SMOOTHING_ANGLE", options.maxEdgeAngle);
     const aiScene* scene = importer.ReadFile(name, flags);
 
@@ -815,12 +819,12 @@ void AssimpLoader::grabBoneNamesFromNode(const aiScene* mScene, const aiNode* pN
                         aiNode* node = mScene->mRootNode->FindNode(pAIBone->mName.data);
                         while (node)
                         {
-                            if (node->mName.data == pNode->mName.data)
+                            if (node->mName == pNode->mName)
                             {
                                 flagNodeAsNeeded(node->mName.data);
                                 break;
                             }
-                            if (node->mName.data == pNode->mParent->mName.data)
+                            if (node->mName == pNode->mParent->mName)
                             {
                                 flagNodeAsNeeded(node->mName.data);
                                 break;
@@ -976,7 +980,6 @@ MaterialPtr AssimpLoader::createMaterial(const aiMaterial* mat, const Ogre::Stri
     }
 
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
-    auto& dstScheme = RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME;
     auto shaderGen = RTShader::ShaderGenerator::getSingletonPtr();
 
     if(!shaderGen)
@@ -989,8 +992,8 @@ MaterialPtr AssimpLoader::createMaterial(const aiMaterial* mat, const Ogre::Stri
             LogManager::getSingleton().logMessage("Found normal map: " + String(path.data));
         }
 
-        shaderGen->createShaderBasedTechnique(omat->getTechnique(0), dstScheme);
-        auto rs = shaderGen->getRenderState(dstScheme, *omat, 0);
+        shaderGen->createShaderBasedTechnique(omat->getTechnique(0), MSN_SHADERGEN);
+        auto rs = shaderGen->getRenderState(MSN_SHADERGEN, *omat, 0);
         auto srs = shaderGen->createSubRenderState("NormalMap");
 
         StringUtil::splitFilename(String(path.data), basename, outPath);
@@ -1005,8 +1008,8 @@ MaterialPtr AssimpLoader::createMaterial(const aiMaterial* mat, const Ogre::Stri
             LogManager::getSingleton().logMessage("Found metal roughness map: " + String(path.data));
         }
 
-        shaderGen->createShaderBasedTechnique(omat->getTechnique(0), dstScheme);
-        auto rs = shaderGen->getRenderState(dstScheme, *omat, 0);
+        shaderGen->createShaderBasedTechnique(omat->getTechnique(0), MSN_SHADERGEN);
+        auto rs = shaderGen->getRenderState(MSN_SHADERGEN, *omat, 0);
         auto srs = shaderGen->createSubRenderState("CookTorranceLighting");
 
         StringUtil::splitFilename(String(path.data), basename, outPath);
@@ -1310,8 +1313,8 @@ struct AssimpCodec : public Codec
 
     AssimpCodec(const String& type) : mType(type) {}
 
-    String magicNumberToFileExt(const char* magicNumberPtr, size_t maxbytes) const { return ""; }
-    String getType() const { return mType; }
+    String magicNumberToFileExt(const char* magicNumberPtr, size_t maxbytes) const override { return ""; }
+    String getType() const override { return mType; }
     void decode(const DataStreamPtr& input, const Any& output) const override
     {
         Mesh* dst = any_cast<Mesh*>(output);

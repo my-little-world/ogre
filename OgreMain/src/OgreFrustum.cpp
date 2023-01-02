@@ -464,7 +464,8 @@ namespace Ogre {
 
 #if OGRE_NO_VIEWPORT_ORIENTATIONMODE == 0
         // Deal with orientation mode
-        mProjMatrix = mProjMatrix * Quaternion(Degree(mOrientationMode * 90.f), Vector3::UNIT_Z);
+        mProjMatrix = mProjMatrix *
+            Matrix4(Quaternion(Degree(mOrientationMode * 90.f), Vector3::UNIT_Z));
 #endif
         RenderSystem* renderSystem = Root::getSingleton().getRenderSystem();
 
@@ -659,10 +660,10 @@ namespace Ogre {
         mFrustumPlanes[FRUSTUM_PLANE_FAR].d = combo[3][3] - combo[2][3];
 
         // Renormalise any normals which were not unit length
-        for(int i=0; i<6; i++ ) 
+        for(auto & p : mFrustumPlanes)
         {
-            Real length = mFrustumPlanes[i].normal.normalise();
-            mFrustumPlanes[i].d /= length;
+            Real length = p.normal.normalise();
+            p.d /= length;
         }
 
         mRecalcFrustumPlanes = false;

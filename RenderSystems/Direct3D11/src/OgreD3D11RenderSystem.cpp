@@ -45,7 +45,6 @@ THE SOFTWARE.
 #include "OgreD3D11HLSLProgramFactory.h"
 
 #include "OgreD3D11HardwareOcclusionQuery.h"
-#include "OgreFrustum.h"
 #include "OgreD3D11MultiRenderTarget.h"
 #include "OgreD3D11HLSLProgram.h"
 
@@ -1809,9 +1808,6 @@ namespace Ogre
         {
             return;
         }
-
-        HardwareVertexBufferSharedPtr globalInstanceVertexBuffer = getGlobalInstanceVertexBuffer();
-        VertexDeclaration* globalVertexDeclaration = getGlobalInstanceVertexBufferVertexDeclaration();
 
         size_t numberOfInstances = op.numberOfInstances;
 

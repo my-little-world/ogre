@@ -203,6 +203,8 @@ namespace Ogre
         //    return VK_FORMAT_R16G16_SFLOAT;
         //case VET_HALF4:
         //    return VK_FORMAT_R16G16B16A16_SFLOAT;
+        case VET_INT_10_10_10_2_NORM:
+            return VK_FORMAT_A2B10G10R10_SNORM_PACK32;
         default:
         case VET_DOUBLE1:
         case VET_DOUBLE2:
@@ -324,7 +326,7 @@ namespace Ogre
         case PF_R32_UINT:              return VK_FORMAT_R32_UINT;
         case PF_R32_SINT:              return VK_FORMAT_R32_SINT;
         //case PF_D24_UNORM:             return VK_FORMAT_X8_D24_UNORM_PACK32;
-        case PF_DEPTH24_STENCIL8:            return VK_FORMAT_D24_UNORM_S8_UINT;
+        case PF_DEPTH24_STENCIL8:            return VK_FORMAT_D32_SFLOAT_S8_UINT; // VK_FORMAT_D24_UNORM_S8_UINT not supported on AMD
         case PF_BYTE_LA:
         case PF_RG8:                   return VK_FORMAT_R8G8_UNORM;
         case PF_R8G8_UINT:              return VK_FORMAT_R8G8_UINT;
@@ -359,6 +361,7 @@ namespace Ogre
         case PF_BC4_SNORM:             return VK_FORMAT_BC4_SNORM_BLOCK;
         case PF_BC5_UNORM:             return VK_FORMAT_BC5_UNORM_BLOCK;
         case PF_BC5_SNORM:             return VK_FORMAT_BC5_SNORM_BLOCK;
+        case PF_R5G6B5:                return VK_FORMAT_R5G6B5_UNORM_PACK16;
         case PF_B5G6R5:                return VK_FORMAT_B5G6R5_UNORM_PACK16;
         case PF_A1R5G5B5:              return VK_FORMAT_B5G5R5A1_UNORM_PACK16;
         case PF_A8R8G8B8:              return VK_FORMAT_B8G8R8A8_UNORM;
@@ -410,28 +413,12 @@ namespace Ogre
         // clang-format on
     }
     //-----------------------------------------------------------------------------------
-    VkImageAspectFlags VulkanMappings::getImageAspect( PixelFormat pf,
-                                                       const bool bPreferDepthOverStencil )
+    VkImageAspectFlags VulkanMappings::getImageAspect(PixelFormat pf, const bool bPreferDepthOverStencil)
     {
-        const uint32 pfFlags = PixelUtil::getFlags( pf );
-
-        VkImageAspectFlags retVal = 0;
-        if( pfFlags & ( PFF_DEPTH /*| PFF_STENCIL*/ ) )
-        {
-            if( pfFlags & PFF_DEPTH )
-                retVal = VK_IMAGE_ASPECT_DEPTH_BIT;
-            /*if( pfFlags & PFF_STENCIL )
-            {
-                if( !bPreferDepthOverStencil || !( pfFlags & PFF_DEPTH ) )
-                    retVal |= VK_IMAGE_ASPECT_STENCIL_BIT;
-            }*/
-        }
-        else
-        {
-            retVal = VK_IMAGE_ASPECT_COLOR_BIT;
-        }
-
-        return retVal;
+        int ret = PixelUtil::isDepth(pf) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+        if (pf == PF_DEPTH24_STENCIL8)
+            ret |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        return ret;
     }
     //-----------------------------------------------------------------------------------
     VkAccessFlags VulkanMappings::get( const Texture *texture )

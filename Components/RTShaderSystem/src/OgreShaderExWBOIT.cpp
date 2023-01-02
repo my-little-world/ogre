@@ -14,10 +14,10 @@ namespace RTShader
 /************************************************************************/
 /*                                                                      */
 /************************************************************************/
-String WBOIT::Type = "WBOIT";
+const String SRS_WBOIT = "WBOIT";
 
 //-----------------------------------------------------------------------
-const String& WBOIT::getType() const { return Type; }
+const String& WBOIT::getType() const { return SRS_WBOIT; }
 
 //-----------------------------------------------------------------------
 int WBOIT::getExecutionOrder() const { return FFP_POST_PROCESS; }
@@ -68,7 +68,7 @@ bool WBOIT::createCpuSubPrograms(ProgramSet* programSet)
 }
 
 //-----------------------------------------------------------------------
-const String& WBOITFactory::getType() const { return WBOIT::Type; }
+const String& WBOITFactory::getType() const { return SRS_WBOIT; }
 
 //-----------------------------------------------------------------------
 SubRenderState* WBOITFactory::createInstance(ScriptCompiler* compiler, PropertyAbstractNode* prop, Pass* pass,
@@ -81,7 +81,6 @@ SubRenderState* WBOITFactory::createInstance(ScriptCompiler* compiler, PropertyA
     bool val;
     if(!SGScriptTranslator::getBoolean(*it++, &val))
     {
-        compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
         return NULL;
     }
 

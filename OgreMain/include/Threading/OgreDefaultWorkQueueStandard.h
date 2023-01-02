@@ -31,7 +31,7 @@ THE SOFTWARE
 namespace Ogre
 {
     /** Implementation of a general purpose request / response style background work queue.
-    @remarks
+
         This default implementation of a work queue starts a thread pool and 
         provides queues to process requests. 
     */
@@ -43,13 +43,13 @@ namespace Ogre
         virtual ~DefaultWorkQueue(); 
 
         /// Main function for each thread spawned.
-        virtual void _threadMain();
+        void _threadMain() override;
 
         /// @copydoc WorkQueue::shutdown
-        virtual void shutdown();
+        void shutdown() override;
 
         /// @copydoc WorkQueue::startup
-        virtual void startup(bool forceRestart = true);
+        void startup(bool forceRestart = true) override;
 
     protected:
         /** To be called by a separate thread; will return immediately if there
@@ -61,7 +61,7 @@ namespace Ogre
         /// Notify that a thread has registered itself with the render system
         virtual void notifyThreadRegistered();
 
-        virtual void notifyWorkers();
+        void notifyWorkers() override;
 
         size_t mNumThreadsRegisteredWithRS;
         /// Init notification mutex (must lock before waiting on initCondition)

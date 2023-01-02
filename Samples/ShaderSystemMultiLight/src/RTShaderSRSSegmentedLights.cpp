@@ -60,7 +60,6 @@ void RTShaderSRSSegmentedLights::updateGpuProgramsParams(Renderable* rend, const
     if ((mLightParamsList.empty()) && (!mUseSegmentedLightTexture))
         return;
 
-    const Affine3& matWorld = source->getWorldMatrix();
     Light::LightTypes curLightType = Light::LT_DIRECTIONAL; 
     unsigned int curSearchLightIndex = 0;
 
@@ -68,10 +67,8 @@ void RTShaderSRSSegmentedLights::updateGpuProgramsParams(Renderable* rend, const
     float spotIntensity = 1;
     
     // Update per light parameters.
-    for (unsigned int i=0; i < mLightParamsList.size(); ++i)
+    for (auto & curParams : mLightParamsList)
     {
-        const LightParams& curParams = mLightParamsList[i];
-
         if (curLightType != curParams.mType)
         {
             curLightType = curParams.mType;
@@ -105,14 +102,14 @@ void RTShaderSRSSegmentedLights::updateGpuProgramsParams(Renderable* rend, const
         case Light::LT_DIRECTIONAL:
 
             // Update light direction.
-            vParameter = matWorld * srcLight->getAs4DVector(true);
+            vParameter = srcLight->getAs4DVector(true);
             curParams.mDirection->setGpuParameter(vParameter.ptr(),3,1);
             break;
 
         case Light::LT_POINT:
 
             // Update light position.
-            vParameter = matWorld * srcLight->getAs4DVector(true);
+            vParameter = srcLight->getAs4DVector(true);
             curParams.mPosition->setGpuParameter(vParameter.ptr(),3,1);
 
             // Update light attenuation parameters.
@@ -124,7 +121,7 @@ void RTShaderSRSSegmentedLights::updateGpuProgramsParams(Renderable* rend, const
                 Ogre::Vector3 vec3;
 
                 // Update light position.
-                vParameter = matWorld * srcLight->getAs4DVector(true);
+                vParameter = srcLight->getAs4DVector(true);
                 curParams.mPosition->setGpuParameter(vParameter.ptr(),3,1);
 
 
@@ -317,42 +314,42 @@ bool RTShaderSRSSegmentedLights::resolvePerLightParameters(ProgramSet* programSe
     Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
 
     // Resolve per light parameters.
-    for (unsigned int i=0; i < mLightParamsList.size(); ++i)
+    for (auto & i : mLightParamsList)
     {       
-        switch (mLightParamsList[i].mType)
+        switch (i.mType)
         {
         case Light::LT_DIRECTIONAL:
-            mLightParamsList[i].mDirection = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_direction_space");
+            i.mDirection = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_direction_space");
             break;
 
         case Light::LT_POINT:
         case Light::LT_SPOTLIGHT:
-            mLightParamsList[i].mPosition = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_position_space");
-            mLightParamsList[i].mDirection = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_direction_space");
-            mLightParamsList[i].mSpotParams = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "spotlight_params");
+            i.mPosition = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_position_space");
+            i.mDirection = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_direction_space");
+            i.mSpotParams = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "spotlight_params");
             break;
         }
 
         // Resolve diffuse colour.
         if ((mTrackVertexColourType & TVC_DIFFUSE) == 0)
         {
-            mLightParamsList[i].mDiffuseColour = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS | (uint16)GPV_GLOBAL, "derived_light_diffuse");
+            i.mDiffuseColour = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS | (uint16)GPV_GLOBAL, "derived_light_diffuse");
         }
         else
         {
-            mLightParamsList[i].mDiffuseColour = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_diffuse");
+            i.mDiffuseColour = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_diffuse");
         }   
 
-        if ((mSpecularEnable) && (mLightParamsList[i].mType == Light::LT_DIRECTIONAL))
+        if ((mSpecularEnable) && (i.mType == Light::LT_DIRECTIONAL))
         {
             // Resolve specular colour.
             if ((mTrackVertexColourType & TVC_SPECULAR) == 0)
             {
-                mLightParamsList[i].mSpecularColour = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS | (uint16)GPV_GLOBAL, "derived_light_specular");
+                i.mSpecularColour = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS | (uint16)GPV_GLOBAL, "derived_light_specular");
             }
             else
             {
-                mLightParamsList[i].mSpecularColour = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_specular");
+                i.mSpecularColour = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_specular");
             }                       
         }       
 
@@ -394,9 +391,9 @@ bool RTShaderSRSSegmentedLights::addFunctionInvocations(ProgramSet* programSet)
 
 
     // Add per light functions.
-    for (unsigned int i=0; i < mLightParamsList.size(); ++i)
+    for (auto & i : mLightParamsList)
     {       
-        if (false == addPSIlluminationInvocation(&mLightParamsList[i], psMain, FFP_PS_COLOUR_BEGIN + 1))
+        if (false == addPSIlluminationInvocation(&i, psMain, FFP_PS_COLOUR_BEGIN + 1))
             return false;
     }
 
@@ -797,10 +794,8 @@ void RTShaderSRSSegmentedLights::getLightCount(int lightCount[3]) const
     lightCount[1] = 0;
     lightCount[2] = 0;
 
-    for (unsigned int i=0; i < mLightParamsList.size(); ++i)
+    for (const auto& curParams : mLightParamsList)
     {
-        const LightParams curParams = mLightParamsList[i];
-
         if (curParams.mType == Light::LT_POINT)
             lightCount[0]++;
         else if (curParams.mType == Light::LT_DIRECTIONAL)
@@ -825,15 +820,7 @@ SubRenderState* RTShaderSRSSegmentedLightsFactory::createInstance(ScriptCompiler
     {
         if(prop->values.size() == 1)
         {
-            String modelType;
-
-            if(false == SGScriptTranslator::getString(prop->values.front(), &modelType))
-            {
-                compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-                return NULL;
-            }
-
-            if (modelType == "per_pixel")
+            if (prop->values.front()->getString() == "per_pixel")
             {
                 return createOrRetrieveInstance(translator);
             }

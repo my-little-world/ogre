@@ -214,22 +214,18 @@ namespace Ogre {
     {
         // Header
         writeChunkHeader(M_SUBMESH_NAME_TABLE, calcSubMeshNameTableSize(pMesh));
-
         // Loop through and save out the index and names.
-        Mesh::SubMeshNameMap::const_iterator it = pMesh->mSubMeshNameMap.begin();
         pushInnerChunk(mStream);
-        while(it != pMesh->mSubMeshNameMap.end())
+        for (auto& s : pMesh->mSubMeshNameMap)
         {
             // Header
             writeChunkHeader(M_SUBMESH_NAME_TABLE_ELEMENT, MSTREAM_OVERHEAD_SIZE +
-                sizeof(unsigned short) + calcStringSize(it->first));
+                sizeof(unsigned short) + calcStringSize(s.first));
 
             // write the index
-            writeShorts(&it->second, 1);
+            writeShorts(&s.second, 1);
             // name
-            writeString(it->first);
-
-            ++it;
+            writeString(s.first);
         }
         popInnerChunk(mStream);
     }
@@ -288,11 +284,9 @@ namespace Ogre {
         if (!s->mBoneAssignments.empty())
         {
             LogManager::getSingleton().logMessage("Exporting dedicated geometry bone assignments...");
-            SubMesh::VertexBoneAssignmentList::const_iterator vi;
-            for (vi = s->mBoneAssignments.begin();
-            vi != s->mBoneAssignments.end(); ++vi)
+            for (auto& vi : s->mBoneAssignments)
             {
-                writeSubMeshBoneAssignment(vi->second);
+                writeSubMeshBoneAssignment(vi.second);
             }
             LogManager::getSingleton().logMessage("Dedicated geometry bone assignments exported.");
         }
@@ -321,11 +315,10 @@ namespace Ogre {
     size_t MeshSerializerImpl::calcExtremesSize(const Mesh* pMesh)
     {
         size_t size = 0;
-        for (unsigned short i = 0; i < pMesh->getNumSubMeshes(); ++i)
+        for (auto *s : pMesh->getSubMeshes())
         {
-            SubMesh *sm = pMesh->getSubMesh(i);
-            if (!sm->extremityPoints.empty()){
-                size += calcSubMeshExtremesSize(i, sm);
+            if (!s->extremityPoints.empty()){
+                size += calcSubMeshExtremesSize(s);
             }
         }
         return size;
@@ -333,27 +326,13 @@ namespace Ogre {
     //---------------------------------------------------------------------
     void MeshSerializerImpl::writeSubMeshExtremes(unsigned short idx, const SubMesh* s)
     {
-        
-        writeChunkHeader(M_TABLE_EXTREMES, calcSubMeshExtremesSize(idx, s));
+        writeChunkHeader(M_TABLE_EXTREMES, calcSubMeshExtremesSize(s));
 
         writeShorts(&idx, 1);
-
-        float *vertices = OGRE_ALLOC_T(float, s->extremityPoints.size() * 3, MEMCATEGORY_GEOMETRY);
-        float *pVert = vertices;
-
-        for (std::vector<Vector3>::const_iterator i = s->extremityPoints.begin();
-             i != s->extremityPoints.end(); ++i)
-        {
-            *pVert++ = i->x;
-            *pVert++ = i->y;
-            *pVert++ = i->z;
-        }
-
-        writeFloats(vertices, s->extremityPoints.size () * 3);
-        OGRE_FREE(vertices, MEMCATEGORY_GEOMETRY);
+        writeFloats(s->extremityPoints.front().ptr(), s->extremityPoints.size () * 3);
     }
 
-    size_t MeshSerializerImpl::calcSubMeshExtremesSize(unsigned short idx, const SubMesh* s)
+    size_t MeshSerializerImpl::calcSubMeshExtremesSize(const SubMesh* s)
     {
         return MSTREAM_OVERHEAD_SIZE + sizeof (unsigned short) +
             s->extremityPoints.size() * sizeof (float)* 3;
@@ -364,20 +343,17 @@ namespace Ogre {
     void MeshSerializerImpl::writeSubMeshTextureAliases(const SubMesh* s)
     {
         size_t chunkSize;
-        AliasTextureNamePairList::const_iterator i;
-
         LogManager::getSingleton().logMessage("Exporting submesh texture aliases...");
 
         // iterate through texture aliases and write them out as a chunk
-        for (i = s->mTextureAliases.begin(); i != s->mTextureAliases.end(); ++i)
+        for (auto& t : s->mTextureAliases)
         {
-            // calculate chunk size based on string length + 1.  Add 1 for the line feed.
-            chunkSize = MSTREAM_OVERHEAD_SIZE + calcStringSize(i->first) + calcStringSize(i->second);
+            chunkSize = MSTREAM_OVERHEAD_SIZE + calcStringSize(t.first) + calcStringSize(t.second);
             writeChunkHeader(M_SUBMESH_TEXTURE_ALIAS, chunkSize);
             // write out alias name
-            writeString(i->first);
+            writeString(t.first);
             // write out texture name
-            writeString(i->second);
+            writeString(t.second);
         }
 
         LogManager::getSingleton().logMessage("Submesh texture aliases exported.");
@@ -387,7 +363,7 @@ namespace Ogre {
     void MeshSerializerImpl::writeSubMeshOperation(const SubMesh* sm)
     {
         // Header
-        writeChunkHeader(M_SUBMESH_OPERATION, calcSubMeshOperationSize(sm));
+        writeChunkHeader(M_SUBMESH_OPERATION, calcSubMeshOperationSize());
 
         // unsigned short operationType
         unsigned short opType = static_cast<unsigned short>(sm->operationType);
@@ -400,7 +376,6 @@ namespace Ogre {
             vertexData->vertexDeclaration->getElements();
         const VertexBufferBinding::VertexBufferBindingMap& bindings =
             vertexData->vertexBufferBinding->getBindings();
-        VertexBufferBinding::VertexBufferBindingMap::const_iterator vbi, vbiend;
 
         // Header
         writeChunkHeader(M_GEOMETRY, calcGeometrySize(vertexData));
@@ -416,13 +391,10 @@ namespace Ogre {
 
             pushInnerChunk(mStream);
             {
-        VertexDeclaration::VertexElementList::const_iterator vei, veiend;
-        veiend = elemList.end();
         unsigned short tmp;
         size = MSTREAM_OVERHEAD_SIZE + sizeof(unsigned short) * 5;
-        for (vei = elemList.begin(); vei != veiend; ++vei)
+        for (auto& elem : elemList)
         {
-            const VertexElement& elem = *vei;
             writeChunkHeader(M_GEOMETRY_VERTEX_ELEMENT, size);
             // unsigned short source;   // buffer bind source
             tmp = elem.getSource();
@@ -446,15 +418,14 @@ namespace Ogre {
 
 
         // Buffers and bindings
-        vbiend = bindings.end();
-        for (vbi = bindings.begin(); vbi != vbiend; ++vbi)
+        for (auto& vbi : bindings)
         {
-            const HardwareVertexBufferSharedPtr& vbuf = vbi->second;
+            const HardwareVertexBufferSharedPtr& vbuf = vbi.second;
             size_t vbufSizeInBytes = vbuf->getVertexSize() * vertexData->vertexCount; // vbuf->getSizeInBytes() is too large for meshes prepared for shadow volumes
             size = (MSTREAM_OVERHEAD_SIZE * 2) + (sizeof(unsigned short) * 2) + vbufSizeInBytes;
             writeChunkHeader(M_GEOMETRY_VERTEX_BUFFER,  size);
             // unsigned short bindIndex;    // Index to bind this buffer to
-                unsigned short tmp = vbi->first;
+                unsigned short tmp = vbi.first;
             writeShorts(&tmp, 1);
             // unsigned short vertexSize;   // Per-vertex size, must agree with declaration at this index
             tmp = (unsigned short)vbuf->getVertexSize();
@@ -476,7 +447,7 @@ namespace Ogre {
                     tempData,
                     vertexData->vertexCount,
                     vbuf->getVertexSize(),
-                    vertexData->vertexDeclaration->findElementsBySource(vbi->first));
+                    vertexData->vertexDeclaration->findElementsBySource(vbi.first));
                 writeData(tempData, vbuf->getVertexSize(), vertexData->vertexCount);
                 OGRE_FREE(tempData, MEMCATEGORY_GEOMETRY);
             }
@@ -496,15 +467,12 @@ namespace Ogre {
         size_t size = MSTREAM_OVERHEAD_SIZE;
         // Figure out the size of the Name table.
         // Iterate through the subMeshList & add up the size of the indexes and names.
-        Mesh::SubMeshNameMap::const_iterator it = pMesh->mSubMeshNameMap.begin();
-        while(it != pMesh->mSubMeshNameMap.end())
+        for (auto& s : pMesh->mSubMeshNameMap)
         {
             // size of the index + header size for each element chunk
             size += MSTREAM_OVERHEAD_SIZE + sizeof(uint16);
             // name
-            size += calcStringSize(it->first);
-
-            ++it;
+            size += calcStringSize(s.first);
         }
 
         // size of the sub-mesh name table.
@@ -525,9 +493,9 @@ namespace Ogre {
         }
 
         // Submeshes
-        for (unsigned short i = 0; i < pMesh->getNumSubMeshes(); ++i)
+        for (auto *s : pMesh->getSubMeshes())
         {
-            size += calcSubMeshSize(pMesh->getSubMesh(i));
+            size += calcSubMeshSize(s);
         }
 
         // Skeleton link
@@ -546,7 +514,7 @@ namespace Ogre {
         }
 #endif
         
-        size += calcBoundsInfoSize(pMesh);
+        size += calcBoundsInfoSize();
 
         // Submesh name table
         size += calcSubMeshNameTableSize(pMesh);
@@ -600,23 +568,15 @@ namespace Ogre {
         }
 
         size += calcSubMeshTextureAliasesSize(pSub);
-        size += calcSubMeshOperationSize(pSub);
+        size += calcSubMeshOperationSize();
 
         // Bone assignments
-        if (!pSub->mBoneAssignments.empty())
-        {
-            SubMesh::VertexBoneAssignmentList::const_iterator vi;
-            for (vi = pSub->mBoneAssignments.begin();
-                 vi != pSub->mBoneAssignments.end(); ++vi)
-            {
-                size += calcBoneAssignmentSize();
-            }
-        }
+        size += pSub->mBoneAssignments.size() * calcBoneAssignmentSize();
 
         return size;
     }
     //---------------------------------------------------------------------
-    size_t MeshSerializerImpl::calcSubMeshOperationSize(const SubMesh* pSub)
+    size_t MeshSerializerImpl::calcSubMeshOperationSize()
     {
         return MSTREAM_OVERHEAD_SIZE + sizeof(uint16);
     }
@@ -624,13 +584,10 @@ namespace Ogre {
     size_t MeshSerializerImpl::calcSubMeshTextureAliasesSize(const SubMesh* pSub)
     {
         size_t chunkSize = 0;
-        AliasTextureNamePairList::const_iterator i;
-
         // iterate through texture alias map and calc size of strings
-        for (i = pSub->mTextureAliases.begin(); i != pSub->mTextureAliases.end(); ++i)
+        for (auto& t : pSub->mTextureAliases)
         {
-            // calculate chunk size based on string length + 1.  Add 1 for the line feed.
-            chunkSize += MSTREAM_OVERHEAD_SIZE + calcStringSize(i->first) + calcStringSize(i->second);
+            chunkSize += MSTREAM_OVERHEAD_SIZE + calcStringSize(t.first) + calcStringSize(t.second);
         }
 
         return chunkSize;
@@ -652,13 +609,10 @@ namespace Ogre {
         
         // Buffers and bindings
         size += bindings.size() * ((MSTREAM_OVERHEAD_SIZE * 2) + (sizeof(unsigned short)* 2));
-
         // Buffer data
-        VertexBufferBinding::VertexBufferBindingMap::const_iterator vbi, vbiend;
-        vbiend = bindings.end();
-        for (vbi = bindings.begin(); vbi != vbiend; ++vbi)
+        for (auto& vbi : bindings)
         {
-            const HardwareVertexBufferSharedPtr& vbuf = vbi->second;
+            const HardwareVertexBufferSharedPtr& vbuf = vbi.second;
             size += vbuf->getVertexSize() * vertexData->vertexCount; // vbuf->getSizeInBytes() is too large for meshes prepared for shadow volumes
         }
         return size;
@@ -862,19 +816,12 @@ namespace Ogre {
 
         // Set all the submeshes names
         // ?
-
         // Loop through and save out the index and names.
-        std::map<unsigned short, String>::const_iterator it = subMeshNames.begin();
-
-        while(it != subMeshNames.end())
+        for (auto& sn : subMeshNames)
         {
             // Name this submesh to the stored name.
-            pMesh->nameSubMesh(it->second, it->first);
-            ++it;
+            pMesh->nameSubMesh(sn.second, sn.first);
         }
-
-
-
     }
     //---------------------------------------------------------------------
     void MeshSerializerImpl::readMesh(const DataStreamPtr& stream, Mesh* pMesh, MeshSerializerListener *listener)
@@ -985,10 +932,7 @@ namespace Ogre {
         }
         else
         {
-            LogManager::getSingleton().logWarning("Can't assign material '" + materialName +
-                "' to SubMesh of '" + pMesh->getName() + "' because this "
-                "Material does not exist in group '"+pMesh->getGroup()+"'. Have you forgotten to define it in a "
-                ".material script?");
+            logMaterialNotFound(materialName, pMesh->getGroup(), "SubMesh of", pMesh->getName(), LML_WARNING);
         }
 
         // bool useSharedVertices
@@ -1338,10 +1282,9 @@ namespace Ogre {
     {
         size_t size = MSTREAM_OVERHEAD_SIZE;
         size += sizeof(float); // float usage.userValue;
-        for (ushort i = 0; i < pMesh->getNumSubMeshes(); i++)
+        for (auto *s : pMesh->getSubMeshes())
         {
-            SubMesh* submesh = pMesh->getSubMesh(i);
-            size += calcLodUsageGeneratedSubmeshSize(submesh, lodNum);
+            size += calcLodUsageGeneratedSubmeshSize(s, lodNum);
         }
         return size;
     }
@@ -1375,19 +1318,13 @@ namespace Ogre {
     //---------------------------------------------------------------------
     void MeshSerializerImpl::writeBoundsInfo(const Mesh* pMesh)
     {
-        writeChunkHeader(M_MESH_BOUNDS, calcBoundsInfoSize(pMesh));
+        writeChunkHeader(M_MESH_BOUNDS, calcBoundsInfoSize());
 
         // float minx, miny, minz
         const Vector3& min = pMesh->mAABB.getMinimum();
         const Vector3& max = pMesh->mAABB.getMaximum();
-        writeFloats(&min.x, 1);
-        writeFloats(&min.y, 1);
-        writeFloats(&min.z, 1);
-        // float maxx, maxy, maxz
-        writeFloats(&max.x, 1);
-        writeFloats(&max.y, 1);
-        writeFloats(&max.z, 1);
-        // float radius
+        writeFloats(min.ptr(), 3);
+        writeFloats(max.ptr(), 3);
         writeFloats(&pMesh->mBoundRadius, 1);
 
     }
@@ -1395,22 +1332,16 @@ namespace Ogre {
     void MeshSerializerImpl::readBoundsInfo(const DataStreamPtr& stream, Mesh* pMesh)
     {
         Vector3 min, max;
-        // float minx, miny, minz
-        readFloats(stream, &min.x, 1);
-        readFloats(stream, &min.y, 1);
-        readFloats(stream, &min.z, 1);
-        // float maxx, maxy, maxz
-        readFloats(stream, &max.x, 1);
-        readFloats(stream, &max.y, 1);
-        readFloats(stream, &max.z, 1);
+        readFloats(stream, min.ptr(), 3);
+        readFloats(stream, max.ptr(), 3);
         AxisAlignedBox box(min, max);
         pMesh->_setBounds(box, false);
-        // float radius
+
         float radius;
         readFloats(stream, &radius, 1);
         pMesh->_setBoundingSphereRadius(radius);
     }
-    size_t MeshSerializerImpl::calcBoundsInfoSize(const Mesh* pMesh)
+    size_t MeshSerializerImpl::calcBoundsInfoSize()
     {
         unsigned long size = MSTREAM_OVERHEAD_SIZE;
         size += sizeof(float) * 7;
@@ -1493,15 +1424,11 @@ namespace Ogre {
 
         // unsigned short numLevels;
         readShorts(stream, &(pMesh->mNumLods), 1);
-
         pMesh->mMeshLodUsageList.resize(pMesh->mNumLods);
-        ushort numSubs, i;
-        numSubs = pMesh->getNumSubMeshes();
-        for (i = 0; i < numSubs; ++i)
+        for (auto *s : pMesh->getSubMeshes())
         {
-            SubMesh* sm = pMesh->getSubMesh(i);
-            assert(sm->mLodFaceList.empty());
-            sm->mLodFaceList.resize(pMesh->mNumLods-1);
+            assert(s->mLodFaceList.empty());
+            s->mLodFaceList.resize(pMesh->mNumLods-1);
         }
         pushInnerChunk(stream);
         // lodID=0 is the original mesh. We need to skip it.
@@ -1536,13 +1463,9 @@ namespace Ogre {
         usage.manualName = readString(stream);
         
         // Generate for mixed
-        ushort numSubs, i;
-        numSubs = pMesh->getNumSubMeshes();
-        for (i = 0; i < numSubs; ++i)
+        for (auto *s : pMesh->getSubMeshes())
         {
-            
-            SubMesh* sm = pMesh->getSubMesh(i);
-            sm->mLodFaceList[lodNum-1] = OGRE_NEW IndexData();
+            s->mLodFaceList[lodNum-1] = OGRE_NEW IndexData();
         }
     }
     //---------------------------------------------------------------------
@@ -1551,13 +1474,10 @@ namespace Ogre {
         usage.manualName = "";
 
         // Get one set of detail per SubMesh
-        unsigned short numSubs, i;
-        numSubs = pMesh->getNumSubMeshes();
-        for (i = 0; i < numSubs; ++i)
+        for (auto *s : pMesh->getSubMeshes())
         {
-            SubMesh* sm = pMesh->getSubMesh(i);
-            sm->mLodFaceList[lodNum-1] = OGRE_NEW IndexData();
-            IndexData* indexData = sm->mLodFaceList[lodNum-1];
+            s->mLodFaceList[lodNum - 1] = OGRE_NEW IndexData();
+            IndexData* indexData = s->mLodFaceList[lodNum - 1];
 
             unsigned int numIndexes;
             readInts(stream, &numIndexes, 1);
@@ -1573,7 +1493,7 @@ namespace Ogre {
             readInts(stream, &bufferIndex, 1);
             if(bufferIndex != (unsigned int)-1) {
                 // copy buffer pointer
-                indexData->indexBuffer = sm->mLodFaceList[bufferIndex-1]->indexBuffer;
+                indexData->indexBuffer = s->mLodFaceList[bufferIndex - 1]->indexBuffer;
                 assert(indexData->indexBuffer);
             } else {
                 // generate buffers
@@ -1627,16 +1547,14 @@ namespace Ogre {
         void *pBase = pData;
         for (size_t v = 0; v < vertexCount; ++v)
         {
-            VertexDeclaration::VertexElementList::const_iterator ei, eiend;
-            eiend = elems.end();
-            for (ei = elems.begin(); ei != eiend; ++ei)
+            for (auto& e : elems)
             {
                 void *pElem;
                 // re-base pointer to the element
-                (*ei).baseVertexPointerToElement(pBase, &pElem);
+                e.baseVertexPointerToElement(pBase, &pElem);
                 // Flip the endian based on the type
                 size_t typeSize = 0;
-                switch (VertexElement::getBaseType((*ei).getType()))
+                switch (VertexElement::getBaseType(e.getType()))
                 {
                     case VET_FLOAT1:
                         typeSize = sizeof(float);
@@ -1664,13 +1582,11 @@ namespace Ogre {
                         assert(false); // Should never happen
                 };
 				Bitwise::bswapChunks(pElem, typeSize,
-                    VertexElement::getTypeCount((*ei).getType()));
-
+                    VertexElement::getTypeCount(e.getType()));
             }
 
             pBase = static_cast<void*>(
                 static_cast<unsigned char*>(pBase) + vertexSize);
-
         }
     }
     //---------------------------------------------------------------------
@@ -1721,10 +1637,8 @@ namespace Ogre {
 
             size += triSize * edgeData->triangles.size();
             // Write the groups
-            for (EdgeData::EdgeGroupList::const_iterator gi = edgeData->edgeGroups.begin();
-                gi != edgeData->edgeGroups.end(); ++gi)
+            for (const auto & edgeGroup : edgeData->edgeGroups)
             {
-                const EdgeData::EdgeGroup& edgeGroup = *gi;
                 size += calcEdgeGroupSize(edgeGroup);
             }
 
@@ -1785,11 +1699,9 @@ namespace Ogre {
                 writeInts(&count, 1);
                 // Triangle* triangleList
                 // Iterate rather than writing en-masse to allow endian conversion
-                EdgeData::TriangleList::const_iterator t = edgeData->triangles.begin();
                 EdgeData::TriangleFaceNormalList::const_iterator fni = edgeData->triangleFaceNormals.begin();
-                for ( ; t != edgeData->triangles.end(); ++t, ++fni)
+                for (const auto& tri : edgeData->triangles)
                 {
-                    const EdgeData::Triangle& tri = *t;
                     // unsigned long indexSet;
                     uint32 tmp[3];
                     tmp[0] = static_cast<uint32>(tri.indexSet);
@@ -1810,14 +1722,13 @@ namespace Ogre {
                     // float normal[4];
                     writeFloats(&(fni->x), 4);
 
+                    ++fni;
                 }
                     pushInnerChunk(mStream);
                     {
                 // Write the groups
-                for (EdgeData::EdgeGroupList::const_iterator gi = edgeData->edgeGroups.begin();
-                    gi != edgeData->edgeGroups.end(); ++gi)
+                for (const auto& edgeGroup : edgeData->edgeGroups)
                 {
-                    const EdgeData::EdgeGroup& edgeGroup = *gi;
                     writeChunkHeader(M_EDGE_GROUP, calcEdgeGroupSize(edgeGroup));
                     // unsigned long vertexSet
                     uint32 vertexSet = static_cast<uint32>(edgeGroup.vertexSet);
@@ -1833,10 +1744,8 @@ namespace Ogre {
                     writeInts(&count, 1);
                     // Edge* edgeList
                     // Iterate rather than writing en-masse to allow endian conversion
-                    for (EdgeData::EdgeList::const_iterator ei = edgeGroup.edges.begin();
-                        ei != edgeGroup.edges.end(); ++ei)
+                    for (const auto & edge : edgeGroup.edges)
                     {
-                        const EdgeData::Edge& edge = *ei;
                         uint32 tmp[2];
                         // unsigned long  triIndex[2]
                         tmp[0] = static_cast<uint32>(edge.triIndex[0]);
@@ -1857,9 +1766,7 @@ namespace Ogre {
                 }
                     }
                     popInnerChunk(mStream);
-
                 }
-
             }
         }
         popInnerChunk(mStream);
@@ -1901,11 +1808,8 @@ namespace Ogre {
                     readEdgeListLodInfo(stream, usage.edgeData);
 
                     // Postprocessing edge groups
-                    EdgeData::EdgeGroupList::iterator egi, egend;
-                    egend = usage.edgeData->edgeGroups.end();
-                    for (egi = usage.edgeData->edgeGroups.begin(); egi != egend; ++egi)
+                    for (auto& edgeGroup : usage.edgeData->edgeGroups)
                     {
-                        EdgeData::EdgeGroup& edgeGroup = *egi;
                         // Populate edgeGroup.vertexData pointers
                         // If there is shared vertex data, vertexSet 0 is that,
                         // otherwise 0 is first dedicated
@@ -2086,8 +1990,7 @@ namespace Ogre {
     size_t MeshSerializerImpl::calcAnimationSize(const Animation* anim)
     {
         size_t size = MSTREAM_OVERHEAD_SIZE;
-        // char* name
-        size += anim->getName().length() + 1;
+        size += calcStringSize(anim->getName());
 
         // float length
         size += sizeof(float);
@@ -2172,10 +2075,9 @@ namespace Ogre {
         if (!pMesh->getPoseList().empty())
         {
             size += MSTREAM_OVERHEAD_SIZE;
-            PoseList::const_iterator it;
-            for( it = pMesh->getPoseList().begin(); it != pMesh->getPoseList().end(); ++it)
+            for (auto& p : pMesh->getPoseList())
             {
-                size += calcPoseSize(*it);
+                size += calcPoseSize(p);
             }
         }
         return size;
@@ -2185,8 +2087,7 @@ namespace Ogre {
     {
         size_t size = MSTREAM_OVERHEAD_SIZE;
 
-        // char* name (may be blank)
-        size += pose->getName().length() + 1;
+        size += calcStringSize(pose->getName());
         // unsigned short target
         size += sizeof(uint16);
         // bool includesNormals
@@ -2219,10 +2120,9 @@ namespace Ogre {
         {
             writeChunkHeader(M_POSES, calcPosesSize(pMesh));
             pushInnerChunk(mStream);
-            PoseList::const_iterator it;
-            for(it = pMesh->getPoseList().begin(); it != pMesh->getPoseList().end(); ++it)
+            for(auto& p : pMesh->getPoseList())
             {
-                writePose(*it);
+                writePose(p);
             }
             popInnerChunk(mStream);
         }
@@ -2292,8 +2192,7 @@ namespace Ogre {
         if (anim->getUseBaseKeyFrame())
         {
             size_t size = MSTREAM_OVERHEAD_SIZE;
-            // char* baseAnimationName (including terminator)
-            size += anim->getBaseKeyFrameAnimationName().length() + 1;
+            size += calcStringSize(anim->getBaseKeyFrameAnimationName());
             // float baseKeyFrameTime
             size += sizeof(float);
             
@@ -2369,11 +2268,9 @@ namespace Ogre {
         writeFloats(&timePos, 1);
         pushInnerChunk(mStream);
         // pose references
-        VertexPoseKeyFrame::PoseRefList::const_iterator poseRefIt =
-            kf->getPoseReferences().begin();
-        for (;poseRefIt != kf->getPoseReferences().end(); ++poseRefIt)
+        for (auto& p : kf->getPoseReferences())
         {
-            writePoseKeyframePoseRef(*poseRefIt);
+            writePoseKeyframePoseRef(p);
         }
         popInnerChunk(mStream);
     }
@@ -2482,7 +2379,6 @@ namespace Ogre {
             }
             popInnerChunk(stream);
         }
-
     }
     //---------------------------------------------------------------------
     void MeshSerializerImpl::readAnimations(const DataStreamPtr& stream, Mesh* pMesh)
@@ -2516,13 +2412,10 @@ namespace Ogre {
             }
             popInnerChunk(stream);
         }
-
-
     }
     //---------------------------------------------------------------------
     void MeshSerializerImpl::readAnimation(const DataStreamPtr& stream, Mesh* pMesh)
     {
-
         // char* name
         String name = readString(stream);
         // float length
@@ -2696,7 +2589,6 @@ namespace Ogre {
             }
             popInnerChunk(stream);
         }
-
     }
     //---------------------------------------------------------------------
     void MeshSerializerImpl::readExtremes(const DataStreamPtr& stream, Mesh *pMesh)
@@ -2711,13 +2603,9 @@ namespace Ogre {
         
         assert ((n_floats % 3) == 0);
         
-        float *vert = OGRE_ALLOC_T(float, n_floats, MEMCATEGORY_GEOMETRY);
-        readFloats(stream, vert, n_floats);
-        
-        for (int i = 0; i < n_floats; i += 3)
-            sm->extremityPoints.push_back(Vector3(vert [i], vert [i + 1], vert [i + 2]));
-        
-        OGRE_FREE(vert, MEMCATEGORY_GEOMETRY);
+        sm->extremityPoints.resize(n_floats / 3);
+
+        readFloats(stream, sm->extremityPoints.front().ptr(), n_floats);
     }
 
     void MeshSerializerImpl::enableValidation()
@@ -2811,16 +2699,13 @@ namespace Ogre {
     {
         // Usage Header
         size_t size = MSTREAM_OVERHEAD_SIZE;
-        unsigned short subidx;
-
         // float fromDepthSquared;
         size += sizeof(float);
 
         // Calc generated SubMesh sections size
-        for (subidx = 0; subidx < pMesh->getNumSubMeshes(); ++subidx)
+        for (auto& s : pMesh->getSubMeshes())
         {
-            SubMesh* submesh = pMesh->getSubMesh(subidx);
-            size += calcLodUsageGeneratedSubmeshSize(submesh, lodNum);
+            size += calcLodUsageGeneratedSubmeshSize(s, lodNum);
         }
         return size;
     }
@@ -2919,10 +2804,9 @@ namespace Ogre {
         float userValue = static_cast<float>(usage.userValue);
         writeFloats(&userValue, 1);
         pushInnerChunk(mStream);
-        for (ushort i = 0; i < pMesh->getNumSubMeshes(); i++)
+        for (auto& s : pMesh->getSubMeshes())
         {
-            SubMesh* submesh = pMesh->getSubMesh(i);
-            writeLodUsageGeneratedSubmesh(submesh, lodNum);
+            writeLodUsageGeneratedSubmesh(s, lodNum);
         }
         popInnerChunk(mStream);
     }
@@ -2969,9 +2853,7 @@ namespace Ogre {
         pushInnerChunk(stream);
         {
             // Get one set of detail per SubMesh
-            unsigned short numSubs, i;
-            numSubs = pMesh->getNumSubMeshes();
-            for (i = 0; i < numSubs; ++i)
+            for (auto *sm : pMesh->getSubMeshes())
             {
                 unsigned long streamID = readChunk(stream);
                 if (streamID != M_MESH_LOD_GENERATED)
@@ -2981,18 +2863,14 @@ namespace Ogre {
                         "MeshSerializerImpl::readMeshLodUsageGenerated");
                 }
 
-                SubMesh* sm = pMesh->getSubMesh(i);
                 IndexData* indexData = OGRE_NEW IndexData();
                 sm->mLodFaceList[lodNum - 1] = indexData;
-                // unsigned int numIndexes
                 unsigned int numIndexes;
                 readInts(stream, &numIndexes, 1);
                 indexData->indexCount = static_cast<size_t>(numIndexes);
-
-                // bool indexes32Bit
                 bool idx32Bit;
                 readBools(stream, &idx32Bit, 1);
-                // unsigned short*/int* faceIndexes;  ((v1, v2, v3) * numFaces)
+
                 if (idx32Bit)
                 {
                     indexData->indexBuffer = pMesh->getHardwareBufferManager()->createIndexBuffer(
@@ -3297,8 +3175,7 @@ namespace Ogre {
     {
         size_t size = MSTREAM_OVERHEAD_SIZE;
 
-        // char* name (may be blank)
-        size += pose->getName().length() + 1;
+        size += calcStringSize(pose->getName());
         // unsigned short target
         size += sizeof(uint16);
 
@@ -3418,10 +3295,9 @@ namespace Ogre {
         float value = static_cast<float>(usage.value);
         writeFloats(&value, 1); // <== In v1_4 this is value instead of userValue
         pushInnerChunk(mStream);
-        for (ushort i = 0; i < pMesh->getNumSubMeshes(); i++)
+        for (auto *s : pMesh->getSubMeshes())
         {
-            SubMesh* submesh = pMesh->getSubMesh(i);
-            writeLodUsageGeneratedSubmesh(submesh, lodNum);
+            writeLodUsageGeneratedSubmesh(s, lodNum);
         }
         popInnerChunk(mStream);
     }
@@ -3514,13 +3390,10 @@ namespace Ogre {
         // Preallocate submesh LOD face data if not manual
         if (!manual)
         {
-
-            unsigned short numsubs = pMesh->getNumSubMeshes();
-            for (i = 0; i < numsubs; ++i)
+            for (auto *s : pMesh->getSubMeshes())
             {
-                SubMesh* sm = pMesh->getSubMesh(i);
-                assert(sm->mLodFaceList.empty());
-                sm->mLodFaceList.resize(pMesh->mNumLods-1);
+                assert(s->mLodFaceList.empty());
+                s->mLodFaceList.resize(pMesh->mNumLods - 1);
             }
         }
         pushInnerChunk(stream);
@@ -3719,10 +3592,10 @@ namespace Ogre {
 
             // Calculate number of triangles for edge groups
 
-            for (egi = edgeData->edgeGroups.begin(); egi != egend; ++egi)
+            for (auto& g : edgeData->edgeGroups)
             {
-                egi->triStart = 0;
-                egi->triCount = 0;
+                g.triStart = 0;
+                g.triCount = 0;
             }
 
             bool isGrouped = true;
@@ -3775,11 +3648,11 @@ namespace Ogre {
 
                 // Calculate triStart and reset triCount to zero for each edge group first
                 size_t triStart = 0;
-                for (egi = edgeData->edgeGroups.begin(); egi != egend; ++egi)
+                for (auto& g : edgeData->edgeGroups)
                 {
-                    egi->triStart = triStart;
-                    triStart += egi->triCount;
-                    egi->triCount = 0;
+                    g.triStart = triStart;
+                    triStart += g.triCount;
+                    g.triCount = 0;
                 }
 
                 // The map used to mapping original triangle index to new index
@@ -3830,6 +3703,7 @@ namespace Ogre {
             }
         }
     }
+    //---------------------------------------------------------------------
     size_t MeshSerializerImpl_v1_3::calcEdgeListLodSize(const EdgeData* edgeData, bool isManual)
     {
         size_t size = MSTREAM_OVERHEAD_SIZE;
@@ -3859,10 +3733,8 @@ namespace Ogre {
 
             size += triSize * edgeData->triangles.size();
             // Write the groups
-            for (EdgeData::EdgeGroupList::const_iterator gi = edgeData->edgeGroups.begin();
-                gi != edgeData->edgeGroups.end(); ++gi)
+            for (const auto & edgeGroup : edgeData->edgeGroups)
             {
-                const EdgeData::EdgeGroup& edgeGroup = *gi;
                 size += calcEdgeGroupSize(edgeGroup);
             }
 
@@ -3921,11 +3793,9 @@ namespace Ogre {
                 writeInts(&count, 1);
                 // Triangle* triangleList
                 // Iterate rather than writing en-masse to allow endian conversion
-                EdgeData::TriangleList::const_iterator t = edgeData->triangles.begin();
                 EdgeData::TriangleFaceNormalList::const_iterator fni = edgeData->triangleFaceNormals.begin();
-                for ( ; t != edgeData->triangles.end(); ++t, ++fni)
+                for (auto& tri : edgeData->triangles)
                 {
-                    const EdgeData::Triangle& tri = *t;
                     // unsigned long indexSet;
                     uint32 tmp[3];
                     tmp[0] = static_cast<uint32>(tri.indexSet);
@@ -3945,14 +3815,12 @@ namespace Ogre {
                     writeInts(tmp, 3);
                     // float normal[4];
                     writeFloats(&(fni->x), 4);
-                    
+                    ++fni;
                 }
                 pushInnerChunk(mStream);
                 // Write the groups
-                for (EdgeData::EdgeGroupList::const_iterator gi = edgeData->edgeGroups.begin();
-                     gi != edgeData->edgeGroups.end(); ++gi)
+                for (const auto& edgeGroup : edgeData->edgeGroups)
                 {
-                    const EdgeData::EdgeGroup& edgeGroup = *gi;
                     writeChunkHeader(M_EDGE_GROUP, calcEdgeGroupSize(edgeGroup));
                     // unsigned long vertexSet
                     uint32 vertexSet = static_cast<uint32>(edgeGroup.vertexSet);
@@ -3962,10 +3830,8 @@ namespace Ogre {
                     writeInts(&count, 1);
                     // Edge* edgeList
                     // Iterate rather than writing en-masse to allow endian conversion
-                    for (EdgeData::EdgeList::const_iterator ei = edgeGroup.edges.begin();
-                         ei != edgeGroup.edges.end(); ++ei)
+                    for (const auto& edge : edgeGroup.edges)
                     {
-                        const EdgeData::Edge& edge = *ei;
                         uint32 tmp[2];
                         // unsigned long  triIndex[2]
                         tmp[0] = static_cast<uint32>(edge.triIndex[0]);
@@ -4187,13 +4053,4 @@ namespace Ogre {
         }
         dest->vertexBufferBinding->setBinding(bindIdx, vbuf);
     }
-    //---------------------------------------------------------------------
-    //---------------------------------------------------------------------
-    //---------------------------------------------------------------------
-
-
-
-
 }
-
-

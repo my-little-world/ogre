@@ -33,6 +33,9 @@ namespace RTShader {
 
 
 String LayeredBlending::Type = "LayeredBlendRTSSEx";
+const String SRS_LAYERED_BLENDING = "LayeredBlendRTSSEx";
+
+namespace {
 
  struct BlendModeDescription {
         /* Type of the blend mode */
@@ -92,6 +95,59 @@ const SourceModifierDescription _sourceModifiers[(int)LayeredBlending::SM_MaxSou
     { LayeredBlending::SM_Source1InvModulate ,"src1_inverse_modulate"},
     { LayeredBlending::SM_Source2InvModulate ,"src2_inverse_modulate"}
     };
+
+//-----------------------------------------------------------------------
+LayeredBlending::BlendMode stringToBlendMode(const String &strValue)
+{
+    for(const auto & _blendMode : _blendModes)
+    {
+        if (_blendMode.name == strValue)
+        {
+            return _blendMode.type;
+        }
+    }
+    return LayeredBlending::LB_Invalid;
+}
+
+//-----------------------------------------------------------------------
+String blendModeToString(LayeredBlending::BlendMode blendMode)
+{
+    for(const auto & _blendMode : _blendModes)
+    {
+        if (_blendMode.type == blendMode)
+        {
+            return _blendMode.name;
+        }
+    }
+    return "";
+}
+
+//-----------------------------------------------------------------------
+LayeredBlending::SourceModifier stringToSourceModifier(const String &strValue)
+{
+    for(const auto & _sourceModifier : _sourceModifiers)
+    {
+        if (_sourceModifier.name == strValue)
+        {
+            return _sourceModifier.type;
+        }
+    }
+    return LayeredBlending::SM_Invalid;
+}
+
+//-----------------------------------------------------------------------
+String sourceModifierToString(LayeredBlending::SourceModifier modifier)
+{
+    for(const auto & _sourceModifier : _sourceModifiers)
+    {
+        if (_sourceModifier.type == modifier)
+        {
+            return _sourceModifier.name;
+        }
+    }
+    return "";
+}
+}
 //-----------------------------------------------------------------------
 LayeredBlending::LayeredBlending()
 {
@@ -101,7 +157,7 @@ LayeredBlending::LayeredBlending()
 //-----------------------------------------------------------------------
 const Ogre::String& LayeredBlending::getType() const
 {
-    return Type;
+    return SRS_LAYERED_BLENDING;
 }
 
 
@@ -189,11 +245,11 @@ void LayeredBlending::addPSBlendInvocations(Function* psMain,
     {
         //find the function name for the blend mode
         const char* funcName = NULL;
-        for(int i = 0 ; i < (int)LayeredBlending::LB_MaxBlendModes ; ++i)
+        for(const auto & _blendMode : _blendModes)
         {
-            if (_blendModes[i].type == mode)
+            if (_blendMode.type == mode)
             {
-                funcName = _blendModes[i].funcName;
+                funcName = _blendMode.funcName;
                 break;
             }
         }
@@ -265,6 +321,16 @@ void LayeredBlending::setBlendMode(unsigned short index, BlendMode mode)
     mTextureBlends[index].blendMode = mode;
 }
 
+bool LayeredBlending::setBlendMode(uint16 index, const String& mode)
+{
+    auto blendMode = stringToBlendMode(mode);
+    if (blendMode == LB_Invalid)
+        return false;
+
+    setBlendMode(index, blendMode);
+    return true;
+}
+
 //-----------------------------------------------------------------------
 LayeredBlending::BlendMode LayeredBlending::getBlendMode(unsigned short index) const
 {
@@ -277,6 +343,16 @@ LayeredBlending::BlendMode LayeredBlending::getBlendMode(unsigned short index) c
 
 
 //-----------------------------------------------------------------------
+bool LayeredBlending::setSourceModifier(unsigned short index, const String& modType, int customNum)
+{
+    SourceModifier mod = stringToSourceModifier(modType);
+    if (mod == SM_Invalid)
+        return false;
+
+    setSourceModifier(index, mod, customNum);
+    return true;
+}
+
 void LayeredBlending::setSourceModifier(unsigned short index, SourceModifier modType, int customNum)
 {
     if(mTextureBlends.size() < (size_t)index + 1)
@@ -305,7 +381,7 @@ bool LayeredBlending::getSourceModifier(unsigned short index, SourceModifier& mo
 //-----------------------------------------------------------------------
 const String& LayeredBlendingFactory::getType() const
 {
-    return LayeredBlending::Type;
+    return SRS_LAYERED_BLENDING;
 }
 
 //-----------------------------------------------------------------------
@@ -314,24 +390,14 @@ SubRenderState* LayeredBlendingFactory::createInstance(ScriptCompiler* compiler,
 {
     if (prop->name == "layered_blend")
     {
-        String blendType;
-        if(false == SGScriptTranslator::getString(prop->values.front(), &blendType))
+        if (stringToBlendMode(prop->values.front()->getString()) == LayeredBlending::LB_Invalid)
         {
-            compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-            return NULL;
-        }
+            StringVector vec;
+            for (const auto& m : _blendModes)
+                vec.push_back(m.name);
 
-        LayeredBlending::BlendMode blendMode = stringToBlendMode(blendType);
-        if (blendMode == LayeredBlending::LB_Invalid)
-        {
             compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line,
-                "Expected one of the following blend modes: default, normal, " \
-                "lighten, darken, multiply, average, add, " \
-                "subtract, difference, negation, exclusion, " \
-                "screen, overlay, hard_light, soft_light, " \
-                "color_dodge, color_burn, linear_dodge, linear_burn, " \
-                "linear_light, vivid_light, pin_light, hard_mix, " \
-                "reflect, glow, phoenix, saturation, color and luminosity");
+                "Expected one of the following blend modes: " + StringConverter::toString(vec));
             return NULL;
         }
 
@@ -342,18 +408,14 @@ SubRenderState* LayeredBlendingFactory::createInstance(ScriptCompiler* compiler,
         
         //update the layer sub render state
         unsigned short texIndex = texState->getParent()->getTextureUnitStateIndex(texState);
-        layeredBlendState->setBlendMode(texIndex, blendMode);
+        layeredBlendState->setBlendMode(texIndex, prop->values.front()->getString());
 
         return layeredBlendState;
     }
     if (prop->name == "source_modifier")
     {
         if(prop->values.size() < 3)
-        {
-            compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line, 
-                "Expected three or more parameters.");
             return NULL;
-        }
 
         // Read light model type.
         bool isParseSuccess;
@@ -362,10 +424,9 @@ SubRenderState* LayeredBlendingFactory::createInstance(ScriptCompiler* compiler,
         int customNum;
         
         AbstractNodeList::const_iterator itValue = prop->values.begin();
-        isParseSuccess = SGScriptTranslator::getString(*itValue, &modifierString); 
-        LayeredBlending::SourceModifier modType = stringToSourceModifier(modifierString);
-        isParseSuccess &= modType != LayeredBlending::SM_Invalid;
-        if(isParseSuccess == false)
+        modifierString = (*itValue)->getString();
+        isParseSuccess = stringToSourceModifier(modifierString) != LayeredBlending::SM_Invalid;
+        if (isParseSuccess == false)
         {
             compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line, 
                 "Expected one of the following modifier type as first parameter: " \
@@ -374,8 +435,7 @@ SubRenderState* LayeredBlendingFactory::createInstance(ScriptCompiler* compiler,
         }
 
         ++itValue;
-        isParseSuccess = SGScriptTranslator::getString(*itValue, &paramType); 
-        isParseSuccess &= (paramType == "custom");
+        isParseSuccess &= ((*itValue)->getString() == "custom");
         if(isParseSuccess == false)
         {
             compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line, 
@@ -383,8 +443,7 @@ SubRenderState* LayeredBlendingFactory::createInstance(ScriptCompiler* compiler,
             return NULL;
         }
         ++itValue;
-        isParseSuccess = SGScriptTranslator::getInt(*itValue, &customNum); 
-        if(isParseSuccess == false)
+        if(!SGScriptTranslator::getInt(*itValue, &customNum))
         {
             compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line, 
                 "Expected number of custom parameter as third parameter.");
@@ -392,12 +451,11 @@ SubRenderState* LayeredBlendingFactory::createInstance(ScriptCompiler* compiler,
         }
 
         //get the layer blend sub-render state to work on
-        LayeredBlending* layeredBlendState =
-            createOrRetrieveSubRenderState(translator);
-        
+        LayeredBlending* layeredBlendState = createOrRetrieveSubRenderState(translator);
+
         //update the layer sub render state
         unsigned short texIndex = texState->getParent()->getTextureUnitStateIndex(texState);
-        layeredBlendState->setSourceModifier(texIndex, modType, customNum);
+        layeredBlendState->setSourceModifier(texIndex, modifierString, customNum);
 
         return layeredBlendState;
             
@@ -442,58 +500,6 @@ void LayeredBlendingFactory::writeInstance(MaterialSerializer* ser, SubRenderSta
 SubRenderState* LayeredBlendingFactory::createInstanceImpl()
 {
     return OGRE_NEW LayeredBlending;
-}
-
-//-----------------------------------------------------------------------
-LayeredBlending::BlendMode LayeredBlendingFactory::stringToBlendMode(const String &strValue)
-{
-    for(int i = 0 ; i < (int)LayeredBlending::LB_MaxBlendModes ; ++i)
-    {
-        if (_blendModes[i].name == strValue)
-        {
-            return _blendModes[i].type;
-        }
-    }
-    return LayeredBlending::LB_Invalid;
-}
-
-//-----------------------------------------------------------------------
-String LayeredBlendingFactory::blendModeToString(LayeredBlending::BlendMode blendMode)
-{
-    for(int i = 0 ; i < (int)LayeredBlending::LB_MaxBlendModes ; ++i)
-    {
-        if (_blendModes[i].type == blendMode)
-        {
-            return _blendModes[i].name;
-        }
-    }
-    return "";
-}
-
-//-----------------------------------------------------------------------
-LayeredBlending::SourceModifier LayeredBlendingFactory::stringToSourceModifier(const String &strValue)
-{
-    for(int i = 0 ; i < (int)LayeredBlending::SM_MaxSourceModifiers ; ++i)
-    {
-        if (_sourceModifiers[i].name == strValue)
-        {
-            return _sourceModifiers[i].type;
-        }
-    }
-    return LayeredBlending::SM_Invalid;
-}
-
-//-----------------------------------------------------------------------
-String LayeredBlendingFactory::sourceModifierToString(LayeredBlending::SourceModifier modifier)
-{
-    for(int i = 0 ; i < (int)LayeredBlending::SM_MaxSourceModifiers ; ++i)
-    {
-        if (_sourceModifiers[i].type == modifier)
-        {
-            return _sourceModifiers[i].name;
-        }
-    }
-    return "";
 }
 
 //-----------------------------------------------------------------------

@@ -156,11 +156,14 @@ bool AdvancedRenderControls::keyPressed(const KeyboardEvent& evt) {
             Ogre::Viewport* mainVP = mCamera->getViewport();
             const Ogre::String& curMaterialScheme = mainVP->getMaterialScheme();
 
-            if (curMaterialScheme == Ogre::MaterialManager::DEFAULT_SCHEME_NAME) {
-                mainVP->setMaterialScheme(Ogre::RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+            if (curMaterialScheme == Ogre::MSN_DEFAULT)
+            {
+                mainVP->setMaterialScheme(Ogre::MSN_SHADERGEN);
                 mDetailsPanel->setParamValue(11, "On");
-            } else if (curMaterialScheme == Ogre::RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME) {
-                mainVP->setMaterialScheme(Ogre::MaterialManager::DEFAULT_SCHEME_NAME);
+            }
+            else if (curMaterialScheme == Ogre::MSN_SHADERGEN)
+            {
+                mainVP->setMaterialScheme(Ogre::MSN_DEFAULT);
                 mDetailsPanel->setParamValue(11, "Off");
             }
         }
@@ -172,13 +175,12 @@ bool AdvancedRenderControls::keyPressed(const KeyboardEvent& evt) {
 
         //![rtss_per_pixel]
         // Grab the scheme render state.
-        Ogre::RTShader::RenderState* schemRenderState =
-            mShaderGenerator->getRenderState(Ogre::RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+        Ogre::RTShader::RenderState* schemRenderState = mShaderGenerator->getRenderState(Ogre::MSN_SHADERGEN);
 
-        // Add per pixel lighting sub render state to the global scheme render state.
-        // It will override the default FFP lighting sub render state.
+        // Add per vertex lighting sub render state to the global scheme render state.
+        // It will override the default lighting sub render state.
         if (useFFPLighting) {
-            auto perPixelLightModel = mShaderGenerator->createSubRenderState("FFP_Lighting");
+            auto perPixelLightModel = mShaderGenerator->createSubRenderState(Ogre::RTShader::SRS_PER_VERTEX_LIGHTING);
 
             schemRenderState->addTemplateSubRenderState(perPixelLightModel);
         }
@@ -186,18 +188,15 @@ bool AdvancedRenderControls::keyPressed(const KeyboardEvent& evt) {
 
         // Search the per pixel sub render state and remove it.
         else {
-            for (auto srs : schemRenderState->getSubRenderStates()) {
-                // This is the per pixel sub render state -> remove it.
-                if (srs->getType() == "FFP_Lighting") {
-                    schemRenderState->removeSubRenderState(srs);
-                    break;
-                }
+            if (auto srs = schemRenderState->getSubRenderState(Ogre::RTShader::SRS_PER_VERTEX_LIGHTING))
+            {
+                schemRenderState->removeSubRenderState(srs);
             }
         }
 
         // Invalidate the scheme in order to re-generate all shaders based technique related to this
         // scheme.
-        mShaderGenerator->invalidateScheme(Ogre::RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+        mShaderGenerator->invalidateScheme(Ogre::MSN_SHADERGEN);
 
         // Update UI.
         if (!useFFPLighting)
@@ -228,7 +227,7 @@ bool AdvancedRenderControls::keyPressed(const KeyboardEvent& evt) {
 
         // Invalidate the scheme in order to re-generate all shaders based technique related to this
         // scheme.
-        mShaderGenerator->invalidateScheme(Ogre::RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+        mShaderGenerator->invalidateScheme(Ogre::MSN_SHADERGEN);
     }
 #endif // INCLUDE_RTSHADER_SYSTEM
 

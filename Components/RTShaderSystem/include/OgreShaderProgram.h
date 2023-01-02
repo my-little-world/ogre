@@ -145,20 +145,21 @@ public:
     @param index The index of the dependecy.
     */
     const String& getDependency(unsigned int index) const;
-    
 
-    /** Sets whether a vertex program includes the required instructions
-        to perform skeletal animation. 
-    */
+    /// @copydoc GpuProgram::setSkeletalAnimationIncluded
     void setSkeletalAnimationIncluded(bool value) { mSkeletalAnimation = value; }
  
-    /** Returns whether a vertex program includes the required instructions
-        to perform skeletal animation. 
-    */
+    /// @copydoc GpuProgram::isSkeletalAnimationIncluded
     bool getSkeletalAnimationIncluded() const { return mSkeletalAnimation; }
 
+    /// @copydoc GpuProgram::setInstancingIncluded
+    void setInstancingIncluded(bool included) { mInstancing = included; }
+
+    /// @copydoc GpuProgram::isInstancingIncluded
+    bool getInstancingIncluded(void) const { return mInstancing; }
+
     /** Tells Ogre whether auto-bound matrices should be sent in column or row-major order.
-    @remarks
+
         This method has the same effect as column_major_matrices option used when declaring manually written hlsl program.
         You want to use this method only when you use float3x4 type in a shader, e.g. for bone matrices.
         In mentioned case you should call this method with false as parameter.
@@ -213,6 +214,7 @@ private:
     bool mSkeletalAnimation;
     // Whether to pass matrices as column-major.
     bool mColumnMajorMatrices;
+    bool mInstancing;
     friend class TargetRenderState;
 };
 

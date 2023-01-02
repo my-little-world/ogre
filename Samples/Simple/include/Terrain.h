@@ -165,7 +165,7 @@ class _OgreSampleClassExport Sample_Terrain : public SdkSample
 #endif
 
     }
-    bool frameRenderingQueued(const FrameEvent& evt)
+    bool frameRenderingQueued(const FrameEvent& evt) override
     {
         if (mMode != MODE_NORMAL)
         {
@@ -270,13 +270,13 @@ class _OgreSampleClassExport Sample_Terrain : public SdkSample
         mTerrainGroup->saveAllTerrains(onlyIfModified);
     }
 
-    bool keyReleased(const KeyboardEvent& evt)
+    bool keyReleased(const KeyboardEvent& evt) override
     {
         mKeyPressed = 0;
         return SdkSample::keyReleased(evt);
     }
 
-    bool keyPressed (const KeyboardEvent &e)
+    bool keyPressed (const KeyboardEvent &e) override
     {
 #if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
         mKeyPressed = e.keysym.sym;
@@ -329,7 +329,7 @@ class _OgreSampleClassExport Sample_Terrain : public SdkSample
         return true;
     }
 
-    void itemSelected(SelectMenu* menu)
+    void itemSelected(SelectMenu* menu) override
     {
         if (menu == mEditMenu)
         {
@@ -342,7 +342,7 @@ class _OgreSampleClassExport Sample_Terrain : public SdkSample
         }
     }
 
-    void checkBoxToggled(CheckBox* box)
+    void checkBoxToggled(CheckBox* box) override
     {
         if (box == mFlyBox)
         {
@@ -568,16 +568,10 @@ class _OgreSampleClassExport Sample_Terrain : public SdkSample
         matProfile->setReceiveDynamicShadowsEnabled(enabled);
         matProfile->setReceiveDynamicShadowsLowLod(SHADOWS_IN_LOW_LOD_MATERIAL);
 
-        RTShader::RenderState* schemRenderState = mShaderGenerator->getRenderState(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
-
-        for (auto srs : schemRenderState->getSubRenderStates())
+        RTShader::RenderState* schemRenderState = mShaderGenerator->getRenderState(MSN_SHADERGEN);
+        if (auto srs = schemRenderState->getSubRenderState(RTShader::SRS_INTEGRATED_PSSM3))
         {
-            // This is the pssm3 sub render state -> remove it.
-            if (dynamic_cast<RTShader::IntegratedPSSM3*>(srs))
-            {
-                schemRenderState->removeSubRenderState(srs);
-                break;
-            }
+            schemRenderState->removeSubRenderState(srs);
         }
 
         if (enabled)
@@ -629,7 +623,6 @@ class _OgreSampleClassExport Sample_Terrain : public SdkSample
                 mSceneMgr->setShadowTextureCasterMaterial(MaterialPtr());
             }
 
-            matProfile->setReceiveDynamicShadowsDepth(depthShadows);
             matProfile->setReceiveDynamicShadowsPSSM(static_cast<PSSMShadowCameraSetup*>(mPSSMSetup.get()));
 
             //addTextureShadowDebugOverlay(TL_RIGHT, 3);
@@ -639,17 +632,17 @@ class _OgreSampleClassExport Sample_Terrain : public SdkSample
             mSceneMgr->setShadowTechnique(SHADOWTYPE_NONE);
         }
 
-        mShaderGenerator->invalidateScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+        mShaderGenerator->invalidateScheme(MSN_SHADERGEN);
     }
 
     /*-----------------------------------------------------------------------------
       | Extends setupView to change some initial camera settings for this sample.
       -----------------------------------------------------------------------------*/
-    void setupView()
+    void setupView() override
     {
         SdkSample::setupView();
         // Make this viewport work with shader generator scheme.
-        mViewport->setMaterialScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+        mViewport->setMaterialScheme(MSN_SHADERGEN);
 
         //! [camera_setup]
         mCameraNode->setPosition(mTerrainPos + Vector3(1683, 50, 2116));
@@ -697,7 +690,7 @@ class _OgreSampleClassExport Sample_Terrain : public SdkSample
         mTrayMgr->createParamsPanel(TL_TOPLEFT, "Help", 100, names)->setParamValue(0, "H/F1");
     }
 
-    void setupContent()
+    void setupContent() override
     {
         //! [global_opts]
         mTerrainGlobals = new Ogre::TerrainGlobalOptions();
@@ -714,8 +707,10 @@ class _OgreSampleClassExport Sample_Terrain : public SdkSample
 
         setDragLook(true);
 
+#if OGRE_PLATFORM != OGRE_PLATFORM_ANDROID
         MaterialManager::getSingleton().setDefaultTextureFiltering(TFO_ANISOTROPIC);
-        MaterialManager::getSingleton().setDefaultAnisotropy(7);
+        MaterialManager::getSingleton().setDefaultAnisotropy(8);
+#endif
 
         ColourValue fadeColour(0.7, 0.7, 0.8);
         //! [linear_fog]
@@ -812,7 +807,7 @@ class _OgreSampleClassExport Sample_Terrain : public SdkSample
 
     }
 
-    void _shutdown()
+    void _shutdown() override
     {
         if (mTerrainPaging)
         {

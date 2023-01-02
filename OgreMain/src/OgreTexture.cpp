@@ -32,6 +32,7 @@ THE SOFTWARE.
 
 namespace Ogre {
     const char* Texture::CUBEMAP_SUFFIXES[] = {"_rt", "_lf", "_up", "_dn", "_fr", "_bk"};
+    static const char* CUBEMAP_SUFFIXES_ALT[] = {"_px", "_nx", "_py", "_ny", "_pz", "_nz"};
     //--------------------------------------------------------------------------
     Texture::Texture(ResourceManager* creator, const String& name, 
         ResourceHandle handle, const String& group, bool isManual, 
@@ -313,10 +314,17 @@ namespace Ogre {
 
     }
     //-----------------------------------------------------------------------------
+    uint32 Texture::getMaxMipmaps() const {
+        // see ARB_texture_non_power_of_two
+        return Bitwise::mostSignificantBitSet(std::max(mWidth, std::max(mHeight, mDepth)));
+    }
     void Texture::createInternalResources(void)
     {
         if (!mInternalResourcesCreated)
         {
+            // Check requested number of mipmaps
+            mNumMipmaps = std::min(mNumMipmaps, getMaxMipmaps());
+
             createInternalResourcesImpl();
             mInternalResourcesCreated = true;
 
@@ -327,7 +335,7 @@ namespace Ogre {
                     mLoader->loadResource(this);
 
                 mLoadingState.store(LOADSTATE_LOADED);
-                _fireLoadingComplete(false);
+                _fireLoadingComplete();
             }
         }
     }
@@ -368,33 +376,6 @@ namespace Ogre {
             }
         }
     }
-    //---------------------------------------------------------------------
-    String Texture::getSourceFileType() const
-    {
-        if (mName.empty())
-            return BLANKSTRING;
-
-        String::size_type pos = mName.find_last_of('.');
-        if (pos != String::npos && pos < (mName.length() - 1))
-        {
-            String ext = mName.substr(pos + 1);
-            StringUtil::toLowerCase(ext);
-            return ext;
-        }
-
-        // No extension
-        auto dstream = ResourceGroupManager::getSingleton().openResource(
-            mName, mGroup, NULL, false);
-
-        if (!dstream && getTextureType() == TEX_TYPE_CUBE_MAP)
-        {
-            // try again with one of the faces (non-dds)
-            dstream = ResourceGroupManager::getSingleton().openResource(mName + "_rt", mGroup, NULL, false);
-        }
-
-        return dstream ? Image::getFileExtFromMagic(dstream) : BLANKSTRING;
-
-    }
     const HardwarePixelBufferSharedPtr& Texture::getBuffer(size_t face, size_t mipmap)
     {
         OgreAssert(face < getNumFaces(), "out of range");
@@ -408,7 +389,7 @@ namespace Ogre {
     //---------------------------------------------------------------------
     void Texture::convertToImage(Image& destImage, bool includeMipMaps)
     {
-        uint32 numMips = includeMipMaps? getNumMipmaps() + 1 : 1;
+        uint32 numMips = includeMipMaps? getNumMipmaps() : 0;
         destImage.create(getFormat(), getWidth(), getHeight(), getDepth(), getNumFaces(), numMips);
 
         for (uint32 face = 0; face < getNumFaces(); ++face)
@@ -481,6 +462,14 @@ namespace Ogre {
                 mLayerNames.resize(6);
                 for (size_t i = 0; i < 6; i++)
                     mLayerNames[i] = StringUtil::format("%s%s.%s", baseName.c_str(), CUBEMAP_SUFFIXES[i], ext.c_str());
+
+                if(!ResourceGroupManager::getSingleton().resourceExistsInAnyGroup(mLayerNames[0]))
+                {
+                    // assume alternative naming convention
+                    for (size_t i = 0; i < 6; i++)
+                        mLayerNames[i] =
+                            StringUtil::format("%s%s.%s", baseName.c_str(), CUBEMAP_SUFFIXES_ALT[i], ext.c_str());
+                }
             }
             else if (mTextureType == TEX_TYPE_2D_ARRAY)
             { // ignore
@@ -533,9 +522,9 @@ namespace Ogre {
         // will determine load status etc again
         ConstImagePtrList imagePtrs;
 
-        for (size_t i = 0; i < loadedImages.size(); ++i)
+        for (auto& img : loadedImages)
         {
-            imagePtrs.push_back(&loadedImages[i]);
+            imagePtrs.push_back(&img);
         }
 
         _loadImages(imagePtrs);

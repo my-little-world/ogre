@@ -49,7 +49,7 @@ namespace Ogre {
      * The example above would be expressed with an array of bytes as `{0xBB, 0xGG, 0xRR, 0xAA}` on both machines.
      * Therefore, one would use the Ogre::PF_BYTE_BGRA format when reading pixel data expressed in bytes.
      * This format aliases to either Ogre::PF_A8B8G8R8 or Ogre::PF_R8G8B8A8
-     * depending on the machine endianess.
+     * depending on the machine endianness.
      */
     enum PixelFormat
     {
@@ -281,7 +281,7 @@ namespace Ogre {
         PF_DEPTH24_STENCIL8,
         /// Number of pixel formats currently defined
         PF_COUNT,
-        // endianess aware aliases
+        // endianness aware aliases
 #if OGRE_ENDIAN == OGRE_ENDIAN_BIG
         /// @copydoc PF_R8G8B8
         PF_BYTE_RGB = PF_R8G8B8,
@@ -349,7 +349,7 @@ namespace Ogre {
     class _OgreExport PixelBox: public Box, public ImageAlloc {
     public:
         /// Parameter constructor for setting the members manually
-        PixelBox() : data(NULL), format(PF_UNKNOWN) {}
+        PixelBox() : data(NULL), rowPitch(0), slicePitch(0), format(PF_UNKNOWN) {}
         ~PixelBox() {}
         /** Constructor providing extents in the form of a Box object. This constructor
             assumes the pixel data is laid out consecutively in memory. (this
@@ -466,18 +466,18 @@ namespace Ogre {
         /** Returns the size in bytes of an element of the given pixel format.
          @return
                The size in bytes of an element. See Remarks.
-         @remarks
+
                Passing PF_UNKNOWN will result in returning a size of 0 bytes.
         */
-        static size_t getNumElemBytes( PixelFormat format );
+        static uint8 getNumElemBytes( PixelFormat format );
 
         /** Returns the size in bits of an element of the given pixel format.
           @return
                The size in bits of an element. See Remarks.
-           @remarks
+
                Passing PF_UNKNOWN will result in returning a size of 0 bits.
         */
-        static size_t getNumElemBits( PixelFormat format );
+        static uint8 getNumElemBits( PixelFormat format );
 
         /** Returns the size in memory of a region with the given extents and pixel
             format with consecutive memory layout.
@@ -491,7 +491,7 @@ namespace Ogre {
                 The format of the area
             @return
                 The size in bytes
-            @remarks
+
                 In case that the format is non-compressed, this simply returns
                 width * height * depth * PixelUtil::getNumElemBytes(format). In the compressed
                 case, this does serious magic.
@@ -502,7 +502,7 @@ namespace Ogre {
           @return
                A bitfield combination of PFF_HASALPHA, PFF_ISCOMPRESSED,
                PFF_FLOAT, PFF_DEPTH, PFF_NATIVEENDIAN, PFF_LUMINANCE
-          @remarks
+
                This replaces the separate functions for formatHasAlpha, formatIsFloat, ...
         */
         static unsigned int getFlags( PixelFormat format );
@@ -557,7 +557,7 @@ namespace Ogre {
         /** Returns the component count for a certain pixel format. Returns 3(no alpha) or 
             4 (has alpha) in case there is no clear component type like with compressed formats.
          */
-        static size_t getComponentCount(PixelFormat fmt);
+        static uint8 getComponentCount(PixelFormat fmt);
 
         /** Gets the format from given name.
             @param  name            The string of format name
@@ -568,8 +568,8 @@ namespace Ogre {
         */
         static PixelFormat getFormatFromName(const String& name, bool accessibleOnly = false, bool caseSensitive = false);
 
-        /** Returns the similar format but acoording with given bit depths.
-            @param fmt      The original foamt.
+        /** Returns the similar format but according with given bit depths.
+            @param fmt      The original format.
             @param integerBits Preferred bit depth (pixel bits) for integer pixel format.
                             Available values: 0, 16 and 32, where 0 (the default) means as it is.
             @param floatBits Preferred bit depth (channel bits) for float pixel format.

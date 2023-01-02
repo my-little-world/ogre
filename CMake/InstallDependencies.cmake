@@ -106,14 +106,18 @@ if (OGRE_INSTALL_DEPENDENCIES)
       install(DIRECTORY ${OGRE_DEP_DIR}/bin/ DESTINATION ${OGRE_BIN_DIRECTORY})
     endif ()
   endif ()
-    
+
+  if(OGRE_BUILD_DEPENDENCIES AND OGRE_BUILD_COMPONENT_BULLET)
+    install(DIRECTORY ${OGRE_DEP_DIR}/include/bullet DESTINATION include)
+  endif()
+
   if(WIN32)
     if(OGRE_BUILD_SAMPLES OR OGRE_BUILD_TESTS)
       if(EXISTS "${SDL2_BINARY}")
-	  file(COPY ${SDL2_BINARY} DESTINATION ${PROJECT_BINARY_DIR}/bin/debug)
-	  file(COPY ${SDL2_BINARY} DESTINATION ${PROJECT_BINARY_DIR}/bin/release)
-	  file(COPY ${SDL2_BINARY} DESTINATION ${PROJECT_BINARY_DIR}/bin/relwithdebinfo)
-	  file(COPY ${SDL2_BINARY} DESTINATION ${PROJECT_BINARY_DIR}/bin/minsizerel)
+        file(COPY ${SDL2_BINARY} DESTINATION ${PROJECT_BINARY_DIR}/bin/debug)
+        file(COPY ${SDL2_BINARY} DESTINATION ${PROJECT_BINARY_DIR}/bin/release)
+        file(COPY ${SDL2_BINARY} DESTINATION ${PROJECT_BINARY_DIR}/bin/relwithdebinfo)
+        file(COPY ${SDL2_BINARY} DESTINATION ${PROJECT_BINARY_DIR}/bin/minsizerel)
       endif()
     endif()
 

@@ -39,7 +39,7 @@ namespace Ogre {
     */
 
     /** Codec specialized in loading ETC (Ericsson Texture Compression) images.
-    @remarks
+
         We implement our own codec here since we need to be able to keep ETC
         data compressed if the card supports it.
     */
@@ -56,8 +56,7 @@ namespace Ogre {
         ETCCodec(const String &type);
         virtual ~ETCCodec() { }
 
-        using ImageCodec::decode;
-        DecodeResult decode(const DataStreamPtr& input) const override;
+        void decode(const DataStreamPtr& input, const Any& output) const override;
         String magicNumberToFileExt(const char *magicNumberPtr, size_t maxbytes) const override;
         String getType() const override;
 
@@ -66,8 +65,8 @@ namespace Ogre {
         /// Static method to shutdown and unregister the ETC codec
         static void shutdown(void);
     private:
-        bool decodePKM(const DataStreamPtr& input, DecodeResult& result) const;
-        bool decodeKTX(const DataStreamPtr& input, DecodeResult& result) const;
+        static void decodePKM(const DataStreamPtr& input, Image* image);
+        static void decodeKTX(const DataStreamPtr& input, Image* image);
 
     };
     /** @} */

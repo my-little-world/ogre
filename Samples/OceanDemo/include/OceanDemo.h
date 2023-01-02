@@ -63,15 +63,15 @@ protected:
     
     void setupGUI();
     void setupScene();
-    virtual void setupContent();
-    virtual void cleanupContent();
+    void setupContent() override;
+    void cleanupContent() override;
     
-    void sliderMoved(Slider* slider);
-    void buttonHit(OgreBites::Button* button);
-    void checkBoxToggled(CheckBox* box);
-    void itemSelected(SelectMenu* menu);
+    void sliderMoved(Slider* slider) override;
+    void buttonHit(OgreBites::Button* button) override;
+    void checkBoxToggled(CheckBox* box) override;
+    void itemSelected(SelectMenu* menu) override;
     void changePage(int nextPage = -1);
-    virtual bool frameRenderingQueued(const FrameEvent& evt);
+    bool frameRenderingQueued(const FrameEvent& evt) override;
 };
 
 /**********************************************************************
@@ -181,9 +181,7 @@ void Sample_Ocean::setupContent(void)
     mCameraNode->lookAt(Ogre::Vector3(0,0,-300), Ogre::Node::TS_PARENT);
     mCamera->setNearClipDistance(1);
 
-#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
     setDragLook(true);
-#endif
 }
 
 void Sample_Ocean::setupScene()

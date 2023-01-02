@@ -961,7 +961,7 @@ If several texture units share the same Sampler settings, you are encouraged to 
 
 You can also use nested section in order to use a special add-ins
 - @c texture_source as a source of texture data, see @ref External-Texture-Sources for details
-- @c rtshader_system for addtitional layer blending  options, see @ref rtss for details.
+- @c rtshader_system for additional layer blending  options, see @ref rtss for details.
 
 <a name="Attribute-Descriptions-1"></a>
 
@@ -1008,8 +1008,10 @@ A 3 dimensional texture i.e. volume texture. Your texture has a width, a height,
 
 </dd> <dt>cubic</dt> <dd>
 
-This texture is made up of 6 2D textures which are pasted around the inside of a cube. The base_name in this format is something like ’skybox.jpg’, and the system will expect you to provide skybox_fr.jpg, skybox_bk.jpg, skybox_up.jpg, skybox_dn.jpg, skybox_lf.jpg, and skybox_rt.jpg for the individual faces.
-Alternatively 1 cube texture can be used if supported by the texture format(DDS for example) and rendersystem. Can be addressed with 3D texture coordinates and are useful for cubic reflection maps and normal maps.
+This texture is made up of 6 2D textures which are pasted around the inside of a cube.
+Can be addressed with 3D texture coordinates and are useful for cubic reflection maps.
+If the @c texturename in this format is something like @c skybox.jpg, the system will expect `skybox_px.jpg, skybox_nx.jpg, skybox_py.jpg, skybox_ny.jpg, skybox_pz.jpg, skybox_nz.jpg` for the individual faces. For compatibility, the suffixes `_lf, _rt, _up, _dn, _fr, _bk`  are also supported.
+Alternatively a single file with all faces can be used, if supported by the texture format (e.g. DDS).
 </dd> </dl>
 
 @param numMipMaps
@@ -1020,7 +1022,7 @@ specify the desired pixel format of the texture to create, which may be differen
 Names defined in Ogre::PixelFormat are valid values.
 
 @param gamma
-informs the renderer that you want the graphics hardware to perform gamma correction on the texture values as they are sampled for rendering. This is only applicable for textures which have 8-bit colour channels (e.g.PF\_R8G8B8). Often, 8-bit per channel textures will be stored in gamma space in order to increase the precision of the darker colours (<http://en.wikipedia.org/wiki/Gamma_correction>) but this can throw out blending and filtering calculations since they assume linear space colour values. For the best quality shading, you may want to enable gamma correction so that the hardware converts the texture values to linear space for you automatically when sampling the texture, then the calculations in the pipeline can be done in a reliable linear colour space. When rendering to a final 8-bit per channel display, you’ll also want to convert back to gamma space which can be done in your shader (by raising to the power 1/2.2) or you can enable gamma correction on the texture being rendered to or the render window. Note that the ’gamma’ option on textures is applied on loading the texture so must be specified consistently if you use this texture in multiple places.
+informs the renderer that you want the graphics hardware to perform gamma correction on the texture values as they are sampled for rendering. This is only applicable for textures which have 8-bit colour channels (e.g.PF\_R8G8B8). Often, 8-bit per channel textures will be stored in [gamma space](http://en.wikipedia.org/wiki/Gamma_correction) in order to increase the precision of the darker colours but this can throw out blending and filtering calculations since they assume linear space colour values. For the best quality shading, you may want to enable gamma correction so that the hardware converts the texture values to linear space for you automatically when sampling the texture, then the calculations in the pipeline can be done in a reliable linear colour space. When rendering to a final 8-bit per channel display, you’ll also want to convert back to gamma space which can be done in your shader (by raising to the power 1/2.2) or you can enable gamma correction on the texture being rendered to or the render window. Note that the ’gamma’ option on textures is applied on loading the texture so must be specified consistently if you use this texture in multiple places.
 
 <a name="anim_005ftexture"></a><a name="anim_005ftexture-1"></a>
 
@@ -1054,26 +1056,19 @@ Format1 (short): cubic\_texture &lt;base\_name&gt; &lt;combinedUVW|separateUV&gt
 
 @deprecated use the format '`texture <basename> cubic`' instead
 
-The base\_name in this format is something like ’skybox.jpg’, and the system will expect you to provide skybox\_fr.jpg, skybox\_bk.jpg, skybox\_up.jpg, skybox\_dn.jpg, skybox\_lf.jpg, and skybox\_rt.jpg for the individual faces.
-
 @par
-Format2 (long): cubic\_texture &lt;front&gt; &lt;back&gt; &lt;left&gt; &lt;right&gt; &lt;up&gt; &lt;down&gt; &lt;combinedUVW|separateUV&gt;
+Format2 (long): cubic\_texture &lt;pz&gt; &lt;nz&gt; &lt;nx&gt; &lt;px&gt; &lt;py&gt; &lt;ny&gt; &lt;combinedUVW|separateUV&gt;
 
-In this case each face is specified explicitly, incase you don’t want to conform to the image naming standards above. You can only use this for the separateUV version since the combinedUVW version requires a single texture name to be assigned to the combined 3D texture (see below).
+In this case each face is specified explicitly, in case you don’t want to conform to the image naming standards above.
 
 In both cases the final parameter means the following:
 
 <dl compact="compact">
-<dt>separateUV</dt> <dd>
-
-@deprecated Use real cubic textures due to hardware support
-
-The 6 textures are kept separate but are all referenced by this single texture layer. One texture at a time is active (they are actually stored as 6 frames), and they are addressed using standard 2D UV coordinates.
-</dd>
 <dt>combinedUVW</dt> <dd>
-
 The 6 textures are combined into a single ’cubic’ texture map which is then addressed using 3D texture coordinates.
-
+</dd>
+<dt>separateUV</dt> <dd>
+This is no longer supported and behaves like combinedUVW.
 </dd>
 </dl> <br>
 
@@ -1186,7 +1181,10 @@ Format: alpha\_op\_ex &lt;op&gt; &lt;source1&gt; &lt;source2&gt; \[&lt;manualBle
 
 ## env\_map
 
-Turns on/off texture coordinate effect that makes this layer an environment map. @ffp_rtss_only
+@ffp_rtss_only
+
+@copybrief Ogre::TextureUnitState::setEnvironmentMap
+
 @par
 Format: env\_map &lt;off|spherical|planar|cubic\_reflection|cubic\_normal&gt;
 
@@ -1195,19 +1193,23 @@ Environment maps make an object look reflective by using automatic texture coord
 <dl compact="compact">
 <dt>spherical</dt> <dd>
 
-A spherical environment map. Requires a single texture which is either a fish-eye lens view of the reflected scene, or some other texture which looks good as a spherical map (a texture of glossy highlights is popular especially in car sims). This effect is based on the relationship between the eye direction and the vertex normals of the object, so works best when there are a lot of gradually changing normals, i.e. curved objects.
+@copydoc Ogre::TextureUnitState::ENV_CURVED
+Requires a single texture which is either a fish-eye lens view of the reflected scene, or some other texture which looks good as a spherical map (a texture of glossy highlights is popular especially in car sims). This effect is based on the relationship between the eye direction and the vertex normals of the object, so works best when there are a lot of gradually changing normals, i.e. curved objects.
 
 </dd> <dt>planar</dt> <dd>
 
-Similar to the spherical environment map, but the effect is based on the position of the vertices in the viewport rather than vertex normals. This effect is therefore useful for planar geometry (where a spherical env\_map would not look good because the normals are all the same) or objects without normals.
+The effect is based on the position of the vertices in the viewport rather than vertex normals. This is useful for planar geometry (where a spherical env\_map would not look good because the normals are all the same) or objects without normals.
+
+@remarks This was never actually implemented. Same as @c spherical on all backends.
 
 </dd> <dt>cubic\_reflection</dt> <dd>
 
-A more advanced form of reflection mapping which uses a group of 6 textures making up the inside of a cube, each of which is a view if the scene down each axis. Works extremely well in all cases but has a higher technical requirement from the card than spherical mapping. Requires that you bind a [cubic\_texture](#cubic_005ftexture) to this texture unit and use the ’combinedUVW’ option.
+@copydoc Ogre::TextureUnitState::ENV_REFLECTION
+Uses a group of 6 textures making up the inside of a cube, each of which is a view if the scene down each axis. Works extremely well in all cases but has a higher technical requirement from the card than spherical mapping. Requires that you bind a [cubic texture](#texture) to this unit.
 
 </dd> <dt>cubic\_normal</dt> <dd>
-
-Generates 3D texture coordinates containing the camera space normal vector from the normal information held in the vertex data. Again, full use of this feature requires a [cubic\_texture](#cubic_005ftexture) with the ’combinedUVW’ option.
+@copydoc Ogre::TextureUnitState::ENV_NORMAL
+Generates 3D texture coordinates containing the camera space normal vector from the normal information held in the vertex data. Again, use of this feature requires a [cubic texture](#texture).
 
 </dd> </dl> <br>
 @par

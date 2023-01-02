@@ -96,11 +96,11 @@ TestContext::~TestContext()
 
 void TestContext::setup()
 {
-    NameValuePairList miscParams;
-    mRoot->initialise(false, "OGRE Sample Browser");
+    mRoot->initialise(false);
 
     // Standard setup.
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+    NameValuePairList miscParams;
     CGSize modeSize = [[UIScreen mainScreen] currentMode].size;
     uint w = modeSize.width / [UIScreen mainScreen].scale;
     uint h = modeSize.height / [UIScreen mainScreen].scale;
@@ -114,20 +114,9 @@ void TestContext::setup()
     miscParams["retainedBacking"] = StringConverter::toString(true);
     mWindow = mRoot->createRenderWindow("OGRE Sample Browser", w, h, true, &miscParams);
 #else
-    Ogre::ConfigOptionMap ropts = mRoot->getRenderSystem()->getConfigOptions();
-
-    size_t w, h;
-
-    std::istringstream mode(ropts["Video Mode"].currentValue);
-    Ogre::String token;
-    mode >> w; // width
-    mode >> token; // 'x' as seperator between width and height
-    mode >> h; // height
-
-    miscParams["FSAA"] = ropts["FSAA"].currentValue;
-    miscParams["vsync"] = ropts["VSync"].currentValue;
-
-    mWindow = mRoot->createRenderWindow("OGRE Sample Browser", w, h, false, &miscParams);
+    auto desc = mRoot->getRenderSystem()->getRenderWindowDescription();
+    desc.name = "OGRE VTest Context";
+    mWindow = mRoot->createRenderWindow(desc);
 #endif
 
     mWindow->setDeactivateOnFocusChange(false);
@@ -187,19 +176,19 @@ OgreBites::Sample* TestContext::loadTests()
     for(auto it : mPluginNameMap)
     {
         OgreBites::SampleSet newSamples = it.second->getSamples();
-        for (OgreBites::SampleSet::iterator j = newSamples.begin(); j != newSamples.end(); j++)
+        for (auto newSample : newSamples)
         {
             // capability check
             try
             {
-                (*j)->testCapabilities(mRoot->getRenderSystem()->getCapabilities());
+                newSample->testCapabilities(mRoot->getRenderSystem()->getCapabilities());
             }
             catch(Ogre::Exception&)
             {
                 continue;
             }
 
-            mTests.push_back(*j);
+            mTests.push_back(newSample);
         }
     }
 
@@ -432,9 +421,9 @@ void TestContext::setupDirectories(Ogre::String batchName)
         // add a directory for the render system
         Ogre::String rsysName = Ogre::Root::getSingleton().getRenderSystem()->getName();
         // strip spaces from render system name
-        for (unsigned int i = 0;i < rsysName.size(); ++i)
-            if (rsysName[i] != ' ')
-                mOutputDir += rsysName[i];
+        for (char i : rsysName)
+            if (i != ' ')
+                mOutputDir += i;
         mOutputDir += "/";
         static_cast<Ogre::FileSystemLayer*>(mFSLayer)->createDirectory(mOutputDir);
     }
@@ -508,16 +497,16 @@ void TestContext::finishedTests()
             if(mSummaryOutputDir != "NONE")
             {
                 Ogre::String rs;
-                for(size_t j = 0; j < mRenderSystemName.size(); ++j)
-                    if(mRenderSystemName[j]!=' ')
-                        rs += mRenderSystemName[j];
+                for(char j : mRenderSystemName)
+                    if(j!=' ')
+                        rs += j;
 
                 CppUnitResultWriter cppunitWriter(*compareTo, *mBatch, results);
                 cppunitWriter.writeToFile(mSummaryOutputDir + "/TestResults_" + rs + ".xml");
             }
 
-            for(size_t i = 0; i < results.size(); i++) {
-                mSuccess = mSuccess && results[i].passed;
+            for(auto & result : results) {
+                mSuccess = mSuccess && result.passed;
             }
         }
 

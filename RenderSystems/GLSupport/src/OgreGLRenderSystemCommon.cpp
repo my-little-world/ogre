@@ -27,7 +27,6 @@ THE SOFTWARE.
 */
 #include "OgreGLRenderSystemCommon.h"
 #include "OgreGLContext.h"
-#include "OgreFrustum.h"
 #include "OgreGLNativeSupport.h"
 #include "OgreGLRenderTexture.h"
 
@@ -67,8 +66,12 @@ namespace Ogre {
             optVideoMode.possibleValues.push_back(mode.getDescription());
         }
         removeDuplicates(optVideoMode.possibleValues); // also sorts
-        optVideoMode.currentValue = optVideoMode.possibleValues[0];
-        mOptions[optVideoMode.name] = optVideoMode;
+
+        if(!optVideoMode.possibleValues.empty()) // otherwise keep dummy defaults
+        {
+            optVideoMode.currentValue = optVideoMode.possibleValues[0];
+            mOptions[optVideoMode.name] = optVideoMode;
+        }
 
         ConfigOption optFSAA;
         optFSAA.name = "FSAA";

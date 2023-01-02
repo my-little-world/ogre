@@ -41,9 +41,8 @@ if (WINDOWS_STORE OR WINDOWS_PHONE)
     set(SHORT_NAME ${EXE_NAME})
     set(PACKAGE_GUID "ef31484f-4f23-4b9f-8748-af5482696ae5")
     set(APP_MANIFEST_NAME Package.appxmanifest)
-    string(SUBSTRING ${MSVC_VERSION} 0 2 MSVC_SHORT)
     configure_file(
-        ${OGRE_TEMPLATES_DIR}/Package_vc${MSVC_SHORT}00.WindowsStore.appxmanifest.in
+        ${OGRE_TEMPLATES_DIR}/Package_vc1900.WindowsStore.appxmanifest.in
         ${CMAKE_CURRENT_BINARY_DIR}/${APP_MANIFEST_NAME}
         @ONLY)
 
@@ -190,8 +189,9 @@ if (APPLE)
 	# also, symlink frameworks so .app is standalone
 	# NOTE: $(CONFIGURATION) is not resolvable at CMake run time, it's only 
 	# valid at build time (hence parenthesis rather than braces)
+  # PLATFORM_NAME is set by us in ConfigTargets
 	
-    set(OGRE_OSX_BUILD_CONFIGURATION "${CMAKE_OSX_SYSROOT}/$(CONFIGURATION)")
+    set(OGRE_OSX_BUILD_CONFIGURATION "${PLATFORM_NAME}/$(CONFIGURATION)")
 	set (OGRE_SAMPLE_CONTENTS_PATH 
 		${PROJECT_BINARY_DIR}/bin/$(CONFIGURATION)/SampleBrowser.app/Contents)
 	add_custom_command(TARGET SampleBrowser POST_BUILD
@@ -215,7 +215,8 @@ if (APPLE)
 		COMMAND mkdir ARGS -p ${OGRE_SAMPLE_CONTENTS_PATH}/Plugins)
 
     set(FRAMEWORKS OgreOverlay
-		OgreBites
+		    OgreBites
+        OgreBullet
         OgrePaging
         OgreProperty
         OgreRTShaderSystem
@@ -284,6 +285,8 @@ endif(ANDROID)
 
 if (OGRE_INSTALL_SAMPLES)
 	ogre_install_target(SampleBrowser "" FALSE)
+  install(FILES ${PROJECT_BINARY_DIR}/inst/bin/samples.cfg DESTINATION "${OGRE_CFG_INSTALL_PATH}")
+
 	if (OGRE_INSTALL_PDB)
 		# install debug pdb files
 		install(FILES $<TARGET_PDB_FILE:SampleBrowser>

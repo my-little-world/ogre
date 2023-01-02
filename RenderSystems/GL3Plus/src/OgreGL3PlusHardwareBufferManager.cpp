@@ -45,11 +45,6 @@ namespace Ogre {
         destroyAllBindings();
     }
 
-    GL3PlusStateCacheManager * GL3PlusHardwareBufferManager::getStateCacheManager()
-    {
-        return mRenderSystem->_getStateCacheManager();
-    }
-
     void GL3PlusHardwareBufferManager::notifyContextDestroyed(GLContext* context)
     {
         OGRE_LOCK_MUTEX(mVertexDeclarationsMutex);
@@ -151,6 +146,8 @@ namespace Ogre {
         case VET_BYTE4:
         case VET_BYTE4_NORM:
             return GL_BYTE;
+        case VET_INT_10_10_10_2_NORM:
+            return GL_INT_2_10_10_10_REV;
         };
 
         OgreAssert(false, "unknown Vertex Element Type");

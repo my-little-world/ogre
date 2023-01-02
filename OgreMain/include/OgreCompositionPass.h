@@ -103,13 +103,13 @@ namespace Ogre {
         uint8 getLastRenderQueue() const;
 
         /** Set the material scheme used by this pass.
-        @remarks
+
             Only applicable to passes that render the scene.
             @see Technique::setScheme.
         */
         void setMaterialScheme(const String& schemeName);
         /** Get the material scheme used by this pass.
-        @remarks
+
             Only applicable to passes that render the scene.
             @see Technique::setScheme.
         */
@@ -142,7 +142,7 @@ namespace Ogre {
         @note applies when PassType is CLEAR
         */
         void setAutomaticColour(bool val);
-        /** Retrieves if the clear colour is automatically setted to the background colour of the original viewport
+        /** Retrieves if the clear colour is automatically set to the background colour of the original viewport
         @note applies when PassType is CLEAR
         */
         bool getAutomaticColour() const;

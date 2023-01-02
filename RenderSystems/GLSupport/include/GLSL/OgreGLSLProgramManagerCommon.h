@@ -58,6 +58,10 @@ namespace Ogre {
             store it in a GpuNamedConstant. */
         void parseGLSLUniform(String line, GpuNamedConstants& defs, const String& filename);
 
+        /// checks whether the param with the given name should be added to the uniforms list
+        static bool validateParam(String paramName, uint32 numActiveArrayElements,
+                                  const GpuConstantDefinitionMap* (&constantDefs)[6], GLUniformReference& refToUpdate);
+
         typedef std::map<uint32, GLSLProgramCommon*> ProgramMap;
         typedef ProgramMap::iterator ProgramIterator;
 
@@ -66,6 +70,8 @@ namespace Ogre {
 
         /// Active shader objects defining the active program object.
         GLShaderList mActiveShader;
+        /// active objects defining the active rendering gpu state
+        GLSLProgramCommon* mActiveProgram;
     public:
         GLSLProgramManagerCommon();
         virtual ~GLSLProgramManagerCommon();
@@ -83,6 +89,11 @@ namespace Ogre {
 
         /// Destroy all programs which referencing this shader
         void destroyAllByShader(GLSLShaderCommon* shader);
+
+        /** Set the shader for the next rendering state.
+            The active program object will be cleared.
+        */
+        void setActiveShader(GpuProgramType type, GLSLShaderCommon* shader);
     };
 
 }

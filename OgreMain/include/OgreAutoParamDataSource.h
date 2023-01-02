@@ -48,7 +48,7 @@ namespace Ogre {
 
     /** This utility class is used to hold the information used to generate the matrices
     and other information required to automatically populate GpuProgramParameters.
-    @remarks
+
         This class exercises a lazy-update scheme in order to avoid having to update all
         the information a GpuProgramParameters class could possibly want all the time. 
         It relies on the SceneManager to update it when the base data has changed, and
@@ -60,7 +60,7 @@ namespace Ogre {
     {
     private:
         const Light& getLight(size_t index) const;
-        mutable Affine3 mWorldMatrix[256];
+        mutable Affine3 mWorldMatrix[OGRE_MAX_NUM_BONES + 1];
         mutable size_t mWorldMatrixCount;
         mutable const Affine3* mWorldMatrixArray;
         mutable Affine3 mWorldViewMatrix;
@@ -158,8 +158,10 @@ namespace Ogre {
 		const Camera* getCurrentCamera() const;
 
         const Affine3& getWorldMatrix(void) const;
-        const Affine3* getWorldMatrixArray(void) const;
-        size_t getWorldMatrixCount(void) const;
+        const Affine3* getBoneMatrixArray(void) const;
+        OGRE_DEPRECATED const Affine3* getWorldMatrixArray(void) const { return getBoneMatrixArray(); }
+        size_t getBoneMatrixCount(void) const;
+        OGRE_DEPRECATED size_t getWorldMatrixCount(void) const { return getBoneMatrixCount(); }
         const Affine3& getViewMatrix(void) const;
         const Matrix4& getViewProjectionMatrix(void) const;
         const Matrix4& getProjectionMatrix(void) const;

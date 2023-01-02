@@ -37,6 +37,7 @@ THE SOFTWARE.
 #include "OgreAnimationTrack.h"
 #include "OgreHeaderPrefix.h"
 #include "OgreSharedPtr.h"
+#include "OgreUserObjectBindings.h"
 
 
 namespace Ogre {
@@ -53,7 +54,7 @@ namespace Ogre {
     class LodStrategy;
 
     /** Resource holding data about 3D mesh.
-    @remarks
+
         This class holds the data used to represent a discrete
         3-dimensional object. Mesh data usually contains more
         than just vertices and triangle information; it also
@@ -130,6 +131,8 @@ namespace Ogre {
 
         SubMeshNameMap mSubMeshNameMap ;
 
+        UserObjectBindings mUserObjectBindings;
+
         /// Local bounding box volume.
         AxisAlignedBox mAABB;
         /// Local bounding sphere radius (centered on object).
@@ -195,18 +198,18 @@ namespace Ogre {
             It also does not set up submeshes, etc.  You have to call load()
             to do that.
          */
-        void prepareImpl(void);
+        void prepareImpl(void) override;
         /** Destroys data cached by prepareImpl.
          */
-        void unprepareImpl(void);
+        void unprepareImpl(void) override;
         /// @copydoc Resource::loadImpl
-        void loadImpl(void);
+        void loadImpl(void) override;
         /// @copydoc Resource::postLoadImpl
-        void postLoadImpl(void);
+        void postLoadImpl(void) override;
         /// @copydoc Resource::unloadImpl
-        void unloadImpl(void);
+        void unloadImpl(void) override;
         /// @copydoc Resource::calculateSize
-        size_t calculateSize(void) const;
+        size_t calculateSize(void) const override;
 
         void mergeAdjacentTexcoords( unsigned short finalTexCoordSet,
                                      unsigned short texCoordSetToDestroy, VertexData *vertexData );
@@ -225,7 +228,7 @@ namespace Ogre {
         // called in the rendering loop - speed is of the essence.
 
         /** Creates a new SubMesh.
-        @remarks
+
             Method for manually creating geometry for the mesh.
             Note - use with extreme caution - you must be sure that
             you have set up the geometry properly.
@@ -245,7 +248,7 @@ namespace Ogre {
         void unnameSubMesh(const String& name);
         
         /** Gets the index of a submesh with a given name.
-        @remarks
+
             Useful if you identify the SubMeshes by name (using nameSubMesh)
             but wish to have faster repeat access.
         */
@@ -297,7 +300,7 @@ namespace Ogre {
         }
 
         /** Shared vertex data.
-        @remarks
+
             This vertex data can be shared among multiple submeshes. SubMeshes may not have
             their own VertexData, they may share this one.
         @par
@@ -307,7 +310,7 @@ namespace Ogre {
         VertexData *sharedVertexData;
 
         /** Shared index map for translating blend index to bone index.
-        @remarks
+
             This index map can be shared among multiple submeshes. SubMeshes might not have
             their own IndexMap, they might share this one.
         @par
@@ -329,7 +332,7 @@ namespace Ogre {
         IndexMap sharedBlendIndexToBoneIndexMap;
 
         /** Makes a copy of this mesh object and gives it a new name.
-        @remarks
+
             This is useful if you want to tweak an existing mesh without affecting the original one. The
             newly cloned mesh is registered with the MeshManager under the new name.
         @param newName
@@ -342,7 +345,7 @@ namespace Ogre {
         MeshPtr clone(const String& newName, const String& newGroup = BLANKSTRING);
 
         /** @copydoc Resource::reload */
-        void reload(LoadingFlags flags = LF_DEFAULT);
+        void reload(LoadingFlags flags = LF_DEFAULT) override;
 
         /** Get the axis-aligned bounding box for this mesh.
         */
@@ -355,7 +358,7 @@ namespace Ogre {
         Real getBoneBoundingRadius() const;
 
         /** Manually set the bounding box for this Mesh.
-        @remarks
+
             Calling this method is required when building manual meshes now, because OGRE can no longer 
             update the bounds for you, because it cannot necessarily read vertex data back from 
             the vertex buffers which this mesh uses (they very well might be write-only, and even
@@ -366,7 +369,7 @@ namespace Ogre {
         void _setBounds(const AxisAlignedBox& bounds, bool pad = true);
 
         /** Manually set the bounding radius. 
-        @remarks
+
             Calling this method is required when building manual meshes now, because OGRE can no longer 
             update the bounds for you, because it cannot necessarily read vertex data back from 
             the vertex buffers which this mesh uses (they very well might be write-only, and even
@@ -375,20 +378,20 @@ namespace Ogre {
         void _setBoundingSphereRadius(Real radius);
 
         /** Manually set the bone bounding radius. 
-        @remarks
-            This value is normally computed automatically, however it can be overriden with this method.
+
+            This value is normally computed automatically, however it can be overridden with this method.
         */
         void _setBoneBoundingRadius(Real radius);
 
         /** Compute the bone bounding radius by looking at the vertices, vertex-bone-assignments, and skeleton bind pose.
-        @remarks
+
             This is automatically called by Entity if necessary.  Only does something if the boneBoundingRadius is zero to
             begin with.  Only works if vertex data is readable (i.e. not WRITE_ONLY).
         */
         void _computeBoneBoundingRadius();
 
         /** Automatically update the bounding radius and bounding box for this Mesh.
-        @remarks
+
         Calling this method is required when building manual meshes. However it is recommended to
         use _setBounds and _setBoundingSphereRadius instead, because the vertex buffer may not have
         a shadow copy in the memory. Reading back the buffer from video memory is very slow!
@@ -397,14 +400,14 @@ namespace Ogre {
         void _updateBoundsFromVertexBuffers(bool pad = false);
 
         /** Calculates 
-        @remarks
+
         Calling this method is required when building manual meshes. However it is recommended to
         use _setBounds and _setBoundingSphereRadius instead, because the vertex buffer may not have
         a shadow copy in the memory. Reading back the buffer from video memory is very slow!
         */
         void _calcBoundsFromVertexBuffer(VertexData* vertexData, AxisAlignedBox& outAABB, Real& outRadius, bool updateOnly = false);
         /** Sets the name of the skeleton this Mesh uses for animation.
-        @remarks
+
             Meshes can optionally be assigned a skeleton which can be used to animate
             the mesh through bone assignments. The default is for the Mesh to use no
             skeleton. Calling this method with a valid skeleton filename will cause the
@@ -432,18 +435,18 @@ namespace Ogre {
         /** Gets the name of any linked Skeleton */
         const String& getSkeletonName(void) const;
         /** Initialise an animation set suitable for use with this mesh. 
-        @remarks
+
             Only recommended for use inside the engine, not by applications.
         */
         void _initAnimationState(AnimationStateSet* animSet);
 
         /** Refresh an animation set suitable for use with this mesh. 
-        @remarks
+
             Only recommended for use inside the engine, not by applications.
         */
         void _refreshAnimationState(AnimationStateSet* animSet);
         /** Assigns a vertex to a bone with a given weight, for skeletal animation. 
-        @remarks    
+
             This method is only valid after calling setSkeletonName.
             Since this is a one-off process there exists only 'addBoneAssignment' and
             'clearBoneAssignments' methods, no 'editBoneAssignment'. You should not need
@@ -457,14 +460,14 @@ namespace Ogre {
         void addBoneAssignment(const VertexBoneAssignment& vertBoneAssign);
 
         /** Removes all bone assignments for this mesh. 
-        @remarks
+
             This method is for modifying weights to the shared geometry of the Mesh. To assign
             weights to the per-SubMesh geometry, see the equivalent methods on SubMesh.
         */
         void clearBoneAssignments(void);
 
         /** Internal notification, used to tell the Mesh which Skeleton to use without loading it. 
-        @remarks
+
             This is only here for unusual situation where you want to manually set up a
             Skeleton. Best to let OGRE deal with this, don't call it yourself unless you
             really know what you're doing.
@@ -480,7 +483,7 @@ namespace Ogre {
         const VertexBoneAssignmentList& getBoneAssignments() const { return mBoneAssignments; }
 
         /** Returns the number of levels of detail that this mesh supports. 
-        @remarks
+
             This number includes the original model.
         */
         ushort getNumLodLevels(void) const { return mNumLods; }
@@ -496,14 +499,14 @@ namespace Ogre {
         ushort getLodIndex(Real value) const;
 
         /** Returns true if this mesh has a manual LOD level.
-        @remarks
+
             A mesh can either use automatically generated LOD, or it can use alternative
             meshes as provided by an artist.
         */
         bool hasManualLodLevel(void) const { return mHasManualLodLevel; }
 #if !OGRE_NO_MESHLOD
         /** Changes the alternate mesh to use as a manual LOD at the given index.
-        @remarks
+
             Note that the index of a LOD may change if you insert other LODs. If in doubt,
             use getLodIndex().
         @param index
@@ -529,22 +532,9 @@ namespace Ogre {
 
         /** Sets the manager for the vertex and index buffers to be used when loading
             this Mesh.
-        @remarks
-            By default, when loading the Mesh, static, write-only vertex and index buffers 
-            will be used where possible in order to improve rendering performance. 
-            However, such buffers cannot be manipulated on the fly by CPU code 
-            (although shader code can). If you wish to use the CPU to modify these buffers
-            and will never use it with GPU, you should call this method. Note,
-            however, that it only takes effect after the Mesh has been reloaded. Note that you
-            still have the option of manually repacing the buffers in this mesh with your
-            own if you see fit too, in which case you don't need to call this method since it
-            only affects buffers created by the mesh itself.
-        @par
-            You can define the approach to a Mesh by changing the default parameters to 
-            MeshManager::load if you wish; this means the Mesh is loaded with those options
-            the first time instead of you having to reload the mesh after changing these options.
+
         @param bufferManager
-            If set to @c DefaultHardwareBufferManager, the buffers will be created in system memory
+            If set to @ref DefaultHardwareBufferManager, the buffers will be created in system memory
             only, without hardware counterparts. Such mesh could not be rendered, but LODs could be
             generated for such mesh, it could be cloned, transformed and serialized.
         */
@@ -552,52 +542,33 @@ namespace Ogre {
         HardwareBufferManagerBase* getHardwareBufferManager();
         /** Sets the policy for the vertex buffers to be used when loading
             this Mesh.
-        @remarks
-            By default, when loading the Mesh, static, write-only vertex and index buffers 
+
+            By default, when loading the %Mesh, static, write-only vertex and index buffers
             will be used where possible in order to improve rendering performance. 
             However, such buffers
             cannot be manipulated on the fly by CPU code (although shader code can). If you
-            wish to use the CPU to modify these buffers, you should call this method. Note,
-            however, that it only takes effect after the Mesh has been reloaded. Note that you
-            still have the option of manually repacing the buffers in this mesh with your
+            wish to use the CPU to modify these buffers, you should call this method.
+
+            @note This only takes effect after the Mesh has been reloaded. Also, you
+            still have the option of manually replacing the buffers in this mesh with your
             own if you see fit too, in which case you don't need to call this method since it
             only affects buffers created by the mesh itself.
-        @par
-            You can define the approach to a Mesh by changing the default parameters to 
+
+            You can define the approach to a %Mesh by changing the default parameters to
             MeshManager::load if you wish; this means the Mesh is loaded with those options
             the first time instead of you having to reload the mesh after changing these options.
         @param usage
-            The usage flags, which by default are 
-            HardwareBuffer::HBU_STATIC_WRITE_ONLY
+            The usage flag, which by default is #HBU_GPU_ONLY
         @param shadowBuffer
             If set to @c true, the vertex buffers will be created with a
             system memory shadow buffer. You should set this if you want to be able to
-            read from the buffer, because reading from a hardware buffer is a no-no.
+            read from the buffer
         */
         void setVertexBufferPolicy(HardwareBuffer::Usage usage, bool shadowBuffer = false);
         /** Sets the policy for the index buffers to be used when loading
             this Mesh.
-        @remarks
-            By default, when loading the Mesh, static, write-only vertex and index buffers 
-            will be used where possible in order to improve rendering performance. 
-            However, such buffers
-            cannot be manipulated on the fly by CPU code (although shader code can). If you
-            wish to use the CPU to modify these buffers, you should call this method. Note,
-            however, that it only takes effect after the Mesh has been reloaded. Note that you
-            still have the option of manually repacing the buffers in this mesh with your
-            own if you see fit too, in which case you don't need to call this method since it
-            only affects buffers created by the mesh itself.
-        @par
-            You can define the approach to a Mesh by changing the default parameters to 
-            MeshManager::load if you wish; this means the Mesh is loaded with those options
-            the first time instead of you having to reload the mesh after changing these options.
-        @param usage
-            The usage flags, which by default are 
-            HardwareBuffer::HBU_STATIC_WRITE_ONLY
-        @param shadowBuffer
-            If set to @c true, the index buffers will be created with a
-            system memory shadow buffer. You should set this if you want to be able to
-            read from the buffer, because reading from a hardware buffer is a no-no.
+
+            @copydetails setVertexBufferPolicy
         */
         void setIndexBufferPolicy(HardwareBuffer::Usage usage, bool shadowBuffer = false);
         /** Gets the usage setting for this meshes vertex buffers. */
@@ -611,7 +582,7 @@ namespace Ogre {
        
 
         /** Rationalises the passed in bone assignment list.
-        @remarks
+
             OGRE supports up to 4 bone assignments per vertex. The reason for this limit
             is that this is the maximum number of assignments that can be passed into
             a hardware-assisted blending algorithm. This method identifies where there are
@@ -629,7 +600,7 @@ namespace Ogre {
         unsigned short _rationaliseBoneAssignments(size_t vertexCount, VertexBoneAssignmentList& assignments);
 
         /** Internal method, be called once to compile bone assignments into geometry buffer. 
-        @remarks
+
             The OGRE engine calls this method automatically. It compiles the information 
             submitted as bone assignments into a format usable in realtime. It also 
             eliminates excessive bone assignments (max is OGRE_MAX_BLEND_WEIGHTS)
@@ -638,14 +609,14 @@ namespace Ogre {
         void _compileBoneAssignments(void);
 
         /** Internal method, be called once to update the compiled bone assignments.
-        @remarks
+
             The OGRE engine calls this method automatically. It updates the compiled bone
             assignments if requested.
         */
         void _updateCompiledBoneAssignments(void);
 
         /** This method collapses two texcoords into one for all submeshes where this is possible.
-        @remarks
+
             Often a submesh can have two tex. coords. (i.e. TEXCOORD0 & TEXCOORD1), being both
             composed of two floats. There are many practical reasons why it would be more convenient
             to merge both of them into one TEXCOORD0 of 4 floats. This function does exactly that
@@ -662,7 +633,7 @@ namespace Ogre {
         void mergeAdjacentTexcoords( unsigned short finalTexCoordSet, unsigned short texCoordSetToDestroy );
 
         /** This method builds a set of tangent vectors for a given mesh into a 3D texture coordinate buffer.
-        @remarks
+
             Tangent vectors are vectors representing the local 'X' axis for a given vertex based
             on the orientation of the 2D texture on the geometry. They are built from a combination
             of existing normals, and from the 2D texture coordinates already baked into the model.
@@ -699,11 +670,11 @@ namespace Ogre {
 
         /** Ask the mesh to suggest parameters to a future buildTangentVectors call, 
             should you wish to use texture coordinates to store the tangents. 
-        @remarks
+
             This helper method will suggest source and destination texture coordinate sets
             for a call to buildTangentVectors. It will detect when there are inappropriate
             conditions (such as multiple geometry sets which don't agree). 
-            Moreover, it will return 'true' if it detects that there are aleady 3D 
+            Moreover, it will return 'true' if it detects that there are already 3D
             coordinates in the mesh, and therefore tangents may have been prepared already.
         @param targetSemantic
             The semantic you intend to use to store the tangents
@@ -732,7 +703,7 @@ namespace Ogre {
         void prepareForShadowVolume(void);
 
         /** Return the edge list for this mesh, building it if required. 
-        @remarks
+
             You must ensure that the Mesh as been prepared for shadow volume 
             rendering if you intend to use this information for that purpose.
         @param lodIndex
@@ -741,7 +712,7 @@ namespace Ogre {
         EdgeData* getEdgeList(unsigned short lodIndex = 0);
 
         /** Return the edge list for this mesh, building it if required. 
-        @remarks
+
             You must ensure that the Mesh as been prepared for shadow volume 
             rendering if you intend to use this information for that purpose.
         @param lodIndex
@@ -757,7 +728,7 @@ namespace Ogre {
         bool isEdgeListBuilt(void) const { return mEdgeListsBuilt; }
 
         /** Prepare matrices for software indexed vertex blend.
-        @remarks
+
             This function organise bone indexed matrices to blend indexed matrices,
             so software vertex blending can access to the matrix via blend index
             directly.
@@ -775,7 +746,7 @@ namespace Ogre {
 
         /** Performs a software indexed vertex blend, of the kind used for
             skeletal animation although it can be used for other purposes. 
-        @remarks
+
             This function is supplied to update vertex data with blends 
             done in software, either because no hardware support is available, 
             or that you need the results of the blend for some other CPU operations.
@@ -803,7 +774,7 @@ namespace Ogre {
 
         /** Performs a software vertex morph, of the kind used for
             morph animation although it can be used for other purposes. 
-        @remarks
+
             This function will linearly interpolate positions between two
             source buffers, into a third buffer.
         @param t
@@ -824,7 +795,7 @@ namespace Ogre {
 
         /** Performs a software vertex pose blend, of the kind used for
             morph animation although it can be used for other purposes. 
-        @remarks
+
             This function will apply a weighted offset to the positions in the 
             incoming vertex data (therefore this is a read/write operation, and 
             if you expect to call it more than once with the same data, then
@@ -851,7 +822,7 @@ namespace Ogre {
         /** Sets whether or not this Mesh should automatically build edge lists
             when asked for them, or whether it should never build them if
             they are not already provided.
-        @remarks
+
             This allows you to create meshes which do not have edge lists calculated, 
             because you never want to use them. This value defaults to 'true'
             for mesh formats which did not include edge data, and 'false' for 
@@ -878,13 +849,13 @@ namespace Ogre {
         @param length
             The length of the animation in seconds.
         */
-        virtual Animation* createAnimation(const String& name, Real length);
+        Animation* createAnimation(const String& name, Real length) override;
 
         /** Returns the named vertex Animation object. 
         @param name
             The name of the animation.
         */
-        virtual Animation* getAnimation(const String& name) const;
+        Animation* getAnimation(const String& name) const override;
 
         /** Internal access to the named vertex Animation object - returns null 
             if it does not exist. 
@@ -894,23 +865,23 @@ namespace Ogre {
         virtual Animation* _getAnimationImpl(const String& name) const;
 
         /** Returns whether this mesh contains the named vertex animation. */
-        virtual bool hasAnimation(const String& name) const;
+        bool hasAnimation(const String& name) const override;
 
         /** Removes vertex Animation from this mesh. */
-        virtual void removeAnimation(const String& name);
+        void removeAnimation(const String& name) override;
 
         /** Gets the number of morph animations in this mesh. */
-        virtual unsigned short getNumAnimations(void) const;
+        unsigned short getNumAnimations(void) const override;
 
         /** Gets a single morph animation by index. 
         */
-        virtual Animation* getAnimation(unsigned short index) const;
+        Animation* getAnimation(unsigned short index) const override;
 
         /** Removes all morph Animations from this mesh. */
         virtual void removeAllAnimations(void);
         /** Gets a pointer to a vertex data element based on a morph animation 
             track handle.
-        @remarks
+
             0 means the shared vertex data, 1+ means a submesh vertex data (index+1)
         */
         VertexData* getVertexDataByTrackHandle(unsigned short handle);
@@ -970,19 +941,26 @@ namespace Ogre {
         /** Set the lod strategy used by this mesh. */
         void setLodStrategy(LodStrategy *lodStrategy);
 #endif
+
+        void _convertVertexElement(VertexElementSemantic semantic, VertexElementType dstType);
+
+        /// @copydoc UserObjectBindings
+        UserObjectBindings& getUserObjectBindings() { return mUserObjectBindings; }
+        /// @overload
+        const UserObjectBindings& getUserObjectBindings() const { return mUserObjectBindings; }
     };
 
     /** A way of recording the way each LODs is recorded this Mesh. */
     struct MeshLodUsage
     {
         /** User-supplied values used to determine on which distance the lod is applies.
-        @remarks
+
             This is required in case the LOD strategy changes.
         */
         Real userValue;
 
         /** Value used by to determine when this LOD applies.
-        @remarks
+
             May be interpreted differently by different strategies.
             Transformed from user-supplied values with LodStrategy::transformUserValue.
         */

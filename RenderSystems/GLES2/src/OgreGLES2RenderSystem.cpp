@@ -39,7 +39,6 @@ THE SOFTWARE.
 #include "OgreGLVertexArrayObject.h"
 #include "OgreRoot.h"
 #include "OgreViewport.h"
-#include "OgreFrustum.h"
 #include "OgreLogManager.h"
 #if !OGRE_NO_GLES2_CG_SUPPORT
 #include "OgreGLSLESCgProgramFactory.h"
@@ -447,6 +446,9 @@ namespace Ogre {
                 rsc->setCapability(RSC_CAN_GET_COMPILED_SHADER_BUFFER);
         }
 
+        if(hasMinGLVersion(3, 0))
+            rsc->setCapability(RSC_VERTEX_FORMAT_INT_10_10_10_2);
+
         if (hasMinGLVersion(3, 0) || checkExtension("GL_EXT_instanced_arrays"))
         {
             rsc->setCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA);
@@ -724,9 +726,7 @@ namespace Ogre {
 
     void GLES2RenderSystem::_setTexture(size_t stage, bool enabled, const TexturePtr &texPtr)
     {
-        if (!mStateCacheManager->activateGLTextureUnit(stage))
-            return;
-
+        mStateCacheManager->activateGLTextureUnit(stage);
         if (enabled)
         {
             GLES2TexturePtr tex = static_pointer_cast<GLES2Texture>(texPtr);
@@ -749,8 +749,7 @@ namespace Ogre {
 
     void GLES2RenderSystem::_setSampler(size_t unit, Sampler& sampler)
     {
-        if (!mStateCacheManager->activateGLTextureUnit(unit))
-            return;
+        mStateCacheManager->activateGLTextureUnit(unit);
 
         GLenum target = mTextureTypes[unit];
 
@@ -760,7 +759,10 @@ namespace Ogre {
         if(getCapabilities()->hasCapability(RSC_TEXTURE_3D))
             mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_R, getTextureAddressingMode(uvw.w));
 
-        if ((uvw.u == TAM_BORDER || uvw.v == TAM_BORDER || uvw.w == TAM_BORDER) && checkExtension("GL_EXT_texture_border_clamp"))
+        bool hasBorderClamp = hasMinGLVersion(3, 2) || checkExtension("GL_EXT_texture_border_clamp") ||
+                              checkExtension("GL_OES_texture_border_clamp");
+
+        if ((uvw.u == TAM_BORDER || uvw.v == TAM_BORDER || uvw.w == TAM_BORDER) && hasBorderClamp)
             OGRE_CHECK_GL_ERROR(glTexParameterfv( target, GL_TEXTURE_BORDER_COLOR_EXT, sampler.getBorderColour().ptr()));
 
         // only via shader..
@@ -804,8 +806,9 @@ namespace Ogre {
         switch (tam)
         {
             case TextureUnitState::TAM_CLAMP:
-            case TextureUnitState::TAM_BORDER:
                 return GL_CLAMP_TO_EDGE;
+            case TextureUnitState::TAM_BORDER:
+                return GL_CLAMP_TO_BORDER_EXT;
             case TextureUnitState::TAM_MIRROR:
                 return GL_MIRRORED_REPEAT;
             case TextureUnitState::TAM_WRAP:
@@ -816,9 +819,7 @@ namespace Ogre {
 
     void GLES2RenderSystem::_setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw)
     {
-        if (!mStateCacheManager->activateGLTextureUnit(stage))
-            return;
-
+        mStateCacheManager->activateGLTextureUnit(stage);
         mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_S, getTextureAddressingMode(uvw.u));
         mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_T, getTextureAddressingMode(uvw.v));
 
@@ -899,10 +900,12 @@ namespace Ogre {
             }
             
 #if OGRE_NO_VIEWPORT_ORIENTATIONMODE == 0
+            // This works fine whether getConfigOptions() returns by value or by reference.
+            const ConfigOptionMap& configOptions = mGLSupport->getConfigOptions();
             ConfigOptionMap::const_iterator opt;
-            ConfigOptionMap::const_iterator end = mGLSupport->getConfigOptions().end();
+            ConfigOptionMap::const_iterator end = configOptions.end();
             
-            if ((opt = mGLSupport->getConfigOptions().find("Orientation")) != end)
+            if ((opt = configOptions.find("Orientation")) != end)
             {
                 String val = opt->second.currentValue;
                 if (val.find("Landscape") != String::npos)
@@ -1143,9 +1146,7 @@ namespace Ogre {
                 
     void GLES2RenderSystem::_setTextureUnitFiltering(size_t unit, FilterType ftype, FilterOptions fo)
     {
-        if (!mStateCacheManager->activateGLTextureUnit(unit))
-            return;
-
+        mStateCacheManager->activateGLTextureUnit(unit);
         switch (ftype)
         {
             case FT_MIN:
@@ -1189,22 +1190,6 @@ namespace Ogre {
         // Call super class
         RenderSystem::_render(op);
 
-        HardwareVertexBufferSharedPtr globalInstanceVertexBuffer;
-        VertexDeclaration* globalVertexDeclaration = 0;
-
-        size_t numberOfInstances = 0;
-        if(getCapabilities()->hasCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA))
-        {
-            globalInstanceVertexBuffer = getGlobalInstanceVertexBuffer();
-            globalVertexDeclaration = getGlobalInstanceVertexBufferVertexDeclaration();
-            numberOfInstances = op.numberOfInstances;
-
-            if (op.useGlobalInstancingVertexBufferIsAvailable)
-            {
-                numberOfInstances *= getGlobalNumberOfInstances();
-            }
-        }
-
         void* pBufferData = 0;
 
         GLVertexArrayObject* vao = static_cast<GLVertexArrayObject*>(op.vertexData->vertexDeclaration);
@@ -1227,17 +1212,10 @@ namespace Ogre {
                 op.indexData->indexBuffer->_getImpl<GLES2HardwareBuffer>()->getGLBufferId());
 
 
-        if (getCapabilities()->hasCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA)
-            && globalInstanceVertexBuffer && globalVertexDeclaration)
+        size_t numberOfInstances = 0;
+        if (getCapabilities()->hasCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA))
         {
-            VertexDeclaration::VertexElementList::const_iterator elemIter, elemEnd;
-            elemEnd = globalVertexDeclaration->getElements().end();
-            for (elemIter = globalVertexDeclaration->getElements().begin(); elemIter != elemEnd;
-                 ++elemIter)
-            {
-                const VertexElement& elem = *elemIter;
-                bindVertexElementToGpu(elem, globalInstanceVertexBuffer, 0);
-            }
+            numberOfInstances = op.numberOfInstances;
         }
 
         // Find the correct type to render

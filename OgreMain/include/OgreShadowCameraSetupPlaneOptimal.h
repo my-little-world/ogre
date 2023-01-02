@@ -42,7 +42,7 @@ namespace Ogre {
     *  @{
     */
     /** Implements the plane optimal shadow camera algorithm.
-        @remarks
+
             Given a plane of interest, it is possible to set up the shadow camera
             matrix such that the mapping between screen and shadow map is the identity
             (when restricted to pixels that view the plane of interest).  Therefore,
@@ -82,8 +82,8 @@ namespace Ogre {
         }
 
         /// Returns shadow camera configured to get 1-1 homography between screen and shadow map when restricted to plane
-        virtual void getShadowCamera (const SceneManager *sm, const Camera *cam, 
-                                      const Viewport *vp, const Light *light, Camera *texCam, size_t iteration) const;
+        void getShadowCamera (const SceneManager *sm, const Camera *cam,
+                                      const Viewport *vp, const Light *light, Camera *texCam, size_t iteration) const override;
     };
     /** @} */
     /** @} */

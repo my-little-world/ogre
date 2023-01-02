@@ -43,9 +43,9 @@ public:
     /**
     Listener overridden function notify the shader generator when rendering single object.
     */
-    virtual void notifyRenderSingleObject(Renderable* rend, const Pass* pass,
+    void notifyRenderSingleObject(Renderable* rend, const Pass* pass,
                                           const AutoParamDataSource* source, const LightList* pLightList,
-                                          bool suppressRenderStateChanges)
+                                          bool suppressRenderStateChanges) override
     {
         mOwner->notifyRenderSingleObject(rend, pass, source, pLightList, suppressRenderStateChanges);
     }
@@ -63,8 +63,8 @@ public:
     /**
     Listener overridden function notify the shader generator when finding visible objects process started.
     */
-    virtual void preFindVisibleObjects(SceneManager* source, SceneManager::IlluminationRenderStage irs,
-                                       Viewport* v)
+    void preFindVisibleObjects(SceneManager* source, SceneManager::IlluminationRenderStage irs,
+                                       Viewport* v) override
     {
         mOwner->preFindVisibleObjects(source, irs, v);
     }
@@ -80,7 +80,7 @@ public:
     SGScriptTranslatorManager(ShaderGenerator* owner) { mOwner = owner; }
 
     /// Returns a manager for the given object abstract node, or null if it is not supported
-    virtual ScriptTranslator* getTranslator(const AbstractNodePtr& node)
+    ScriptTranslator* getTranslator(const AbstractNodePtr& node) override
     {
         return mOwner->getTranslator(node);
     }
@@ -96,7 +96,7 @@ public:
     SGResourceGroupListener(ShaderGenerator* owner) { mOwner = owner; }
 
     /// sync our internal list if material gets dropped
-    virtual void resourceRemove(const ResourcePtr& resource)
+    void resourceRemove(const ResourcePtr& resource) override
     {
         if (auto mat = dynamic_cast<Material*>(resource.get()))
         {
@@ -109,7 +109,7 @@ protected:
     ShaderGenerator* mOwner;
 };
 
-String ShaderGenerator::DEFAULT_SCHEME_NAME     = "ShaderGeneratorDefaultScheme";
+String ShaderGenerator::DEFAULT_SCHEME_NAME     = MSN_SHADERGEN;
 String ShaderGenerator::SGTechnique::UserKey    = "SGTechnique";
 
 //-----------------------------------------------------------------------
@@ -197,11 +197,6 @@ bool ShaderGenerator::_initialize()
     // Allocate program manager.
     mProgramManager.reset(new ProgramManager);
 
-    // Allocate and initialize FFP render state builder.
-#ifdef RTSHADER_SYSTEM_BUILD_CORE_SHADERS
-    mFFPRenderStateBuilder.reset(new FFPRenderStateBuilder);
-#endif
-
     // Create extensions factories.
     createBuiltinSRSFactories();
 
@@ -211,7 +206,7 @@ bool ShaderGenerator::_initialize()
     ID_RT_SHADER_SYSTEM = ScriptCompilerManager::getSingleton().registerCustomWordId("rtshader_system");
 
     // Create the default scheme.
-    createScheme(DEFAULT_SCHEME_NAME);
+    createScheme(MSN_SHADERGEN);
 	
 	mResourceGroupListener.reset(new SGResourceGroupListener(this));
 	ResourceGroupManager::getSingleton().addResourceGroupListener(mResourceGroupListener.get());
@@ -267,6 +262,10 @@ void ShaderGenerator::createBuiltinSRSFactories()
         mBuiltinSRSFactories.push_back(curFactory);
 
         curFactory = new CookTorranceLightingFactory;
+        addSubRenderStateFactory(curFactory);
+        mBuiltinSRSFactories.push_back(curFactory);
+
+        curFactory = new ImageBasedLightingFactory;
         addSubRenderStateFactory(curFactory);
         mBuiltinSRSFactories.push_back(curFactory);
 
@@ -339,10 +338,6 @@ void ShaderGenerator::_destroy()
 
     // Destroy extensions factories.
     destroyBuiltinSRSFactories();
-
-#ifdef RTSHADER_SYSTEM_BUILD_CORE_SHADERS
-    mFFPRenderStateBuilder.reset();
-#endif
 
     mProgramManager.reset();
     mProgramWriterManager.reset();
@@ -646,7 +641,7 @@ void ShaderGenerator::removeSceneManager(SceneManager* sceneMgr)
             mActiveSceneMgr = NULL;
 
             // force refresh global scene manager material
-            invalidateMaterial(DEFAULT_SCHEME_NAME, "Ogre/TextureShadowReceiver", RGN_INTERNAL);
+            invalidateMaterial(MSN_SHADERGEN, "Ogre/TextureShadowReceiver", RGN_INTERNAL);
         }
     }
 }
@@ -1191,86 +1186,6 @@ ScriptTranslator* ShaderGenerator::getTranslator(const AbstractNodePtr& node)
 }
 
 //-----------------------------------------------------------------------------
-void ShaderGenerator::serializePassAttributes(MaterialSerializer* ser, SGPass* passEntry)
-{
-    
-    // Write section header and begin it.
-    ser->writeAttribute(3, "rtshader_system");
-    ser->beginSection(3);
-
-    // Grab the custom render state this pass uses.
-    RenderState* customRenderState = passEntry->getCustomRenderState();
-
-    if (customRenderState != NULL)
-    {
-        // Write each of the sub-render states that composing the final render state.
-        const SubRenderStateList& subRenderStates = customRenderState->getSubRenderStates();
-        SubRenderStateListConstIterator it      = subRenderStates.begin();
-        SubRenderStateListConstIterator itEnd   = subRenderStates.end();
-
-        for (; it != itEnd; ++it)
-        {
-            SubRenderState* curSubRenderState = *it;
-            SubRenderStateFactoryIterator itFactory = mSubRenderStateFactories.find(curSubRenderState->getType());
-
-            if (itFactory != mSubRenderStateFactories.end())
-            {
-                SubRenderStateFactory* curFactory = itFactory->second;
-                curFactory->writeInstance(ser, curSubRenderState, passEntry->getSrcPass(), passEntry->getDstPass());
-            }
-        }
-    }
-    
-    // Write section end.
-    ser->endSection(3);     
-}
-
-
-
-//-----------------------------------------------------------------------------
-void ShaderGenerator::serializeTextureUnitStateAttributes(MaterialSerializer* ser, SGPass* passEntry, const TextureUnitState* srcTextureUnit)
-{
-    
-    // Write section header and begin it.
-    ser->writeAttribute(4, "rtshader_system");
-    ser->beginSection(4);
-
-    // Grab the custom render state this pass uses.
-    RenderState* customRenderState = passEntry->getCustomRenderState();
-            
-    if (customRenderState != NULL)
-    {
-        //retrive the destintion texture unit state
-        TextureUnitState* dstTextureUnit = NULL;
-        unsigned short texIndex = srcTextureUnit->getParent()->getTextureUnitStateIndex(srcTextureUnit);
-        if (texIndex < passEntry->getDstPass()->getNumTextureUnitStates())
-        {
-            dstTextureUnit = passEntry->getDstPass()->getTextureUnitState(texIndex);
-        }
-        
-        // Write each of the sub-render states that composing the final render state.
-        const SubRenderStateList& subRenderStates = customRenderState->getSubRenderStates();
-        SubRenderStateListConstIterator it      = subRenderStates.begin();
-        SubRenderStateListConstIterator itEnd   = subRenderStates.end();
-
-        for (; it != itEnd; ++it)
-        {
-            SubRenderState* curSubRenderState = *it;
-            SubRenderStateFactoryIterator itFactory = mSubRenderStateFactories.find(curSubRenderState->getType());
-
-            if (itFactory != mSubRenderStateFactories.end())
-            {
-                SubRenderStateFactory* curFactory = itFactory->second;
-                curFactory->writeInstance(ser, curSubRenderState, srcTextureUnit, dstTextureUnit);
-            }
-        }
-    }
-    
-    // Write section end.
-    ser->endSection(4);     
-}
-
-//-----------------------------------------------------------------------------
 size_t ShaderGenerator::getShaderCount(GpuProgramType type) const
 {
     return mProgramManager->getShaderCount(type);
@@ -1445,6 +1360,16 @@ ShaderGenerator::SGPass::~SGPass()
 }
 
 //-----------------------------------------------------------------------------
+#ifdef RTSHADER_SYSTEM_BUILD_CORE_SHADERS
+static void addDefaultSubRenderStates(const TargetRenderStatePtr& renderState, Pass* srcPass, Pass* dstPass)
+{
+    RenderState ffpTemplate;
+    ffpTemplate.addTemplateSubRenderStates(
+        {SRS_TRANSFORM, SRS_VERTEX_COLOUR, SRS_PER_PIXEL_LIGHTING, SRS_TEXTURING, SRS_FOG, SRS_ALPHA_TEST});
+    renderState->link(ffpTemplate, srcPass, dstPass);
+}
+#endif
+
 void ShaderGenerator::SGPass::buildTargetRenderState()
 {   
     if(mSrcPass->isProgrammable() && !mParent->overProgrammablePass() && !isIlluminationPass()) return;
@@ -1485,8 +1410,7 @@ void ShaderGenerator::SGPass::buildTargetRenderState()
     }
 
 #ifdef RTSHADER_SYSTEM_BUILD_CORE_SHADERS
-    // Build the FFP state.
-    FFPRenderStateBuilder::buildRenderState(this, targetRenderState.get());
+    addDefaultSubRenderStates(targetRenderState, mSrcPass, mDstPass);
 #endif
 
     targetRenderState->acquirePrograms(mDstPass);

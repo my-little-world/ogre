@@ -84,8 +84,8 @@ namespace Ogre
         std::map<NSUInteger, id<MTLRenderPipelineState>> mPSOCache;
         id<MTLRenderPipelineState> getPipelineState();
 
-        HighLevelGpuProgramPtr mDefaultVP;
-        HighLevelGpuProgramPtr mDefaultFP;
+        GpuProgram* mDefaultVP;
+        GpuProgram* mDefaultFP;
 
         std::unique_ptr<MetalHardwareBufferCommon> mAutoParamsBuffer;
     public:
@@ -96,7 +96,6 @@ namespace Ogre
         MetalRenderSystem();
         virtual ~MetalRenderSystem();
 
-        void initConfigOptions();
         virtual void shutdown(void);
 
         virtual const String& getName(void) const;

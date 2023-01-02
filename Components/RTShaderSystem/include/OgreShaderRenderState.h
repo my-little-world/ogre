@@ -67,6 +67,9 @@ public:
     */
     void addTemplateSubRenderState(SubRenderState* subRenderState);
 
+    /// Add multiple template sub render states by SRS type
+    void addTemplateSubRenderStates(const StringVector& srsTypes);
+
     /** Remove a sub render state from this render state.
     @param subRenderState The sub render state to remove.
     */
@@ -74,6 +77,9 @@ public:
 
     /** Get the list of the sub render states composing this render state. */
     const SubRenderStateList& getSubRenderStates() const { return mSubRenderStateList; }
+
+    /// get sub render state by type (uniquely identified) or NULL if not found
+    SubRenderState* getSubRenderState(const String& type) const;
 
     /** 
     Set the light count per light type.
@@ -122,7 +128,6 @@ protected:
 
 private:
     friend class ProgramManager;
-    friend class FFPRenderStateBuilder;
 };
 
 /** This is the target render state. This class will hold the actual generated CPU/GPU programs.
@@ -203,7 +208,6 @@ private:
 
 private:
     friend class ProgramManager;
-    friend class FFPRenderStateBuilder;
 };
 
 typedef std::shared_ptr<TargetRenderState> TargetRenderStatePtr;

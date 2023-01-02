@@ -205,6 +205,9 @@ namespace Ogre {
     TextureUnitState & TextureUnitState::operator = ( 
         const TextureUnitState &oth )
     {
+        if (this == &oth)
+            return *this;
+
         assert(mAnimController == 0);
         removeAllEffects();
 
@@ -219,9 +222,9 @@ namespace Ogre {
         mCompositorRefName = oth.mCompositorRefName;
         mCompositorRefTexName = oth.mCompositorRefTexName;
         // Can't sharing controllers with other TUS, reset to null to avoid potential bug.
-        for (EffectMap::iterator j = mEffects.begin(); j != mEffects.end(); ++j)
+        for (auto & e : mEffects)
         {
-            j->second.controller = 0;
+            e.second.controller = 0;
         }
 
         // Load immediately if Material loaded
@@ -972,9 +975,9 @@ namespace Ogre {
             createAnimController();
         }
         // Effect controllers
-        for (EffectMap::iterator it = mEffects.begin(); it != mEffects.end(); ++it)
+        for (auto & e : mEffects)
         {
-            createEffectController(it->second);
+            createEffectController(e.second);
         }
 
     }
@@ -1018,10 +1021,35 @@ namespace Ogre {
         return static_pointer_cast<Texture>(res.first);
     }
     //-----------------------------------------------------------------------
+    bool TextureUnitState::checkTexCalcSettings(const TexturePtr& tex) const
+    {
+        if(mContentType != TextureUnitState::CONTENT_NAMED)
+            return true; // can only check normal textures
+
+        String err;
+        auto texCalc = _deriveTexCoordCalcMethod();
+        if ((texCalc == TEXCALC_ENVIRONMENT_MAP_PLANAR || texCalc == TEXCALC_ENVIRONMENT_MAP) &&
+            getTextureType() != TEX_TYPE_2D)
+        {
+            err = "env_map setting requires a 2d texture";
+        }
+        else if ((texCalc == TEXCALC_ENVIRONMENT_MAP_NORMAL || texCalc == TEXCALC_ENVIRONMENT_MAP_REFLECTION) &&
+                 getTextureType() != TEX_TYPE_CUBE_MAP)
+        {
+            err = "env_map setting requires a cubic texture";
+        }
+        if(err.empty())
+            return true;
+
+        String msg = err+", but '"+tex->getName()+"' is not. Texture layer will be blank";
+        LogManager::getSingleton().logError(msg);
+        mTextureLoadFailed = true;
+        return false;
+    }
     void TextureUnitState::ensurePrepared(size_t frame) const
     {
         const TexturePtr& tex = mFramePtrs[frame];
-        if (!tex || mTextureLoadFailed)
+        if (!tex || mTextureLoadFailed || !checkTexCalcSettings(tex))
             return;
 
         tex->setGamma(mGamma);
@@ -1041,7 +1069,7 @@ namespace Ogre {
     void TextureUnitState::ensureLoaded(size_t frame) const
     {
         const TexturePtr& tex = mFramePtrs[frame];
-        if (!tex || mTextureLoadFailed)
+        if (!tex || mTextureLoadFailed || !checkTexCalcSettings(tex))
             return;
 
         tex->setGamma(mGamma);
@@ -1158,12 +1186,12 @@ namespace Ogre {
         }
 
         // Destroy effect controllers
-        for (EffectMap::iterator i = mEffects.begin(); i != mEffects.end(); ++i)
+        for (auto & e : mEffects)
         {
-            if (i->second.controller)
+            if (e.second.controller)
             {
-                ControllerManager::getSingleton().destroyController(i->second.controller);
-                i->second.controller = 0;
+                ControllerManager::getSingleton().destroyController(e.second.controller);
+                e.second.controller = 0;
             }
         }
 
@@ -1256,5 +1284,45 @@ namespace Ogre {
             mSampler = TextureManager::getSingleton().createSampler();
 
         return mSampler;
+    }
+
+    TexCoordCalcMethod TextureUnitState::_deriveTexCoordCalcMethod() const
+    {
+        TexCoordCalcMethod texCoordCalcMethod = TEXCALC_NONE;
+        for (const auto& effi : mEffects)
+        {
+            switch (effi.second.type)
+            {
+            case ET_ENVIRONMENT_MAP:
+                if (effi.second.subtype == ENV_CURVED)
+                {
+                    texCoordCalcMethod = TEXCALC_ENVIRONMENT_MAP;
+                }
+                else if (effi.second.subtype == ENV_PLANAR)
+                {
+                    texCoordCalcMethod = TEXCALC_ENVIRONMENT_MAP_PLANAR;
+                }
+                else if (effi.second.subtype == ENV_REFLECTION)
+                {
+                    texCoordCalcMethod = TEXCALC_ENVIRONMENT_MAP_REFLECTION;
+                }
+                else if (effi.second.subtype == ENV_NORMAL)
+                {
+                    texCoordCalcMethod = TEXCALC_ENVIRONMENT_MAP_NORMAL;
+                }
+                break;
+            case ET_UVSCROLL:
+            case ET_USCROLL:
+            case ET_VSCROLL:
+            case ET_ROTATE:
+            case ET_TRANSFORM:
+                break;
+            case ET_PROJECTIVE_TEXTURE:
+                texCoordCalcMethod = TEXCALC_PROJECTIVE_TEXTURE;
+                break;
+            }
+        }
+
+        return texCoordCalcMethod;
     }
 }

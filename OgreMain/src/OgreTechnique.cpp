@@ -134,23 +134,18 @@ namespace Ogre {
                 size_t texUnit = 0;
                 for(const TextureUnitState* tex : currPass->getTextureUnitStates())
                 {
-                    String err;
+                    const char* err = 0;
                     if ((tex->getTextureType() == TEX_TYPE_3D) && !caps->hasCapability(RSC_TEXTURE_3D))
-                    {
-                        err = "Volume textures";
-                    }
+                        err = "Volume";
 
-                    if ((tex->getTextureType() == TEX_TYPE_2D_ARRAY) &&
-                        !caps->hasCapability(RSC_TEXTURE_2D_ARRAY))
-                    {
-                        err = "Array textures";
-                    }
+                    if ((tex->getTextureType() == TEX_TYPE_2D_ARRAY) && !caps->hasCapability(RSC_TEXTURE_2D_ARRAY))
+                        err = "Array";
 
-                    if (!err.empty())
+                    if (err)
                     {
                         // Fail
                         compileErrors << "Pass " << passNum << " Tex " << texUnit << ": " << err
-                                      << " not supported by current environment.";
+                                      << " textures not supported by RenderSystem";
                         return false;
                     }
                     ++texUnit;
@@ -387,6 +382,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------------
     Technique& Technique::operator=(const Technique& rhs)
     {
+        if (this == &rhs)
+            return *this;
+
         mName = rhs.mName;
         this->mIsSupported = rhs.mIsSupported;
         this->mLodIndex = rhs.mLodIndex;
@@ -524,7 +522,6 @@ namespace Ogre {
     //-----------------------------------------------------------------------------
     void Technique::_load(void)
     {
-        assert (mIsSupported && "This technique is not supported");
         // Load each pass
         Passes::iterator i, iend;
         iend = mPasses.end();
@@ -1034,6 +1031,8 @@ namespace Ogre {
     void  Technique::setShadowCasterMaterial(const Ogre::String &name) 
     { 
         setShadowCasterMaterial(MaterialManager::getSingleton().getByName(name));
+        // remember the name, even if it is not created yet
+        mShadowCasterMaterialName = name;
     }
     //-----------------------------------------------------------------------
     Ogre::MaterialPtr  Technique::getShadowReceiverMaterial() const 

@@ -49,12 +49,12 @@ static GpuConstantType typeFromContent(Parameter::Content content)
     case Parameter::SPC_POSITION_LIGHT_SPACE5:
     case Parameter::SPC_POSITION_LIGHT_SPACE6:
     case Parameter::SPC_POSITION_LIGHT_SPACE7:
+    case Parameter::SPC_TANGENT_OBJECT_SPACE:
         return GCT_FLOAT4;
     case Parameter::SPC_NORMAL_TANGENT_SPACE:
     case Parameter::SPC_NORMAL_OBJECT_SPACE:
     case Parameter::SPC_NORMAL_WORLD_SPACE:
     case Parameter::SPC_NORMAL_VIEW_SPACE:
-    case Parameter::SPC_TANGENT_OBJECT_SPACE:
     case Parameter::SPC_POSTOCAMERA_TANGENT_SPACE:
     case Parameter::SPC_POSTOCAMERA_OBJECT_SPACE:
     case Parameter::SPC_POSTOCAMERA_VIEW_SPACE:
@@ -182,6 +182,13 @@ void FunctionStageRef::assign(const std::vector<Operand>& params) const
 void FunctionStageRef::binaryOp(char op, const std::vector<Operand>& params) const
 {
     auto function = new BinaryOpAtom(op, mStage);
+    function->setOperands(params);
+    mParent->addAtomInstance(function);
+}
+
+void FunctionStageRef::callBuiltin(const char* name, const std::vector<Operand>& params) const
+{
+    auto function = new BuiltinFunctionAtom(name, mStage);
     function->setOperands(params);
     mParent->addAtomInstance(function);
 }

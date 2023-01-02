@@ -103,10 +103,8 @@ namespace Ogre
                 }
             }
 
-            //Reaching here means material is supported, but malformed
-            OGRE_EXCEPT( Exception::ERR_INVALIDPARAMS, 
-            "Material '" + mMaterial->getName() + "' is malformed for this instancing technique",
-            "InstanceBatchShader::calculateMaxNumInstances");
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
+                        "Material '" + mMaterial->getName() + "' does not support hardware skinning");
         }
 
         //Reaching here the material is just unsupported.
@@ -275,31 +273,27 @@ namespace Ogre
             char *startBuf = baseBuf;
 
             //Copy and repeat
-            for( uint8 j=0; j<uint8(mInstancesPerBatch); ++j )
+            for (uint8 j = 0; j < uint8(mInstancesPerBatch); ++j)
             {
                 //Repeat source
                 baseBuf = startBuf;
 
-                for( size_t k=0; k<baseVertexData->vertexCount; ++k )
+                for (size_t k = 0; k < baseVertexData->vertexCount; ++k)
                 {
-                    VertexDeclaration::VertexElementList::const_iterator it = veList.begin();
-                    VertexDeclaration::VertexElementList::const_iterator en = veList.end();
-
-                    while( it != en )
+                    for (auto& vl : veList)
                     {
-                        switch( it->getSemantic() )
+                        switch (vl.getSemantic())
                         {
                         case VES_BLEND_INDICES:
-                        *(thisBuf + it->getOffset() + 0) = *(baseBuf + it->getOffset() + 0) + j * numBones;
-                        *(thisBuf + it->getOffset() + 1) = *(baseBuf + it->getOffset() + 1) + j * numBones;
-                        *(thisBuf + it->getOffset() + 2) = *(baseBuf + it->getOffset() + 2) + j * numBones;
-                        *(thisBuf + it->getOffset() + 3) = *(baseBuf + it->getOffset() + 3) + j * numBones;
+                        *(thisBuf + vl.getOffset() + 0) = *(baseBuf + vl.getOffset() + 0) + j * numBones;
+                        *(thisBuf + vl.getOffset() + 1) = *(baseBuf + vl.getOffset() + 1) + j * numBones;
+                        *(thisBuf + vl.getOffset() + 2) = *(baseBuf + vl.getOffset() + 2) + j * numBones;
+                        *(thisBuf + vl.getOffset() + 3) = *(baseBuf + vl.getOffset() + 3) + j * numBones;
                             break;
                         default:
-                            memcpy( thisBuf + it->getOffset(), baseBuf + it->getOffset(), it->getSize() );
+                            memcpy( thisBuf + vl.getOffset(), baseBuf + vl.getOffset(), vl.getSize() );
                             break;
                         }
-                        ++it;
                     }
                     thisBuf += baseVertexData->vertexDeclaration->getVertexSize(i);
                     baseBuf += baseVertexData->vertexDeclaration->getVertexSize(i);
@@ -310,18 +304,20 @@ namespace Ogre
     //-----------------------------------------------------------------------
     void InstanceBatchShader::getWorldTransforms( Matrix4* xform ) const
     {
-        InstancedEntityVec::const_iterator itor = mInstancedEntities.begin();
-        InstancedEntityVec::const_iterator end  = mInstancedEntities.end();
-
-        while( itor != end )
+        if (MeshManager::getBonesUseObjectSpace())
         {
-            xform += (*itor)->getTransforms( xform );
-            ++itor;
+            *xform = Affine3::IDENTITY;
+            xform++;
+        }
+
+        for (auto *e : mInstancedEntities)
+        {
+            xform += e->getTransforms(xform);
         }
     }
     //-----------------------------------------------------------------------
     unsigned short InstanceBatchShader::getNumWorldTransforms(void) const
     {
-        return uint16(mNumWorldMatrices);
+        return uint16(mNumWorldMatrices) + uint16(MeshManager::getBonesUseObjectSpace());
     }
 }

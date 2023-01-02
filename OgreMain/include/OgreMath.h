@@ -51,7 +51,7 @@ namespace Ogre
     typedef std::pair<bool, Real> RayTestResult;
 
     /** Wrapper class which indicates a given angle value is in Radians.
-    @remarks
+
         Radian values are interchangeable with Degree values, and conversions
         will be done automatically between them.
     */
@@ -103,7 +103,7 @@ namespace Ogre
     };
 
     /** Wrapper class which indicates a given angle value is in Degrees.
-    @remarks
+
         Degree values are interchangeable with Radian values, and conversions
         will be done automatically between them.
     */
@@ -156,7 +156,7 @@ namespace Ogre
 
     /** Wrapper class which identifies a value as the currently default angle 
         type, as defined by Math::setAngleUnit.
-    @remarks
+
         Angle values will be automatically converted between radians and degrees,
         as appropriate.
     */
@@ -192,7 +192,7 @@ namespace Ogre
     }
 
     /** Class to provide access to common mathematical functions.
-        @remarks
+
             Most of the maths functions are aliased versions of the C runtime
             library functions. They are aliased here to provide future
             optimisation opportunities, either from faster RTLs or custom
@@ -319,7 +319,10 @@ namespace Ogre
         static inline Real Ceil (Real fValue) { return std::ceil(fValue); }
         static inline bool isNaN(Real f)
         {
-            // std::isnan() is C99, not supported by all compilers
+#if defined(__FAST_MATH__) || defined(_M_FP_FAST)
+            assert(false && "not available with fast math");
+#endif
+            // std::isnan() has non-portable behaviour on MSVC
             // However NaN always fails this next test, no other number does.
             return f != f;
         }
@@ -358,7 +361,7 @@ namespace Ogre
         static inline Real Log (Real fValue) { return std::log(fValue); }
 
         /// Stored value of log(2) for frequent use
-        static constexpr Real LOG2 = 0.69314718055994530942;
+        static constexpr Real LOG2 = static_cast<Real> (0.69314718055994530942);
 
         static inline Real Log2 (Real fValue) { return std::log2(fValue); }
 
@@ -464,7 +467,7 @@ namespace Ogre
             @return
                 A random number in the range from [0,1].
         */
-        static Real UnitRandom ();
+        static float UnitRandom();
 
         /** Generate a random number within the range provided.
             @param fLow
@@ -474,17 +477,13 @@ namespace Ogre
             @return
                 A random number in the range from [fLow,fHigh].
          */
-        static Real RangeRandom (Real fLow, Real fHigh) {
-            return (fHigh-fLow)*UnitRandom() + fLow;
-        }
+        static float RangeRandom(float fLow, float fHigh) { return (fHigh - fLow) * UnitRandom() + fLow; }
 
         /** Generate a random number in the range [-1,1].
             @return
                 A random number in the range from [-1,1].
          */
-        static Real SymmetricRandom () {
-            return 2.0f * UnitRandom() - 1.0f;
-        }
+        static float SymmetricRandom() { return 2.0f * UnitRandom() - 1.0f; }
 
         static void SetRandomValueProvider(RandomValueProvider* provider);
        
@@ -533,7 +532,7 @@ namespace Ogre
 
        /** Checks whether a given point is inside a triangle, in a
             2-dimensional (Cartesian) space.
-            @remarks
+
                 The vertices of the triangle must be given in either
                 trigonometrical (anticlockwise) or inverse trigonometrical
                 (clockwise) order.
@@ -556,7 +555,7 @@ namespace Ogre
             const Vector2& b, const Vector2& c);
 
        /** Checks whether a given 3D point is inside a triangle.
-       @remarks
+
             The vertices of the triangle must be given in either
             trigonometrical (anticlockwise) or inverse trigonometrical
             (clockwise) order, and the point must be guaranteed to be in the
@@ -667,8 +666,8 @@ namespace Ogre
             return std::abs(b-a) <= tolerance;
         }
 
-        /** Calculates the tangent space vector for a given set of positions / texture coords. */
-        static Vector3 calculateTangentSpaceVector(
+        /// @deprecated use @ref TangentSpaceCalc
+        OGRE_DEPRECATED static Vector3 calculateTangentSpaceVector(
             const Vector3& position1, const Vector3& position2, const Vector3& position3,
             Real u1, Real v1, Real u2, Real v2, Real u3, Real v3);
 
@@ -740,7 +739,7 @@ namespace Ogre
 
         static constexpr Real POS_INFINITY = std::numeric_limits<Real>::infinity();
         static constexpr Real NEG_INFINITY = -std::numeric_limits<Real>::infinity();
-        static constexpr Real PI = 3.14159265358979323846;
+        static constexpr Real PI = static_cast<Real> (3.14159265358979323846);
         static constexpr Real TWO_PI = Real( 2.0 * PI );
         static constexpr Real HALF_PI = Real( 0.5 * PI );
         static constexpr float fDeg2Rad = PI / Real(180.0);

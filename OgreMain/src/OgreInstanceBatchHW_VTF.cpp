@@ -61,21 +61,15 @@ namespace Ogre
         thisVertexData->vertexCount = baseVertexData->vertexCount;
         mRenderOperation.numberOfInstances = mInstancesPerBatch;
 
-        HardwareBufferManager::getSingleton().destroyVertexDeclaration(
-                                                                    thisVertexData->vertexDeclaration );
+        HardwareBufferManager::getSingleton().destroyVertexDeclaration(thisVertexData->vertexDeclaration );
         thisVertexData->vertexDeclaration = baseVertexData->vertexDeclaration->clone();
 
         //Reuse all vertex buffers
-        VertexBufferBinding::VertexBufferBindingMap::const_iterator itor = baseVertexData->
-                                                            vertexBufferBinding->getBindings().begin();
-        VertexBufferBinding::VertexBufferBindingMap::const_iterator end  = baseVertexData->
-                                                            vertexBufferBinding->getBindings().end();
-        while( itor != end )
+        for (auto& v : baseVertexData->vertexBufferBinding->getBindings())
         {
-            const unsigned short bufferIdx = itor->first;
-            const HardwareVertexBufferSharedPtr vBuf = itor->second;
+            const unsigned short bufferIdx = v.first;
+            const HardwareVertexBufferSharedPtr vBuf = v.second;
             thisVertexData->vertexBufferBinding->setBinding( bufferIdx, vBuf );
-            ++itor;
         }
 
         //Remove the blend weights & indices
@@ -83,8 +77,7 @@ namespace Ogre
         HWBoneWgtVec hwBoneWgt;
 
         //Blend weights may not be present because HW_VTF does not require to be skeletally animated
-        const VertexElement *veWeights = baseVertexData->vertexDeclaration->
-                                                        findElementBySemantic( VES_BLEND_WEIGHTS ); 
+        const VertexElement *veWeights = baseVertexData->vertexDeclaration->findElementBySemantic( VES_BLEND_WEIGHTS );
         if( veWeights )
             mWeightCount = forceOneWeight() ? 1 : veWeights->getSize() / sizeof(float);
         else
@@ -226,8 +219,7 @@ namespace Ogre
 
         //Now create the instance buffer that will be incremented per instance, contains UV offsets
         newSource = thisVertexData->vertexDeclaration->getMaxSource() + 1;
-        offset = thisVertexData->vertexDeclaration->addElement( newSource, 0, VET_FLOAT2, VES_TEXTURE_COORDINATES,
-                                    thisVertexData->vertexDeclaration->getNextFreeTextureCoordinate() ).getSize();
+        offset = thisVertexData->vertexDeclaration->addElement( newSource, 0, VET_FLOAT2, VES_TEXTURE_COORDINATES,thisVertexData->vertexDeclaration->getNextFreeTextureCoordinate() ).getSize();
         if (useBoneMatrixLookup())
         {
             //if using bone matrix lookup we will need to add 3 more float4 to contain the matrix. containing
@@ -370,6 +362,8 @@ namespace Ogre
             //TODO: Check PF_FLOAT32_RGBA is supported (should be, since it was the 1st one)
             const size_t numBones = std::max<size_t>( 1, baseSubMesh->blendIndexToBoneIndexMap.size() );
 
+            // mRowLength can only be 2 or 3
+            static_assert(3 * OGRE_MAX_NUM_BONES < c_maxTexWidthHW, "Too many bones for VTF");
             const size_t maxUsableWidth = c_maxTexWidthHW - (c_maxTexWidthHW % (numBones * mRowLength));
 
             //See InstanceBatchHW::calculateMaxNumInstances for the 65535

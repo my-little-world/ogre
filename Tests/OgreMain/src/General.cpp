@@ -52,6 +52,8 @@ THE SOFTWARE.
 
 #include "OgreHighLevelGpuProgram.h"
 
+#include "OgreKeyFrame.h"
+
 #include <random>
 using std::minstd_rand;
 
@@ -64,10 +66,27 @@ TEST_F(CameraTests,customProjectionMatrix)
     std::vector<Vector3> corners(cam.getWorldSpaceCorners(), cam.getWorldSpaceCorners() + 8);
     RealRect extents = cam.getFrustumExtents();
     cam.setCustomProjectionMatrix(true, cam.getProjectionMatrix());
-    for(int j = 0; j < 8; j++)
-        EXPECT_EQ(corners[j], cam.getWorldSpaceCorners()[j]);
+    for(int j = 0; j < 8; j++) {
+        for(int k = 0; k < 3; k++) {
+            if(OGRE_DOUBLE_PRECISION == 0)
+                EXPECT_FLOAT_EQ(corners[j][k], cam.getWorldSpaceCorners()[j][k]);
+            else
+                EXPECT_DOUBLE_EQ(corners[j][k], cam.getWorldSpaceCorners()[j][k]);
+        }
+    }
 
-    EXPECT_EQ(extents, cam.getFrustumExtents());
+    if(OGRE_DOUBLE_PRECISION == 0) {
+        EXPECT_FLOAT_EQ(extents.bottom, cam.getFrustumExtents().bottom);
+        EXPECT_FLOAT_EQ(extents.top, cam.getFrustumExtents().top);
+        EXPECT_FLOAT_EQ(extents.left, cam.getFrustumExtents().left);
+        EXPECT_FLOAT_EQ(extents.right, cam.getFrustumExtents().right);
+    } else {
+        EXPECT_DOUBLE_EQ(extents.bottom, cam.getFrustumExtents().bottom);
+        EXPECT_DOUBLE_EQ(extents.top, cam.getFrustumExtents().top);
+        EXPECT_DOUBLE_EQ(extents.left, cam.getFrustumExtents().left);
+        EXPECT_DOUBLE_EQ(extents.right, cam.getFrustumExtents().right);
+    }
+
 }
 
 TEST(Root,shutdown)
@@ -103,9 +122,9 @@ static void createRandomEntityClones(Entity* ent, size_t cloneCount, const Vecto
         SceneNode* node = mgr->createSceneNode();
         // Random translate.
         Vector3 nodePos = max - min;
-        nodePos.x *= float(rng())/rng.max();
-        nodePos.y *= float(rng())/rng.max();
-        nodePos.z *= float(rng())/rng.max();
+        nodePos.x *= double(rng())/rng.max();
+        nodePos.y *= double(rng())/rng.max();
+        nodePos.z *= double(rng())/rng.max();
         nodePos += min;
         node->setPosition(nodePos);
         mgr->getRootSceneNode()->addChild(node);
@@ -120,7 +139,7 @@ struct SceneQueryTest : public RootWithoutRenderSystemFixture {
     Camera* mCamera;
     SceneNode* mCameraNode;
 
-    void SetUp() {
+    void SetUp() override {
         RootWithoutRenderSystemFixture::SetUp();
 
         mSceneMgr = mRoot->createSceneManager();
@@ -160,10 +179,8 @@ TEST_F(SceneQueryTest,Intersection)
     EXPECT_EQ(results.movables2movables.size(), sizeof(expected)/sizeof(expected[0]));
 
     int i = 0;
-    for (SceneQueryMovableIntersectionList::iterator mov = results.movables2movables.begin();
-         mov != results.movables2movables.end(); ++mov)
+    for (auto & thepair : results.movables2movables)
     {
-        SceneQueryMovableObjectPair& thepair = *mov;
         // printf("{%d, %d},", StringConverter::parseInt(thepair.first->getName()), StringConverter::parseInt(thepair.second->getName()));
         ASSERT_EQ(expected[i][0], StringConverter::parseInt(thepair.first->getName()));
         ASSERT_EQ(expected[i][1], StringConverter::parseInt(thepair.second->getName()));
@@ -289,9 +306,50 @@ TEST(Image, Combine)
     ASSERT_TRUE(!memcmp(combined.getData(), ref.getData(), ref.getSize()));
 }
 
+TEST(Image, Compressed)
+{
+    Root root;
+    ConfigFile cf;
+    cf.load(FileSystemLayer(OGRE_VERSION_NAME).getConfigFilePath("resources.cfg"));
+    auto testPath = cf.getSettings("Tests").begin()->second;
+
+    Image img;
+#if OGRE_NO_PVRTC_CODEC == 0
+    // 2bpp
+    img.load(Root::openFileStream(testPath+"/ogreborderUp_pvr2.pvr"), "pvr");
+    EXPECT_EQ(img.getFormat(), PF_PVRTC_RGB2);
+    // 2bpp alpha
+    img.load(Root::openFileStream(testPath+"/ogreborderUp_pvr2a.pvr"), "pvr");
+    EXPECT_EQ(img.getFormat(), PF_PVRTC_RGBA2);
+    // 4bpp
+    img.load(Root::openFileStream(testPath+"/ogreborderUp_pvr4.pvr"), "pvr");
+    EXPECT_EQ(img.getFormat(), PF_PVRTC_RGB4);
+    // 4 bpp alpha
+    img.load(Root::openFileStream(testPath+"/ogreborderUp_pvr4a.pvr"), "pvr");
+    EXPECT_EQ(img.getFormat(), PF_PVRTC_RGBA4);
+#endif
+
+#if OGRE_NO_ETC_CODEC == 0
+    img.load(Root::openFileStream(testPath+"/Texture.pkm"), "pkm");
+    EXPECT_EQ(img.getFormat(), PF_ETC2_RGB8);
+    img.load(Root::openFileStream(testPath+"/etc2-rgba8.ktx"), "ktx");
+    EXPECT_EQ(img.getFormat(), PF_ETC2_RGBA8);
+#endif
+
+#if OGRE_NO_ASTC_CODEC == 0
+    img.load(Root::openFileStream(testPath+"/Earth-Color10x6.astc"), "astc");
+    EXPECT_EQ(img.getFormat(), PF_ASTC_RGBA_10X6_LDR);
+#endif
+
+#if OGRE_NO_DDS_CODEC == 0
+    img.load(Root::openFileStream(testPath+"/ogreborderUp_dxt3.dds"), "dds");
+    EXPECT_EQ(img.getFormat(), PF_BYTE_RGBA); // no RenderSystem available, will decompress
+#endif
+}
+
 struct UsePreviousResourceLoadingListener : public ResourceLoadingListener
 {
-    bool resourceCollision(Resource *resource, ResourceManager *resourceManager) { return false; }
+    bool resourceCollision(Resource *resource, ResourceManager *resourceManager) override { return false; }
 };
 
 typedef RootWithoutRenderSystemFixture ResourceLoading;
@@ -324,7 +382,7 @@ TEST_F(ResourceLoading, CollsionUseExisting)
 
 struct DeletePreviousResourceLoadingListener : public ResourceLoadingListener
 {
-    bool resourceCollision(Resource* resource, ResourceManager* resourceManager)
+    bool resourceCollision(Resource* resource, ResourceManager* resourceManager) override
     {
         resourceManager->remove(resource->getName(), resource->getGroup());
         return true;
@@ -435,4 +493,77 @@ TEST_F(SkeletonTests, linkedSkeletonAnimationSource)
     entity->getSkeleton()->addLinkedSkeletonAnimationSource("ninja.skeleton");
     entity->refreshAvailableAnimationState();
     EXPECT_TRUE(entity->getAnimationState("Stealth")); // animation from ninja.sekeleton
+}
+
+TEST(MaterialLoading, LateShadowCaster)
+{
+    Root root("");
+    auto tech = MaterialManager::getSingleton().create("Material", RGN_DEFAULT)->createTechnique();
+    tech->setShadowCasterMaterial("Caster");
+    EXPECT_FALSE(tech->getShadowCasterMaterial());
+
+    MaterialManager::getSingleton().create("Caster", RGN_DEFAULT);
+
+    // force call _load() due to missing rendersystem
+    tech->_load();
+
+    EXPECT_TRUE(tech->getShadowCasterMaterial());
+}
+
+TEST(Light, AnimableValue)
+{
+    Light l;
+
+    l.setDiffuseColour(0, 0, 0);
+    auto diffuseColour = l.createAnimableValue("diffuseColour");
+    diffuseColour->applyDeltaValue(ColourValue(1, 2, 3, 0));
+    EXPECT_EQ(l.getDiffuseColour(), ColourValue(1, 2, 3));
+
+    l.setSpecularColour(0, 0, 0);
+    auto specularColour = l.createAnimableValue("specularColour");
+    specularColour->applyDeltaValue(ColourValue(1, 2, 3, 0));
+    EXPECT_EQ(l.getSpecularColour(), ColourValue(1, 2, 3));
+
+    l.setAttenuation(0, 0, 0, 0);
+    auto attenuation = l.createAnimableValue("attenuation");
+    attenuation->applyDeltaValue(Vector4(1, 2, 3, 4));
+    EXPECT_EQ(l.getAttenuation(), Vector4f(1, 2, 3, 4));
+
+    l.setSpotlightInnerAngle(Radian(0));
+    auto spotlightInner = l.createAnimableValue("spotlightInner");
+    spotlightInner->applyDeltaValue(Real(1));
+    EXPECT_EQ(l.getSpotlightInnerAngle(), Radian(1));
+
+    l.setSpotlightOuterAngle(Radian(0));
+    auto spotlightOuter = l.createAnimableValue("spotlightOuter");
+    spotlightOuter->applyDeltaValue(Real(1));
+    EXPECT_EQ(l.getSpotlightOuterAngle(), Radian(1));
+
+    l.setSpotlightFalloff(0);
+    auto spotlightFalloff = l.createAnimableValue("spotlightFalloff");
+    spotlightFalloff->applyDeltaValue(Real(1));
+    EXPECT_EQ(l.getSpotlightFalloff(), 1);
+}
+
+TEST(Light, AnimationTrack)
+{
+    Light l;
+    l.setDiffuseColour(0, 0, 0);
+    l.setAttenuation(0, 0, 0, 0);
+
+    Animation anim("test", 1.0);
+    auto diffuse = anim.createNumericTrack(0, l.createAnimableValue("diffuseColour"));
+    diffuse->createNumericKeyFrame(0)->setValue(ColourValue(1, 2, 3, 0));
+    diffuse->createNumericKeyFrame(1)->setValue(ColourValue(2, 4, 6, 0));
+
+    diffuse->apply(0.5);
+
+    EXPECT_EQ(l.getDiffuseColour(), ColourValue(1.5, 3, 4.5));
+
+    auto attenuation = anim.createNumericTrack(1, l.createAnimableValue("attenuation"));
+    attenuation->createNumericKeyFrame(0)->setValue(Vector4(1, 2, 3, 4));
+    attenuation->createNumericKeyFrame(1)->setValue(Vector4(2, 4, 6, 8));
+
+    attenuation->apply(0.5);
+    EXPECT_EQ(l.getAttenuation(), Vector4f(1.5, 3, 4.5, 6));
 }

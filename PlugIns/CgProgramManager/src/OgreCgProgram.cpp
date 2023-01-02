@@ -378,8 +378,7 @@ namespace Ogre {
 													 mParametersMapSizeAsBuffer);
 
 		// create microcode
-		GpuProgramManager::Microcode newMicrocode =
-			GpuProgramManager::getSingleton().createMicrocode(sizeOfMicrocode);
+		auto newMicrocode = GpuProgramManager::createMicrocode(sizeOfMicrocode);
 
 		newMicrocode->seek(0);
 
@@ -1011,7 +1010,7 @@ namespace Ogre {
 					}
 
 					// Record logical / physical mapping
-					OGRE_LOCK_MUTEX(mFloatLogicalToPhysical->mutex);
+					OGRE_LOCK_MUTEX(mLogicalToPhysical->mutex);
 					mLogicalToPhysical->map.emplace(def.logicalIndex,
 							GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL, def.isFloat() ? BCT_FLOAT : BCT_INT));
 					mLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;

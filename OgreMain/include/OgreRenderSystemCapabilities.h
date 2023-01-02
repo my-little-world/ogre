@@ -93,7 +93,7 @@ namespace Ogre
         /// Supports 32bit hardware index buffers
         RSC_32BIT_INDEX             = OGRE_CAPS_VALUE(CAPS_CATEGORY_COMMON, 8),
         /// Supports vertex programs (vertex shaders)
-        /// @deprecated All targetted APIs by Ogre support this feature
+        /// @deprecated All targeted APIs by Ogre support this feature
         RSC_VERTEX_PROGRAM          = OGRE_CAPS_VALUE(CAPS_CATEGORY_COMMON, 9),
         /// Supports hardware tessellation domain programs
         RSC_TESSELLATION_DOMAIN_PROGRAM = OGRE_CAPS_VALUE(CAPS_CATEGORY_COMMON, 10),
@@ -170,6 +170,8 @@ namespace Ogre
         RSC_VERTEX_BUFFER_INSTANCE_DATA = OGRE_CAPS_VALUE(CAPS_CATEGORY_COMMON_2, 16),
         /// Supports hardware tessellation hull programs
         RSC_TESSELLATION_HULL_PROGRAM = OGRE_CAPS_VALUE(CAPS_CATEGORY_COMMON_2, 17),
+        /// Supports #VET_INT_10_10_10_2_NORM
+        RSC_VERTEX_FORMAT_INT_10_10_10_2 = OGRE_CAPS_VALUE(CAPS_CATEGORY_COMMON_2, 18),
 
         // ***** DirectX specific caps *****
         /// Is DirectX feature "per stage constants" supported
@@ -245,7 +247,7 @@ namespace Ogre
     };
 
     /** This class stores the capabilities of the graphics card.
-    @remarks
+
     This information is set by the individual render systems.
     */
     class _OgreExport RenderSystemCapabilities : public RenderSysAlloc
@@ -554,7 +556,7 @@ namespace Ogre
             mNonPOW2TexturesLimited = l;
         }
         /** Are non-power of two textures limited in features?
-        @remarks
+
         If the RSC_NON_POWER_OF_2_TEXTURES capability is set, but this
         method returns true, you can use non power of 2 textures only if:
         <ul><li>You load them explicitly with no mip maps</li>

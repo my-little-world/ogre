@@ -48,13 +48,69 @@ Consequently, most protected members are private now.
 
 Nevertheless, there is fallback code so you still can use old `.material` files. Here, a caster/ receiver material will be generated on demand. However, you are highly encouraged to define those explicitly.
 
+### `texture_alias` API removed
+Texture aliases were a restricted version of Script Variables, which you should instead.
+I.e. replace
+
+```cpp
+texture_alias DiffuseMap
+// and
+set_texture_alias	DiffuseMap	r2skin.jpg
+```
+
+by
+
+```cpp
+texture $DiffuseMap
+// and
+set     $DiffuseMap r2skin.jpg
+```
+
+There is limited backward compatibility for material scripts, where `texture_alias` will set the texture unit name and later `set_texture_alias` is applied based on that.
+
+### Automatic Instancing (since 13.5)
+
+Visible SubEntities can now be automatically batched up for Hardware Instancing.
+While this is not as fast as using the respective InstanceManager class, it requires no code changes and still offers a nice speed-up.
+The idea is that you specify that your vertex shader is capable of instancing - similar to how you would do for hardware skinning:
+
+```nginx
+includes_instancing true
+```
+
+Ogre will then do the rest and provide the world matrices through an automatically created instance buffer to the shader.
+
+The RTSS will also set the respective flag, so enabling hardware instancing now merely takes only one line in the material script:
+
+```nginx
+rtshader_system
+{
+   transform_stage instanced
+}
+```
+
+### Object Space Bones (since 13.5)
+
+Ogre now offers the option to do the bone-to-world transformation on the GPU - aka "Object Space Bones".
+
+Traditionally Ogre passed bones to shaders (for HW skinning) via the `world_*_array` auto constant. Obviously this implied the bones to be in world space. To this end, Ogre did the transformation on the CPU. While this does not add much for a few bones, it becomes noticeable if you got multiple skeletons with 40+ bones.
+
+You can opt-in into the new behavior via `MeshManager::setBonesUseObjectSpace`.
+Also see `Renderable::getWorldTransforms` for how to return the transformations for your custom renderables when doing so.
+
+When using the RTSS for HW Skinning, it will automatically generate improved shaders, when the option is on.
+
+Also, you can now use the `bone_*_array` alias instead of `world_*_array` for clarity. Note that `world_*_array` was exclusively used for bones by Ogre anyway.
+
 ### Other
 - Size of the Particle class was reduced by 12% which results in about 13% faster rendering
 - Frustum is not a Renderable any more. Rendering Frusta is now done by the DebugDrawer.
 - ShadowTextureListener was factored out of SceneManager::Listener
+- RenderQueueInvocationSequence API was removed as it prevented effective batching. Use the current Viewport name instead of invocationName in your RenderQueueListener for porting.
 - SWIG 4.0 is now fully supported
-- Flollowing SemVer, incrementing PATCH now guarantees ABI compatibility. Therefore SOVERSION on Unix system now only contains two digits e.g. `libOgreMain.so.13.0` instead of `libOgreMain.so.1.12.13`.
+- Following SemVer, incrementing PATCH now guarantees ABI compatibility. Therefore SOVERSION on Unix system now only contains two digits e.g. `libOgreMain.so.13.0` instead of `libOgreMain.so.1.12.13`.
 - since 13.3, `PF_DEPTH24_STENCIL8` is available
+- since 13.6, shadow pancaking is applied for directional shadow lights
 
 
 ### Breaking non-API changes
@@ -77,9 +133,13 @@ There is now a  RTSS stage for Weighted, blended Order Independent Transparency,
 See the transparency Sample for how to integrate it into your pipeline.
 
 The RTSS Normal Map stage, is no longer a lighting stage but only does normal mapping.
-This allows using it with per-pixel lighting as before, but also enables combining it with the GBuffer stage to enable normal mapping in the GBuffer
+This allows using it with per-pixel lighting as before, but also enables combining it with the GBuffer stage to enable normal mapping in the GBuffer.
+
+**ACTION REQUIRED** Direct specification of sampler parameters via `lighting_stage normal_map ...` is no longer supported and the additional parameters will be interpreted as a sampler reference.
 
 The PSSM3 stage now also supports colour shadows in addition to depth shadows. Colour shadows are automatically used for `PCT_BYTE` texture formats.
+Since 13.3, the PSSM3 stage supports the "Reversed Z-Buffer" RenderSystem option.
+Since 13.5, the PSSM3 stage respects other, non shadow-casting, lights so you can add a spot-light to simulate a flashlight.
 
 ### PBR Material support (since 13.3)
 
@@ -104,6 +164,20 @@ rtshader_system
 ```
 
 Here, metalness is read from `specular[0]` and roughness from `specular[1]`.
+
+Since 13.6, additionally indirect, image based lighting (IBL) can be used. It can be enabled by also adding
+
+```nginx
+image_based_lighting texture ibl_cubemap.ktx
+```
+
+Where `ibl_cubemap.ktx`, is a cubemap texture.
+For best results, it should be generated with the [cmgen tool](https://github.com/google/filament/tree/main/tools/cmgen) from the filament project.
+
+## Terrain
+
+Since 13.6, `TerrainMaterialGeneratorA` internally uses the RTSS to generate shaders. This allows you to use the RTSS SRS to customize the terrain appearance.
+The API to configure this is `TerrainMaterialGeneratorA::getMainRenderState()`. This way you can enable multiple light support for the terrain or switch to PBR lighting equations.
 
 ## DotScene
 The Plugin now supports exporting via a generic `SceneNode::saveChildren` API. This allows you to dump your dynamically generated Scene to file and later inspect it with ogre-meshviewer, which also got improved .scene support.
@@ -133,10 +207,21 @@ The RenderSystem does not yet support all of Ogre features, but many common use-
 1. *Buffer updates*: Ogre does not try to hide the asynchronicity of Vulkan from the user and rather lets you run into rendering glitches. The solution here is to either implement triple-buffering yourself or discard the buffer contents on update (`HBL_DISCARD`), which will give you new memory on Vulkan.
 2. *Rendering interruption*: Closely related to the above is rendering interruption. This means that after the first Renderable was submitted for the current frame, you decide to load another Texture or update a buffer. Typically, it is possible to schedule your buffer updates before rendering kicks off. Additionally, this improves performance on tile-based hardware (mobile).
 
+Since 13.5, the Vulkan Memory Allocator is used for improved memory management.
+
 ## GLSLang Plugin
 
 This new Plugin enables Ogre to automatically compile GLSL shaders to SPIRV that in turn will be loaded by GL3+.
 This means you can now easily use the Khronos reference compiler instead of what your driver would do - similar to how things work on D3D11.
+
+## Bullet Component (since 13.4)
+
+btOgre was moved into Ogre as the Bullet Component. This allows you to just build it as part of Ogre on one hand and on the other hand this ensures that it is integration tested by our CI.
+
+## RsImage Codec (since 13.6)
+
+This new Codec internally uses image-rs to load the various formats, which are all implemented in Rust and thus provide memory safety.
+Unfortunately, currently the Rust implementation is slower than the highly optimized C libs that have been around for decades.
 
 ## HLMS
 The component was removed. The RTSS or just plain shaders in Ogre materials are a better way forward.

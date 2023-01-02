@@ -42,7 +42,7 @@ namespace Ogre {
 
     /** This affector scales particles in flight.
     */
-    class _OgreParticleFXExport ScaleAffector : public ParticleAffector
+    class ScaleAffector : public ParticleAffector
     {
     public:
 
@@ -50,8 +50,8 @@ namespace Ogre {
         class CmdScaleAdjust : public ParamCommand
         {
         public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
+            String doGet(const void* target) const override;
+            void doSet(void* target, const String& val) override;
         };
 
         /** Default constructor. */

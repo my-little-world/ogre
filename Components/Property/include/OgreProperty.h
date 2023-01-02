@@ -126,7 +126,7 @@ namespace Ogre
     typedef GeneralAllocatedObject PropertyAlloc;
 
     /** Definition of a property of an object.
-    @remarks
+
     This definition is shared between all instances of an object and therefore
     has no value. Property contains values.
     */
@@ -243,7 +243,7 @@ namespace Ogre
             return mGetter();
         }
 
-        Ogre::Any getValue() const
+        Ogre::Any getValue() const override
         {
             return Ogre::Any(get());
         }
@@ -279,13 +279,13 @@ namespace Ogre
         ~PropertySet();
 
         /** Adds a property to this set. 
-        @remarks
+
         The PropertySet is responsible for deleting this object.
         */
         void addProperty(PropertyBase* prop);
 
         /** Gets the property object for a given property name. 
-        @remarks
+
         Note that this property will need to be cast to a templated property
         compatible with the type you will be setting. You might find the 
         overloaded set and get<type> methods quicker if 

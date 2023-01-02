@@ -30,6 +30,8 @@ THE SOFTWARE.
 
 
 namespace Ogre {
+    const String MSN_DEFAULT = "Default";
+    const String MSN_SHADERGEN = "ShaderGeneratorDefaultScheme";
 
     //-----------------------------------------------------------------------
     template<> MaterialManager* Singleton<MaterialManager>::msSingleton = 0;
@@ -41,7 +43,7 @@ namespace Ogre {
     {
         assert( msSingleton );  return ( *msSingleton );
     }
-    String MaterialManager::DEFAULT_SCHEME_NAME = "Default";
+    String MaterialManager::DEFAULT_SCHEME_NAME = MSN_DEFAULT;
     //-----------------------------------------------------------------------
     MaterialManager::MaterialManager()
     {
@@ -57,7 +59,7 @@ namespace Ogre {
 
         // Default scheme
         mActiveSchemeIndex = 0;
-        mActiveSchemeName = DEFAULT_SCHEME_NAME;
+        mActiveSchemeName = MSN_DEFAULT;
         mSchemes[mActiveSchemeName] = 0;
 
     }
@@ -174,12 +176,12 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     const String& MaterialManager::_getSchemeName(unsigned short index)
     {
-        for (SchemeMap::iterator i = mSchemes.begin(); i != mSchemes.end(); ++i)
+        for (auto & scheme : mSchemes)
         {
-            if (i->second == index)
-                return i->first;
+            if (scheme.second == index)
+                return scheme.first;
         }
-        return DEFAULT_SCHEME_NAME;
+        return MSN_DEFAULT;
     }
     //-----------------------------------------------------------------------
     void MaterialManager::setActiveScheme(const String& schemeName)
@@ -211,10 +213,9 @@ namespace Ogre {
         if (it != mListenerMap.end()) 
         {
             ListenerList& listenerList = it->second;
-            for (ListenerList::iterator i = listenerList.begin(); i != listenerList.end(); ++i)
+            for (auto & i : listenerList)
             {
-                Technique* t = (*i)->handleSchemeNotFound(mActiveSchemeIndex, 
-                    mActiveSchemeName, mat, lodIndex, rend);
+                Technique* t = i->handleSchemeNotFound(mActiveSchemeIndex, mActiveSchemeName, mat, lodIndex, rend);
                 if (t)
                     return t;
             }
@@ -225,10 +226,9 @@ namespace Ogre {
         if (it != mListenerMap.end()) 
         {
             ListenerList& listenerList = it->second;
-            for (ListenerList::iterator i = listenerList.begin(); i != listenerList.end(); ++i)
+            for (auto & i : listenerList)
             {
-                Technique* t = (*i)->handleSchemeNotFound(mActiveSchemeIndex, 
-                    mActiveSchemeName, mat, lodIndex, rend);
+                Technique* t = i->handleSchemeNotFound(mActiveSchemeIndex, mActiveSchemeName, mat, lodIndex, rend);
                 if (t)
                     return t;
             }
@@ -246,9 +246,9 @@ namespace Ogre {
 		if(it != mListenerMap.end())
 		{
 			ListenerList& listenerList = it->second;
-			for(ListenerList::iterator i = listenerList.begin(); i != listenerList.end(); ++i)
+			for(auto & i : listenerList)
 			{
-				bool handled = (*i)->afterIlluminationPassesCreated(tech);
+				bool handled = i->afterIlluminationPassesCreated(tech);
 				if(handled)
 					return;
 			}
@@ -259,9 +259,9 @@ namespace Ogre {
 		if(it != mListenerMap.end())
 		{
 			ListenerList& listenerList = it->second;
-			for(ListenerList::iterator i = listenerList.begin(); i != listenerList.end(); ++i)
+			for(auto & i : listenerList)
 			{
-				bool handled = (*i)->afterIlluminationPassesCreated(tech);
+				bool handled = i->afterIlluminationPassesCreated(tech);
 				if(handled)
 					return;
 			}
@@ -275,9 +275,9 @@ namespace Ogre {
 		if(it != mListenerMap.end())
 		{
 			ListenerList& listenerList = it->second;
-			for(ListenerList::iterator i = listenerList.begin(); i != listenerList.end(); ++i)
+			for(auto & i : listenerList)
 			{
-				bool handled = (*i)->beforeIlluminationPassesCleared(tech);
+				bool handled = i->beforeIlluminationPassesCleared(tech);
 				if(handled)
 					return;
 			}
@@ -288,9 +288,9 @@ namespace Ogre {
 		if(it != mListenerMap.end())
 		{
 			ListenerList& listenerList = it->second;
-			for(ListenerList::iterator i = listenerList.begin(); i != listenerList.end(); ++i)
+			for(auto & i : listenerList)
 			{
-				bool handled = (*i)->beforeIlluminationPassesCleared(tech);
+				bool handled = i->beforeIlluminationPassesCleared(tech);
 				if(handled)
 					return;
 			}

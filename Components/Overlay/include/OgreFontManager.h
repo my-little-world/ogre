@@ -59,7 +59,7 @@ namespace Ogre
         FontPtr getByName(const String& name, const String& groupName OGRE_RESOURCE_GROUP_INIT) const;
 
         /** Override standard Singleton retrieval.
-        @remarks
+
         Why do we do this? Well, it's because the Singleton
         implementation is in a .h file, which means it gets compiled
         into anybody who includes it. This is needed for the
@@ -82,7 +82,7 @@ namespace Ogre
         /// Internal methods
         Resource* createImpl(const String& name, ResourceHandle handle, 
             const String& group, bool isManual, ManualResourceLoader* loader, 
-            const NameValuePairList* params);
+            const NameValuePairList* params) override;
         void parseAttribute(const String& line, FontPtr& pFont);
 
         void logBadAttrib(const String& line, FontPtr& pFont);

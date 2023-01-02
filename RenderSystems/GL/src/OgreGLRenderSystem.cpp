@@ -31,8 +31,7 @@ THE SOFTWARE.
 #include "OgreGLNativeSupport.h"
 #include "OgreLogManager.h"
 #include "OgreStringConverter.h"
-#include "OgreLight.h"
-#include "OgreCamera.h"
+#include "OgreFrustum.h"
 #include "OgreGLTextureManager.h"
 #include "OgreGLHardwareBuffer.h"
 #include "OgreDefaultHardwareBufferManager.h"
@@ -543,8 +542,7 @@ namespace Ogre {
         }
 
         // Check if geometry shaders are supported
-        if (GLAD_GL_VERSION_2_0 &&
-            GLAD_GL_EXT_geometry_shader4)
+        if (hasMinGLVersion(3, 2) || (GLAD_GL_VERSION_2_0 && GLAD_GL_EXT_geometry_shader4))
         {
             rsc->setCapability(RSC_GEOMETRY_PROGRAM);
             GLint floatConstantCount = 0;
@@ -1362,8 +1360,7 @@ namespace Ogre {
     {
         GLenum lastTextureType = mTextureTypes[stage];
 
-        if (!mStateCacheManager->activateGLTextureUnit(stage))
-            return;
+        mStateCacheManager->activateGLTextureUnit(stage);
 
         if (enabled)
         {
@@ -1408,8 +1405,7 @@ namespace Ogre {
 
     void GLRenderSystem::_setSampler(size_t unit, Sampler& sampler)
     {
-        if (!mStateCacheManager->activateGLTextureUnit(unit))
-            return;
+        mStateCacheManager->activateGLTextureUnit(unit);
 
         GLenum target = mTextureTypes[unit];
 
@@ -1485,8 +1481,7 @@ namespace Ogre {
         GLfloat eyePlaneR[] = {0.0, 0.0, 1.0, 0.0};
         GLfloat eyePlaneQ[] = {0.0, 0.0, 0.0, 1.0};
 
-        if (!mStateCacheManager->activateGLTextureUnit(stage))
-            return;
+        mStateCacheManager->activateGLTextureUnit(stage);
 
         switch( m )
         {
@@ -1497,6 +1492,8 @@ namespace Ogre {
             mStateCacheManager->disableTextureCoordGen( GL_TEXTURE_GEN_Q );
             break;
 
+        case TEXCALC_ENVIRONMENT_MAP_PLANAR:
+            // should be view position .xy, according to doc, but we want to match OGRE D3D9 behaviour here
         case TEXCALC_ENVIRONMENT_MAP:
             glTexGeni( GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP );
             glTexGeni( GL_T, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP );
@@ -1514,27 +1511,6 @@ namespace Ogre {
 
             break;
 
-        case TEXCALC_ENVIRONMENT_MAP_PLANAR:
-            // XXX This doesn't seem right?!
-#ifdef GL_VERSION_1_3
-            glTexGeni( GL_S, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP );
-            glTexGeni( GL_T, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP );
-            glTexGeni( GL_R, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP );
-
-            mStateCacheManager->enableTextureCoordGen( GL_TEXTURE_GEN_S );
-            mStateCacheManager->enableTextureCoordGen( GL_TEXTURE_GEN_T );
-            mStateCacheManager->enableTextureCoordGen( GL_TEXTURE_GEN_R );
-            mStateCacheManager->disableTextureCoordGen( GL_TEXTURE_GEN_Q );
-#else
-            glTexGeni( GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP );
-            glTexGeni( GL_T, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP );
-
-            mStateCacheManager->enableTextureCoordGen( GL_TEXTURE_GEN_S );
-            mStateCacheManager->enableTextureCoordGen( GL_TEXTURE_GEN_T );
-            mStateCacheManager->disableTextureCoordGen( GL_TEXTURE_GEN_R );
-            mStateCacheManager->disableTextureCoordGen( GL_TEXTURE_GEN_Q );
-#endif
-            break;
         case TEXCALC_ENVIRONMENT_MAP_REFLECTION:
 
             glTexGeni( GL_S, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP );
@@ -1631,8 +1607,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------------
     void GLRenderSystem::_setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw)
     {
-        if (!mStateCacheManager->activateGLTextureUnit(stage))
-            return;
+        mStateCacheManager->activateGLTextureUnit(stage);
         mStateCacheManager->setTexParameteri( mTextureTypes[stage], GL_TEXTURE_WRAP_S,
                          getTextureAddressingMode(uvw.u));
         mStateCacheManager->setTexParameteri( mTextureTypes[stage], GL_TEXTURE_WRAP_T,
@@ -1649,8 +1624,7 @@ namespace Ogre {
             return;
         }
 
-        if (!mStateCacheManager->activateGLTextureUnit(stage))
-            return;
+        mStateCacheManager->activateGLTextureUnit(stage);
         glMatrixMode(GL_TEXTURE);
 
         // Load this matrix in
@@ -2041,8 +2015,7 @@ namespace Ogre {
     void GLRenderSystem::_setTextureUnitFiltering(size_t unit,
                                                   FilterType ftype, FilterOptions fo)
     {
-        if (!mStateCacheManager->activateGLTextureUnit(unit))
-            return;
+        mStateCacheManager->activateGLTextureUnit(unit);
         switch(ftype)
         {
         case FT_MIN:
@@ -2218,8 +2191,7 @@ namespace Ogre {
             cmd = 0;
         }
 
-        if (!mStateCacheManager->activateGLTextureUnit(stage))
-            return;
+        mStateCacheManager->activateGLTextureUnit(stage);
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
 
         if (bm.blendType == LBT_COLOUR)
@@ -2305,15 +2277,6 @@ namespace Ogre {
 
         mMaxBuiltInTextureAttribIndex = 0;
 
-        HardwareVertexBufferSharedPtr globalInstanceVertexBuffer = getGlobalInstanceVertexBuffer();
-        VertexDeclaration* globalVertexDeclaration = getGlobalInstanceVertexBufferVertexDeclaration();
-        size_t numberOfInstances = op.numberOfInstances;
-
-        if (op.useGlobalInstancingVertexBufferIsAvailable)
-        {
-            numberOfInstances *= getGlobalNumberOfInstances();
-        }
-
         const VertexDeclaration::VertexElementList& decl =
             op.vertexData->vertexDeclaration->getElements();
         VertexDeclaration::VertexElementList::const_iterator elemIter, elemEnd;
@@ -2333,16 +2296,7 @@ namespace Ogre {
             bindVertexElementToGpu(elem, vertexBuffer, op.vertexData->vertexStart);
         }
 
-        if( globalInstanceVertexBuffer && globalVertexDeclaration != NULL )
-        {
-            elemEnd = globalVertexDeclaration->getElements().end();
-            for (elemIter = globalVertexDeclaration->getElements().begin(); elemIter != elemEnd; ++elemIter)
-            {
-                const VertexElement & elem = *elemIter;
-                bindVertexElementToGpu(elem, globalInstanceVertexBuffer, 0);
-
-            }
-        }
+        auto numberOfInstances = op.numberOfInstances;
 
         bool multitexturing = (getCapabilities()->getNumTextureUnits() > 1);
         if (multitexturing)
@@ -2452,15 +2406,15 @@ namespace Ogre {
             glDisableClientState( GL_SECONDARY_COLOR_ARRAY );
         }
         // unbind any custom attributes
-        for (std::vector<GLuint>::iterator ai = mRenderAttribsBound.begin(); ai != mRenderAttribsBound.end(); ++ai)
+        for (unsigned int & ai : mRenderAttribsBound)
         {
-            glDisableVertexAttribArrayARB(*ai);
+            glDisableVertexAttribArrayARB(ai);
         }
 
         // unbind any instance attributes
-        for (std::vector<GLuint>::iterator ai = mRenderInstanceAttribsBound.begin(); ai != mRenderInstanceAttribsBound.end(); ++ai)
+        for (unsigned int & ai : mRenderInstanceAttribsBound)
         {
-            glVertexAttribDivisorARB(*ai, 0);
+            glVertexAttribDivisorARB(ai, 0);
         }
 
         mRenderAttribsBound.clear();

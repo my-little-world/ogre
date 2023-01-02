@@ -64,18 +64,17 @@ public:
     /** 
     @see ProgramWriter::writeSourceCode.
     */
-    virtual void writeSourceCode(std::ostream& os, Program* program);
+    void writeSourceCode(std::ostream& os, Program* program) override;
 
     /** 
     @see ProgramWriter::getTargetLanguage.
     */
-    virtual const String& getTargetLanguage() const { return TargetLanguage; }
+    const String& getTargetLanguage() const override { return TargetLanguage; }
 
     static String TargetLanguage;
 
     // Protected methods.
 protected:
-
     void writeMainSourceCode(std::ostream& os, Program* program);
 
     /** Initialize string maps. */
@@ -97,8 +96,6 @@ protected:
 
     // Attributes.
 protected:
-    std::set<String> mLocalRenames;
-
     // Map parameter content to vertex attributes 
     ParamContentToStringMap mContentToPerVertexAttributes;
     // Holds the current glsl version

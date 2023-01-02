@@ -202,6 +202,11 @@ namespace Ogre
         }
 
         Texture::loadImpl();
+
+        // with D3DUSAGE_AUTOGENMIPMAP, GetLevelCount always returns 1 for the number of levels.
+        // currect this after loading
+        if (mUsage & TU_AUTOMIPMAP)
+            mNumMipmaps = getMaxMipmaps();
     }
 
     /****************************************************************************************/
@@ -392,7 +397,7 @@ namespace Ogre
 
         // Use D3DX to help us create the texture, this way it can adjust any relevant sizes
         DWORD usage = (mUsage & TU_RENDERTARGET) ? D3DUSAGE_RENDERTARGET : 0;
-        UINT numMips = (mNumRequestedMipmaps == MIP_UNLIMITED) ? 0 : mNumRequestedMipmaps + 1;
+        UINT numMips = (mNumRequestedMipmaps == MIP_UNLIMITED) ? 0 : mNumMipmaps + 1;
         // Check dynamic textures
         if (mUsage & TU_DYNAMIC)
         {
@@ -434,7 +439,7 @@ namespace Ogre
         mMipmapsHardwareGenerated = false;
         if (rkCurCaps.TextureCaps & D3DPTEXTURECAPS_MIPMAP)
         {
-            if (mUsage & TU_AUTOMIPMAP && mNumRequestedMipmaps != 0)
+            if (mUsage & TU_AUTOMIPMAP && mNumMipmaps != 0)
             {
                 // use auto.gen. if available, and if desired
                 mMipmapsHardwareGenerated = _canAutoGenMipmaps(d3d9Device, usage, D3DRTYPE_TEXTURE, d3dPF);
@@ -555,7 +560,7 @@ namespace Ogre
 
         // Use D3DX to help us create the texture, this way it can adjust any relevant sizes
         DWORD usage = (mUsage & TU_RENDERTARGET) ? D3DUSAGE_RENDERTARGET : 0;
-        UINT numMips = (mNumRequestedMipmaps == MIP_UNLIMITED) ? 0 : mNumRequestedMipmaps + 1;
+        UINT numMips = (mNumRequestedMipmaps == MIP_UNLIMITED) ? 0 : mNumMipmaps + 1;
         // Check dynamic textures
         if (mUsage & TU_DYNAMIC)
         {
@@ -596,7 +601,7 @@ namespace Ogre
         mMipmapsHardwareGenerated = false;
         if (rkCurCaps.TextureCaps & D3DPTEXTURECAPS_MIPCUBEMAP)
         {
-            if (mUsage & TU_AUTOMIPMAP && mNumRequestedMipmaps != 0)
+            if (mUsage & TU_AUTOMIPMAP && mNumMipmaps != 0)
             {
                 // use auto.gen. if available
                 mMipmapsHardwareGenerated = _canAutoGenMipmaps(d3d9Device, usage, D3DRTYPE_CUBETEXTURE, d3dPF);
@@ -711,7 +716,7 @@ namespace Ogre
 
         // Use D3DX to help us create the texture, this way it can adjust any relevant sizes
         DWORD usage = (mUsage & TU_RENDERTARGET) ? D3DUSAGE_RENDERTARGET : 0;
-        UINT numMips = (mNumRequestedMipmaps == MIP_UNLIMITED) ? 0 : mNumRequestedMipmaps + 1;
+        UINT numMips = (mNumRequestedMipmaps == MIP_UNLIMITED) ? 0 : mNumMipmaps + 1;
         // Check dynamic textures
         if (mUsage & TU_DYNAMIC)
         {
@@ -741,7 +746,7 @@ namespace Ogre
         mMipmapsHardwareGenerated = false;
         if (rkCurCaps.TextureCaps & D3DPTEXTURECAPS_MIPVOLUMEMAP)
         {
-            if (mUsage & TU_AUTOMIPMAP && mNumRequestedMipmaps != 0)
+            if (mUsage & TU_AUTOMIPMAP && mNumMipmaps != 0)
             {
                 // use auto.gen. if available
                 mMipmapsHardwareGenerated = _canAutoGenMipmaps(d3d9Device, usage, D3DRTYPE_VOLUMETEXTURE, d3dPF);
@@ -1110,7 +1115,7 @@ namespace Ogre
 
                 D3D9HardwarePixelBuffer* currPixelBuffer = GETLEVEL(0, mip);
                                 
-                if (mip == 0 && mNumRequestedMipmaps != 0 && (mUsage & TU_AUTOMIPMAP))
+                if (mip == 0 && mNumMipmaps != 0 && (mUsage & TU_AUTOMIPMAP))
                     currPixelBuffer->_setMipmapping(true, mMipmapsHardwareGenerated);
 
                 currPixelBuffer->bind(d3d9Device, surface, textureResources->pFSAASurface,
@@ -1136,7 +1141,7 @@ namespace Ogre
                     D3D9HardwarePixelBuffer* currPixelBuffer = GETLEVEL(face, mip);
                     
                     
-                    if (mip == 0 && mNumRequestedMipmaps != 0 && (mUsage & TU_AUTOMIPMAP) && face == 5)
+                    if (mip == 0 && mNumMipmaps != 0 && (mUsage & TU_AUTOMIPMAP) && face == 5)
                         currPixelBuffer->_setMipmapping(true, mMipmapsHardwareGenerated);
 
                     currPixelBuffer->bind(d3d9Device, surface, textureResources->pFSAASurface,
@@ -1161,7 +1166,7 @@ namespace Ogre
 
                 currPixelBuffer->bind(d3d9Device, volume, textureResources->pBaseTex);
 
-                if (mip == 0 && mNumRequestedMipmaps != 0 && (mUsage & TU_AUTOMIPMAP))
+                if (mip == 0 && mNumMipmaps != 0 && (mUsage & TU_AUTOMIPMAP))
                     currPixelBuffer->_setMipmapping(true, mMipmapsHardwareGenerated);
 
                 // decrement reference count, the GetSurfaceLevel call increments this

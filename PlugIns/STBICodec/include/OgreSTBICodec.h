@@ -38,7 +38,10 @@ namespace Ogre {
     *  @{
     */
     /** \defgroup STBIImageCodec STBIImageCodec
-    * %Codec specialized in images loaded using stb image (https://github.com/nothings/stb).
+    * %Codec for loading generic image formats (e.g. jpg, png) using [stb_image](https://github.com/nothings/stb)
+    *
+    * This Codec is ideal for files, that you are in control of. There are no external dependencies and no superfluous pixel conversions.
+    * The downside is that not all format variants are supported and the code is more vulnerable to malicious files.
     * @{
     */
     class STBIImageCodec : public ImageCodec
@@ -53,13 +56,9 @@ namespace Ogre {
         STBIImageCodec(const String &type);
         virtual ~STBIImageCodec() { }
 
-        using ImageCodec::decode;
-        using ImageCodec::encode;
-        using ImageCodec::encodeToFile;
-
-        DataStreamPtr encode(const MemoryDataStreamPtr& input, const CodecDataPtr& pData) const override;
-        void encodeToFile(const MemoryDataStreamPtr& input, const String& outFileName, const CodecDataPtr& pData) const  override;
-        DecodeResult decode(const DataStreamPtr& input) const  override;
+        DataStreamPtr encode(const Any& input) const override;
+        void encodeToFile(const Any& input, const String& outFileName) const override;
+        void decode(const DataStreamPtr& input, const Any& output) const override;
 
         String getType() const  override;
         String magicNumberToFileExt(const char *magicNumberPtr, size_t maxbytes) const override;
@@ -73,11 +72,11 @@ namespace Ogre {
     class _OgreSTBICodecExport STBIPlugin : public Plugin
     {
     public:
-        const String& getName() const;
-        void install() { STBIImageCodec::startup(); }
-        void uninstall() { STBIImageCodec::shutdown(); }
-        void initialise() {}
-        void shutdown() {}
+        const String& getName() const override;
+        void install() override { STBIImageCodec::startup(); }
+        void uninstall() override { STBIImageCodec::shutdown(); }
+        void initialise() override {}
+        void shutdown() override {}
     };
     /** @} */
     /** @} */

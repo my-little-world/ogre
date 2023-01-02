@@ -118,7 +118,7 @@ namespace Ogre {
     };
 
     /** Abstract class representing a Texture resource.
-        @remarks
+
             The actual concrete subclass which will exist for a texture
             is dependent on the rendering system in use (Direct3D, OpenGL etc).
             This class represents the commonalities, and is the one 'used'
@@ -158,7 +158,7 @@ namespace Ogre {
         }
 
         /** Are mipmaps hardware generated?
-        @remarks
+
             Will only be accurate after texture load, or createInternalResources
         */
         bool getMipmapsHardwareGenerated(void) const { return mMipmapsHardwareGenerated; }
@@ -179,7 +179,7 @@ namespace Ogre {
 
         /** Sets whether this texture will be set up so that on sampling it, 
             hardware gamma correction is applied.
-        @remarks
+
             24-bit textures are often saved in gamma colour space; this preserves
             precision in the 'darks'. However, if you're performing blending on 
             the sampled colours, you really want to be doing it in linear space. 
@@ -268,13 +268,13 @@ namespace Ogre {
             
             @param u is a combination of TU_STATIC, TU_DYNAMIC, TU_WRITE_ONLY 
                 TU_AUTOMIPMAP and TU_RENDERTARGET (see TextureUsage enum). You are
-                strongly advised to use HBU_STATIC_WRITE_ONLY wherever possible, if you need to 
-                update regularly, consider HBU_DYNAMIC_WRITE_ONLY.
+                strongly advised to use HBU_GPU_ONLY wherever possible, if you need to
+                update regularly, consider HBU_CPU_TO_GPU.
         */
         void setUsage(int u) { mUsage = u; }
 
         /** Creates the internal texture resources for this texture. 
-        @remarks
+
             This method creates the internal texture resources (pixel buffers, 
             texture surfaces etc) required to begin using this texture. You do
             not need to call this method directly unless you are manually creating
@@ -487,12 +487,12 @@ namespace Ogre {
 
         void readImage(LoadedImages& imgs, const String& name, const String& ext, bool haveNPOT);
 
-        void prepareImpl();
-        void unprepareImpl();
-        void loadImpl();
+        void prepareImpl() override;
+        void unprepareImpl() override;
+        void loadImpl() override;
 
         /// @copydoc Resource::calculateSize
-        size_t calculateSize(void) const;
+        size_t calculateSize(void) const override;
         
 
         /** Implementation of creating internal texture resources 
@@ -504,12 +504,14 @@ namespace Ogre {
         virtual void freeInternalResourcesImpl(void) = 0;
 
         /** Default implementation of unload which calls freeInternalResources */
-        void unloadImpl(void);
+        void unloadImpl(void) override;
 
-        /** Identify the source file type as a string, either from the extension
-            or from a magic number.
+        /** Returns the maximum number of Mipmaps that can be generated until we reach
+        the mininum possible size. This does not count the base level.
+
+        @return how many times we can divide this texture in 2 until we reach 1x1.
         */
-        String getSourceFileType() const;
+        uint32 getMaxMipmaps() const;
 
         static const char* CUBEMAP_SUFFIXES[6];
     };

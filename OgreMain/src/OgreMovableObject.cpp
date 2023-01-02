@@ -28,7 +28,6 @@ THE SOFTWARE.
 #include "OgreStableHeaders.h"
 
 #include "OgreTagPoint.h"
-#include "OgreLight.h"
 #include "OgreEntity.h"
 #include "OgreLodListener.h"
 
@@ -439,7 +438,7 @@ namespace Ogre {
 
         }
         void visit(Renderable* rend, ushort lodIndex, bool isDebug, 
-            Any* pAny = 0)
+            Any* pAny = 0) override
         {
             Technique* tech = rend->getTechnique();
             bool techReceivesShadows = tech && tech->getParent()->getReceiveShadows();

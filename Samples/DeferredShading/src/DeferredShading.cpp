@@ -61,8 +61,8 @@ DeferredShadingSystem::DeferredShadingSystem(
 
 void DeferredShadingSystem::initialize()
 {
-    for(int i=0; i<DSM_COUNT; ++i)
-        mInstance[i]=0;
+    for(auto & i : mInstance)
+        i=0;
 
     createResources();
     
@@ -76,8 +76,8 @@ void DeferredShadingSystem::initialize()
 DeferredShadingSystem::~DeferredShadingSystem()
 {
     CompositorChain *chain = CompositorManager::getSingleton().getCompositorChain(mViewport);
-    for(int i=0; i<DSM_COUNT; ++i)
-        chain->_removeInstance(mInstance[i]);
+    for(auto & i : mInstance)
+        chain->_removeInstance(i);
     CompositorManager::getSingleton().removeCompositorChain(mViewport);
 
     Ogre::CompositorManager& compMgr = Ogre::CompositorManager::getSingleton();
@@ -142,7 +142,7 @@ void DeferredShadingSystem::setActive(bool active)
 
         RTShader::ShaderGenerator& rtShaderGen = RTShader::ShaderGenerator::getSingleton();
         // we do lights ourselves if active
-        rtShaderGen.getRenderState(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME)->setLightCountAutoUpdate(!mActive);
+        rtShaderGen.getRenderState(MSN_SHADERGEN)->setLightCountAutoUpdate(!mActive);
 
         // mCurrentMode could have changed with a prior call to setMode, so iterate all
         setMode(mCurrentMode);

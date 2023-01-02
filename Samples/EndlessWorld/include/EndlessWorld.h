@@ -72,7 +72,7 @@ public:
 			"Use C to generate another random terrain";
 	}
 
-    bool frameRenderingQueued(const FrameEvent& evt)
+    bool frameRenderingQueued(const FrameEvent& evt) override
     {
 		if (!mFly)
 		{
@@ -141,7 +141,7 @@ public:
 		return SdkSample::frameRenderingQueued(evt);  // don't forget the parent updates!
     }
 
-	bool keyPressed (const KeyboardEvent &e)
+	bool keyPressed (const KeyboardEvent &e) override
 	{
 #if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
 		switch (e.keysym.sym)
@@ -189,7 +189,7 @@ public:
 		return true;
 	}
 
-	void checkBoxToggled(CheckBox* box)
+	void checkBoxToggled(CheckBox* box) override
 	{
 		if (box == mFlyBox)
 		{
@@ -233,10 +233,10 @@ protected:
 	class DummyPageProvider : public PageProvider
 	{
 	public:
-		bool prepareProceduralPage(Page* page, PagedWorldSection* section) { return true; }
-		bool loadProceduralPage(Page* page, PagedWorldSection* section) { return true; }
-		bool unloadProceduralPage(Page* page, PagedWorldSection* section) { return true; }
-		bool unprepareProceduralPage(Page* page, PagedWorldSection* section) { return true; }
+		bool prepareProceduralPage(Page* page, PagedWorldSection* section) override { return true; }
+		bool loadProceduralPage(Page* page, PagedWorldSection* section) override { return true; }
+		bool unloadProceduralPage(Page* page, PagedWorldSection* section) override { return true; }
+		bool unprepareProceduralPage(Page* page, PagedWorldSection* section) override { return true; }
 	};
 	DummyPageProvider mDummyPageProvider;
 
@@ -285,7 +285,7 @@ protected:
 	/*-----------------------------------------------------------------------------
 	| Extends setupView to change some initial camera settings for this sample.
 	-----------------------------------------------------------------------------*/
-	void setupView()
+	void setupView() override
 	{
 		SdkSample::setupView();
 		// put camera at world center, so that it's difficult to reach the edge
@@ -296,9 +296,7 @@ protected:
 			);
 		mCameraNode->setPosition(mTerrainPos+worldCenter);
 		mCameraNode->lookAt(mTerrainPos, Node::TS_PARENT);
-		mCamera->setNearClipDistance(0.1);
-		mCamera->setFarClipDistance(50000);
-
+		mCamera->setNearClipDistance(5);
 		mCamera->setFarClipDistance(0);   // enable infinite far clip distance
 	}
 
@@ -331,7 +329,7 @@ protected:
 	class SimpleTerrainDefiner : public TerrainPagedWorldSection::TerrainDefiner
 	{
 	public:
-		virtual void define(TerrainGroup* terrainGroup, long x, long y)
+		void define(TerrainGroup* terrainGroup, long x, long y) override
 		{
 			Image img;
 			img.load("terrain.png", ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
@@ -343,7 +341,7 @@ protected:
 		}
 	};
 
-	void setupContent()
+	void setupContent() override
 	{
 		mTerrainGlobals = OGRE_NEW TerrainGlobalOptions();
 
@@ -351,8 +349,10 @@ protected:
 
 		setDragLook(true);
 
+#if OGRE_PLATFORM != OGRE_PLATFORM_ANDROID
 		MaterialManager::getSingleton().setDefaultTextureFiltering(TFO_ANISOTROPIC);
-		MaterialManager::getSingleton().setDefaultAnisotropy(7);
+		MaterialManager::getSingleton().setDefaultAnisotropy(8);
+#endif
 
 		mSceneMgr->setFog(FOG_LINEAR, ColourValue(0.7, 0.7, 0.8), 0, 4000, 10000);
 
@@ -414,7 +414,7 @@ protected:
 		setupControls();
 	}
 
-	void _shutdown()
+	void _shutdown() override
 	{
 		if(mTerrainPaging)
 		{
