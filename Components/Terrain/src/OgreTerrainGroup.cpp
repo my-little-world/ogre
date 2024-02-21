@@ -37,12 +37,11 @@ THE SOFTWARE.
 
 namespace Ogre
 {
-    const uint16 TerrainGroup::WORKQUEUE_LOAD_REQUEST = 1;
     const uint32 TerrainGroup::CHUNK_ID = StreamSerialiser::makeIdentifier("TERG");
     const uint16 TerrainGroup::CHUNK_VERSION = 1;
 
     //---------------------------------------------------------------------
-    TerrainGroup::TerrainGroup(SceneManager* sm, Terrain::Alignment align, 
+    TerrainGroup::TerrainGroup(SceneManager* sm, Terrain::Alignment align,
         uint16 terrainSize, Real terrainWorldSize)
         : mSceneManager(sm)
         , mAlignment(align)
@@ -60,12 +59,6 @@ namespace Ogre
         // by default we delete input data because we copy it, unless user
         // passes us an ImportData where they explicitly don't want it copied
         mDefaultImportData.deleteInputData = true;
-
-        WorkQueue* wq = Root::getSingleton().getWorkQueue();
-        mWorkQueueChannel = wq->getChannel("Ogre/TerrainGroup");
-        wq->addRequestHandler(mWorkQueueChannel, this);
-        wq->addResponseHandler(mWorkQueueChannel, this);
-
     }
     //---------------------------------------------------------------------
     TerrainGroup::TerrainGroup(SceneManager* sm)
@@ -85,11 +78,6 @@ namespace Ogre
         // by default we delete input data because we copy it, unless user
         // passes us an ImportData where they explicitly don't want it copied
         mDefaultImportData.deleteInputData = true;
-
-        WorkQueue* wq = Root::getSingleton().getWorkQueue();
-        mWorkQueueChannel = wq->getChannel("Ogre/TerrainGroup");
-        wq->addRequestHandler(mWorkQueueChannel, this);
-        wq->addResponseHandler(mWorkQueueChannel, this);
     }
     //---------------------------------------------------------------------
     TerrainGroup::~TerrainGroup()
@@ -104,15 +92,10 @@ namespace Ogre
         while (getNumTerrainPrepareRequests() > 0)
         {
             OGRE_THREAD_SLEEP(50);
-            Root::getSingleton().getWorkQueue()->processResponses();
+            Root::getSingleton().getWorkQueue()->processMainThreadTasks();
         }
 
         removeAllTerrains();
-
-        WorkQueue* wq = Root::getSingleton().getWorkQueue();
-        wq->removeRequestHandler(mWorkQueueChannel, this);
-        wq->removeResponseHandler(mWorkQueueChannel, this);
-
     }
     //---------------------------------------------------------------------
     void TerrainGroup::setOrigin(const Vector3& pos)
@@ -120,16 +103,14 @@ namespace Ogre
         if (pos != mOrigin)
         {
             mOrigin = pos;
-            for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+            for (const auto& t : mTerrainSlots)
             {
-                TerrainSlot* slot = i->second;
-                if (slot->instance)
-                {
+                TerrainSlot* slot = t.second;
+                if (slot->instance) {
                     slot->instance->setPosition(getTerrainSlotPosition(slot->x, slot->y));
                 }
             }
         }
-
     }
     //---------------------------------------------------------------------
     void TerrainGroup::setFilenameConvention(const String& prefix, const String& extension)
@@ -181,7 +162,7 @@ namespace Ogre
 
     }
     //---------------------------------------------------------------------
-    void TerrainGroup::defineTerrain(long x, long y, const Image* img, 
+    void TerrainGroup::defineTerrain(long x, long y, const Image* img,
         const Terrain::LayerInstanceList* layers /*= 0*/)
     {
         TerrainSlot* slot = getTerrainSlot(x, y, true);
@@ -205,7 +186,7 @@ namespace Ogre
 
     }
     //---------------------------------------------------------------------
-    void TerrainGroup::defineTerrain(long x, long y, const float* pFloat /*= 0*/, 
+    void TerrainGroup::defineTerrain(long x, long y, const float* pFloat /*= 0*/,
         const Terrain::LayerInstanceList* layers /*= 0*/)
     {
         TerrainSlot* slot = getTerrainSlot(x, y, true);
@@ -246,25 +227,21 @@ namespace Ogre
     //---------------------------------------------------------------------
     void TerrainGroup::loadAllTerrains(bool synchronous /*= false*/)
     {
-        // Just a straight iteration - for the numbers involved not worth 
+        // Just a straight iteration - for the numbers involved not worth
         // keeping a loaded / unloaded list
-        for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
-        {
-            TerrainSlot* slot = i->second;
-            loadTerrainImpl(slot, synchronous);
-        }
-
+        for (const auto& t : mTerrainSlots)
+            loadTerrainImpl(t.second, synchronous);
     }
     //---------------------------------------------------------------------
     void TerrainGroup::saveAllTerrains(bool onlyIfModified, bool replaceFilenames)
     {
-        for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+        for (const auto& s : mTerrainSlots)
         {
-            TerrainSlot* slot = i->second;
+            TerrainSlot* slot = s.second;
             if (slot->instance)
             {
                 Terrain* t = slot->instance;
-                if (t->isLoaded() && 
+                if (t->isLoaded() &&
                     (!onlyIfModified || t->isModified()))
                 {
                     // Overwrite the file names?
@@ -278,10 +255,8 @@ namespace Ogre
                         filename = generateFilename(slot->x, slot->y);
 
                     t->save(filename);
-
                 }
             }
-            
         }
 
     }
@@ -364,7 +339,7 @@ namespace Ogre
     //---------------------------------------------------------------------
     void TerrainGroup::loadTerrainImpl(TerrainSlot* slot, bool synchronous)
     {
-        if (!slot->instance && 
+        if (!slot->instance &&
             (!slot->def.filename.empty() || slot->def.importData))
         {
             // Allocate in main thread so no race conditions
@@ -373,17 +348,31 @@ namespace Ogre
             // Use shared pool of buffers
             slot->instance->setGpuBufferAllocator(&mBufferAllocator);
 
-            LoadRequest req;
-            req.slot = slot;
-            req.origin = this;
             std::pair<TerrainPrepareRequestMap::iterator, bool> ret = mTerrainPrepareRequests.emplace(slot, 0);
             assert(ret.second == true);
-            WorkQueue::RequestID id =
-                Root::getSingleton().getWorkQueue()->addRequest(
-                    mWorkQueueChannel, WORKQUEUE_LOAD_REQUEST,
-                    req, 0, synchronous);
-            if (!synchronous)
-                ret.first->second = id;
+
+            if(synchronous)
+            {
+                auto r = new WorkQueue::Request(0, 0, slot, 0, 0);
+                auto res = handleRequest(r, NULL);
+                handleResponse(res, NULL);
+                delete res;
+                return;
+            }
+
+            Root::getSingleton().getWorkQueue()->addTask(
+                [this, slot]()
+                {
+                    auto r = new WorkQueue::Request(0, 0, slot, 0, 0);
+                    auto res = handleRequest(r, NULL);
+                    Root::getSingleton().getWorkQueue()->addMainThreadTask(
+                        [this, res]()
+                        {
+                            handleResponse(res, NULL);
+                            delete res;
+                        });
+                });
+            ret.first->second = 0;
         }
     }
     //---------------------------------------------------------------------
@@ -427,9 +416,9 @@ namespace Ogre
     {
         if(mAutoUpdateLod)
         {
-            for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+            for (const auto& s : mTerrainSlots)
             {
-                TerrainSlot* slot = i->second;
+                TerrainSlot* slot = s.second;
                 mAutoUpdateLod->autoUpdateLod(slot->instance, synchronous, data);
             }
         }
@@ -459,9 +448,8 @@ namespace Ogre
     //---------------------------------------------------------------------
     void TerrainGroup::removeAllTerrains()
     {
-        for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
-        {
-            OGRE_DELETE i->second;
+        for (const auto& s : mTerrainSlots) {
+            OGRE_DELETE s.second;
         }
         mTerrainSlots.clear();
         // Also clear buffer pools, if we're clearing completely may not be representative
@@ -512,7 +500,7 @@ namespace Ogre
         }
     }
     //---------------------------------------------------------------------
-    TerrainGroup::RayResult TerrainGroup::rayIntersects(const Ray& ray, Real distanceLimit /* = 0*/) const 
+    TerrainGroup::RayResult TerrainGroup::rayIntersects(const Ray& ray, Real distanceLimit /* = 0*/) const
     {
         long curr_x, curr_z;
         convertWorldPositionToTerrainSlot(ray.getOrigin(), &curr_x, &curr_z);
@@ -532,13 +520,13 @@ namespace Ogre
             break;
         case Terrain::ALIGN_Y_Z:
             // x = z, z = y, y = -x
-            tmp.x = localRayDir.z; 
-            tmp.z = localRayDir.y; 
-            tmp.y = -localRayDir.x; 
+            tmp.x = localRayDir.z;
+            tmp.z = localRayDir.y;
+            tmp.y = -localRayDir.x;
             localRayDir = tmp;
-            tmp.x = offset.z; 
-            tmp.z = offset.y; 
-            tmp.y = -offset.x; 
+            tmp.x = offset.z;
+            tmp.z = offset.y;
+            tmp.y = -offset.x;
             offset = tmp;
             break;
         case Terrain::ALIGN_X_Z:
@@ -653,10 +641,10 @@ namespace Ogre
     {
         resultList->clear();
         // Much simpler test
-        for (TerrainSlotMap::const_iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+        for (auto const& s : mTerrainSlots)
         {
-            if (i->second->instance && box.intersects(i->second->instance->getWorldAABB()))
-                resultList->push_back(i->second->instance);
+            if (s.second->instance && box.intersects(s.second->instance->getWorldAABB()))
+                resultList->push_back(s.second->instance);
         }
 
     }
@@ -665,12 +653,11 @@ namespace Ogre
     {
         resultList->clear();
         // Much simpler test
-        for (TerrainSlotMap::const_iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+        for (auto const& s : mTerrainSlots)
         {
-            if (i->second->instance && sphere.intersects(i->second->instance->getWorldAABB()))
-                resultList->push_back(i->second->instance);
+            if (s.second->instance && sphere.intersects(s.second->instance->getWorldAABB()))
+                resultList->push_back(s.second->instance);
         }
-
     }
     //---------------------------------------------------------------------
     void TerrainGroup::convertWorldPositionToTerrainSlot(const Vector3& pos, long *x, long *y) const
@@ -710,23 +697,12 @@ namespace Ogre
         return false;
     }
     //---------------------------------------------------------------------
-    bool TerrainGroup::canHandleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ)
-    {
-        LoadRequest lreq = any_cast<LoadRequest>(req->getData());
-        // only deal with own requests
-        if (lreq.origin != this)
-            return false;
-        else
-            return RequestHandler::canHandleRequest(req, srcQ);
-
-    }
-    //---------------------------------------------------------------------
     WorkQueue::Response* TerrainGroup::handleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ)
     {
-        LoadRequest lreq = any_cast<LoadRequest>(req->getData());
+        auto slot = any_cast<TerrainSlot*>(req->getData());
 
-        TerrainSlotDefinition& def = lreq.slot->def;
-        Terrain* t = lreq.slot->instance;
+        TerrainSlotDefinition& def = slot->def;
+        Terrain* t = slot->instance;
         assert(t && "Terrain instance should have been constructed in the main thread");
         WorkQueue::Response* response = 0;
         try
@@ -745,7 +721,7 @@ namespace Ogre
         catch (Exception& e)
         {
             // oops
-            response = OGRE_NEW WorkQueue::Response(req, false, Any(), 
+            response = OGRE_NEW WorkQueue::Response(req, false, Any(),
                 e.getFullDescription());
         }
 
@@ -754,32 +730,17 @@ namespace Ogre
 
     }
     //---------------------------------------------------------------------
-    bool TerrainGroup::canHandleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ)
-    {
-        LoadRequest lreq = any_cast<LoadRequest>(res->getRequest()->getData());
-        // only deal with own requests
-        if (lreq.origin != this)
-            return false;
-        else
-            return true;
-
-    }
-    //---------------------------------------------------------------------
     void TerrainGroup::handleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ)
     {
-        // Data was already deleted so nothing we can do anymore.
-        if (res->getRequest()->getAborted())
-            return;
-
         // No response data, just request
-        LoadRequest lreq = any_cast<LoadRequest>(res->getRequest()->getData());
+        auto slot = any_cast<TerrainSlot*>(res->getRequest()->getData());
 
-        TerrainPrepareRequestMap::iterator it = mTerrainPrepareRequests.find(lreq.slot);
+        TerrainPrepareRequestMap::iterator it = mTerrainPrepareRequests.find(slot);
 
         // This slot was scheduled to be deleted.
         if (it == mTerrainPrepareRequests.end())
         {
-            freeTerrainSlotInstance(lreq.slot);
+            freeTerrainSlotInstance(slot);
             return;
         }
         else
@@ -789,7 +750,6 @@ namespace Ogre
 
         if (res->succeeded())
         {
-            TerrainSlot* slot = lreq.slot;
             Terrain* terrain = slot->instance;
             if (terrain)
             {
@@ -819,11 +779,10 @@ namespace Ogre
         {
             // oh dear
             LogManager::getSingleton().stream(LML_CRITICAL) <<
-                "We failed to prepare the terrain at (" << lreq.slot->x << ", " <<
-                lreq.slot->y <<") with the error '" << res->getMessages() << "'";
-            freeTerrainSlotInstance(lreq.slot);
+                "We failed to prepare the terrain at (" << slot->x << ", " <<
+                slot->y <<") with the error '" << res->getMessages() << "'";
+            freeTerrainSlotInstance(slot);
         }
-
     }
     //---------------------------------------------------------------------
     void TerrainGroup::connectNeighbour(TerrainSlot* slot, long offsetx, long offsety)
@@ -832,8 +791,7 @@ namespace Ogre
         if (neighbourSlot && neighbourSlot->instance && neighbourSlot->instance->isLoaded())
         {
             // reclaculate if imported
-            slot->instance->setNeighbour(Terrain::getNeighbourIndex(offsetx, offsety), neighbourSlot->instance, 
-                slot->def.importData != 0);
+            slot->instance->setNeighbour(Terrain::getNeighbourIndex(offsetx, offsety), neighbourSlot->instance, slot->def.importData != 0);
         }
     }
     //---------------------------------------------------------------------
@@ -851,8 +809,6 @@ namespace Ogre
         key = (x16 << 16) | y16;
 
         return key;
-
-
     }
     //---------------------------------------------------------------------
     void TerrainGroup::unpackIndex(uint32 key, long *x, long *y)
@@ -871,8 +827,8 @@ namespace Ogre
     String TerrainGroup::generateFilename(long x, long y) const
     {
         StringStream str;
-        str << mFilenamePrefix << "_" << 
-            std::setw(8) << std::setfill('0') << std::hex << packIndex(x, y) << 
+        str << mFilenamePrefix << "_" <<
+            std::setw(8) << std::setfill('0') << std::hex << packIndex(x, y) <<
             "." << mFilenameExtension;
         return str.str();
     }
@@ -920,12 +876,7 @@ namespace Ogre
         // Terrain was in load request so we need to schedule the deletion see handleResponse().
         if (it != mTerrainPrepareRequests.end())
         {
-            WorkQueue::RequestID id = it->second;
             mTerrainPrepareRequests.erase(it);
-
-            // We can free immediately since this slot was aborted before it could've been processed.
-            if (Root::getSingleton().getWorkQueue()->abortPendingRequest(id))
-                slot->freeInstance();
         }
         else
         {
@@ -935,42 +886,40 @@ namespace Ogre
     //---------------------------------------------------------------------
     void TerrainGroup::freeTemporaryResources()
     {
-        for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+        for (const auto& s : mTerrainSlots)
         {
-            if (i->second->instance)
-                i->second->instance->freeTemporaryResources();
+            if (s.second->instance)
+                s.second->instance->freeTemporaryResources();
         }
 
     }
     //---------------------------------------------------------------------
     void TerrainGroup::update(bool synchronous)
     {
-        for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+        for (const auto& s : mTerrainSlots)
         {
-            if (i->second->instance)
-                i->second->instance->update();
+            if (s.second->instance)
+                s.second->instance->update();
         }
 
     }
     //---------------------------------------------------------------------
     void TerrainGroup::updateGeometry()
     {
-        for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+        for (const auto& s : mTerrainSlots)
         {
-            if (i->second->instance)
-                i->second->instance->updateGeometry();
+            if (s.second->instance)
+                s.second->instance->updateGeometry();
         }
-
     }
     //---------------------------------------------------------------------
     void TerrainGroup::updateDerivedData(bool synchronous, uint8 typeMask)
     {
-        for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+        for (const auto& s : mTerrainSlots)
         {
-            if (i->second->instance)
-                i->second->instance->updateDerivedData();
+            if (s.second->instance)
+                s.second->instance->updateDerivedData();
         }
-
     }
     //---------------------------------------------------------------------
     TerrainGroup::TerrainIterator TerrainGroup::getTerrainIterator()
@@ -985,7 +934,7 @@ namespace Ogre
     //---------------------------------------------------------------------
     void TerrainGroup::saveGroupDefinition(const String& filename)
     {
-        DataStreamPtr stream = Root::getSingleton().createFileStream(filename, 
+        DataStreamPtr stream = Root::getSingleton().createFileStream(filename,
             getResourceGroup(), true);
         StreamSerialiser ser(stream);
         saveGroupDefinition(ser);
@@ -1021,7 +970,7 @@ namespace Ogre
     //---------------------------------------------------------------------
     void TerrainGroup::loadGroupDefinition(const String& filename)
     {
-        DataStreamPtr stream = Root::getSingleton().openFileStream(filename, 
+        DataStreamPtr stream = Root::getSingleton().openFileStream(filename,
             getResourceGroup());
         StreamSerialiser ser(stream);
         loadGroupDefinition(ser);
@@ -1051,7 +1000,7 @@ namespace Ogre
         ser.read(&mDefaultImportData.maxBatchSize);
         ser.read(&mDefaultImportData.minBatchSize);
         Terrain::readLayerDeclaration(ser, mDefaultImportData.layerDeclaration);
-        Terrain::readLayerInstanceList(ser, mDefaultImportData.layerDeclaration.samplers.size(), 
+        Terrain::readLayerInstanceList(ser, mDefaultImportData.layerDeclaration.size(),
             mDefaultImportData.layerList);
 
         // copy data that would have normally happened on construction
@@ -1070,12 +1019,12 @@ namespace Ogre
         if (newWorldSize != mTerrainWorldSize)
         {
             mTerrainWorldSize = newWorldSize;
-            for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+            for (const auto& s : mTerrainSlots)
             {
-                if (i->second->instance)
+                if (s.second->instance)
                 {
-                    i->second->instance->setWorldSize(newWorldSize);
-                    i->second->instance->setPosition(getTerrainSlotPosition(i->second->x, i->second->y));
+                    s.second->instance->setWorldSize(newWorldSize);
+                    s.second->instance->setPosition(getTerrainSlotPosition(s.second->x, s.second->y));
                 }
             }
         }
@@ -1086,12 +1035,10 @@ namespace Ogre
         if (newTerrainSize != mTerrainSize)
         {
             mTerrainSize = newTerrainSize;
-            for (TerrainSlotMap::iterator i = mTerrainSlots.begin(); i != mTerrainSlots.end(); ++i)
+            for (const auto& s : mTerrainSlots)
             {
-                if (i->second->instance)
-                {
-                    i->second->instance->setSize(newTerrainSize);
-                }
+                if (s.second->instance)
+                    s.second->instance->setSize(newTerrainSize);
             }
         }
     }
@@ -1134,6 +1081,4 @@ namespace Ogre
         OGRE_DELETE instance;
         instance = 0;
     }
-
 }
-

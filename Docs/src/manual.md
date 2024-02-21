@@ -186,11 +186,12 @@ Entities automatically have Material’s associated with them if they use a Ogre
 
 Overlays allow you to render 2D and 3D elements on top of the normal scene contents to create effects like heads-up displays (HUDs), menu systems, status panels etc. The frame rate statistics panel which comes as standard with OGRE is an example of an overlay. Overlays can contain 2D or 3D elements. 2D elements are used for HUDs, and 3D elements can be used to create cockpits or any other 3D object which you wish to be rendered on top of the rest of the scene.
 
-You can create overlays either through the Ogre::OverlayManager::create method, or you can define them in an .overlay script. See [Overlay Scripts](@ref Overlay-Scripts) for more info. In reality the latter is likely to be the most practical because it is easier to tweak (without the need to recompile the code). Note that you can define as many overlays as you like: they all start off life hidden, and you display them by calling Ogre::Overlay::show. You can also show multiple overlays at once, and their Z order is determined by the Ogre::Overlay::setZOrder() method.
+You can create overlays either through the Ogre::OverlayManager::create method, or you can define them in an .overlay script. See [Overlay Scripts](@ref Overlay-Scripts) for more info. In reality the latter is likely to be the most practical because it is easier to tweak (without the need to recompile the code). Note that you can define as many overlays as you like: they all start off life hidden, and you display them by calling Ogre::Overlay::show. You can get pointers to them with Ogre::OverlayManager::getByName. You can also show multiple overlays at once, and their Z order is determined by the Ogre::Overlay::setZOrder() method.
 
-<a name="Notes-on-Integration"></a>
+<a name="Notes-On-Integration"></a> <!-- left in just in case something links to it -->
+<a name="How-to-Enable-Overlays"></a>
 
-## Notes on Integration
+## How to Enable Overlays
 
 The OverlaySystem is its own component, you need to manually initialize it, with the following two lines of code (mSceneMgr is a pointer to your current Ogre::SceneManager):
 
@@ -200,6 +201,14 @@ mSceneMgr->addRenderQueueListener(pOverlaySystem);
 ```
 
 One Ogre::OverlaySystem per application is enough but you need to call addRenderQueueListener once per SceneManager.
+
+If you are using OgreBites, then you need to fetch the pre-existing OverlaySystem.
+```cpp
+Ogre::OverlaySystem* pOverlaySystem = myApplicationContext.getOverlaySystem();
+mSceneMgr->addRenderQueueListener(pOverlaySystem);
+```
+
+Where `myApplicationContext` is your OgreBites::ApplicationContext object.
 
 <a name="Creating-2D-Elements"></a>
 
@@ -245,7 +254,7 @@ Another nice feature of overlays is being able to rotate, scroll and scale them 
 
 ## GUI systems
 
-Overlays are only really designed for non-interactive screen elements, although you can create a simple GUI using the [Trays System](@ref trays). For a far more complete GUI solution, we recommend or [Dear ImGui](<https://github.com/OGRECave/ogre-imgui>), [CEGui](<http://www.cegui.org.uk>) or [MyGUI](<http://mygui.info/>).
+Overlays are only really designed for non-interactive screen elements, although you can create a simple GUI using the [Trays System](@ref trays). For a far more complete GUI solution, we recommend Ogre's integration with [Dear ImGui](<https://github.com/OGRECave/ogre/blob/master/Samples/Simple/include/ImGuiDemo.h>), or third-party libraries like [CEGui](<http://www.cegui.org.uk>) or [MyGUI](<http://mygui.info/>).
 
 @page Mesh-Tools Mesh Tools
 
@@ -259,10 +268,19 @@ This tool can convert binary .mesh and .skeleton files to XML and back again - t
 
 @par Usage
 ```
-OgreXMLConverter [options] sourcefile [destfile]
+OgreXMLConverter [parameters] sourcefile [destfile]
 ```
 
-Run the tool with no arguments to see the available options.
+@param -v        Display version information
+@param -merge    [n0,n1] Merge texcoordn0 with texcoordn1. The , separator must be
+                 present, otherwise only n0 is provided assuming n1 = n0+1;
+                 n0 and n1 must be in the same buffer source & adjacent
+                 to each other for the merge to work.
+@param -o        DON'T optimise out redundant tracks & keyframes
+@param -E        Set endian mode `big` `little` or `native` (default)
+@param -x        Generate no more than num eXtremes for every submesh (default 0)
+@param -q        Quiet mode, less output
+@param -log      name of the log file (default: `OgreXMLConverter.log`)
 
 # MeshUpgrader {#MeshUpgrader}
 
@@ -272,10 +290,28 @@ See the @ref meshlod-generator Tutorial for details.
 
 @par Usage
 ```
-OgreMeshUpgrader [options] sourcefile [destfile]
+OgreMeshUpgrader [parameters] sourcefile [destfile]
 ```
 
-Run the tool with no arguments to see the available options.
+@param -pack          Pack normals and tangents as @c int_10_10_10_2
+@param -optvtxcache   Reorder the indexes to optimise vertex cache utilisation
+@param -autogen       Generate autoconfigured LOD. No LOD options needed
+@param -l             number of LOD levels
+@param -d             distance increment to reduce LOD
+@param -p             Percentage triangle reduction amount per LOD
+@param -f             Fixed vertex reduction per LOD
+@param -el            generate edge lists (for stencil shadows)
+@param -t             Generate tangents (for normal mapping)
+@param -ts            Tangent size (4 includes parity, default: 3)
+@param -tm            Split tangent vertices at UV mirror points
+@param -tr            Split tangent vertices where basis is rotated > 90 degrees
+@param -r             DON'T reorganise buffers to recommended format
+@param -E             Set endian mode `big` `little` or `native` (default)
+@param -b             Recalculate bounding box (static meshes only)
+@param -V             Specify OGRE version format to write instead of latest
+                      Options are: `1.10, 1.8, 1.7, 1.4, 1.0`
+@param -log filename  name of the log file (default: `OgreMeshUpgrader.log`)
+
 
 @note
 The OGRE release notes will notify you when meshes should be upgraded with a new release.
@@ -286,10 +322,16 @@ This tool converts 3D-formats supported by [assimp](https://assimp-docs.readthed
 
 @par Usage
 ```
-OgreAssimpConverter [options] sourcefile [destination]
+OgreAssimpConverter [parameters] sourcefile [destination]
 ```
 
-Run the tool with no arguments to see the available options.
+@param -q                  Quiet mode, less output
+@param -log filename       name of the log file (default: `OgreAssimp.log`)
+@param -aniSpeedMod [0..1] Factor to scale the animation speed (default: 1.0)
+@param -3ds_ani_fix        Fix for 3ds max, which exports the animation over a
+                           longer time frame than the animation actually plays
+@param -max_edge_angle deg When normals are generated, max angle between
+                           two faces to smooth over
 
 # Exporters {#Exporters}
 

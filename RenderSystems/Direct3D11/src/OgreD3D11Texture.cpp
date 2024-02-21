@@ -51,16 +51,7 @@ namespace Ogre
     //---------------------------------------------------------------------
     D3D11Texture::~D3D11Texture()
     {
-        // have to call this here reather than in Resource destructor
-        // since calling virtual methods in base destructors causes crash
-        if (isLoaded())
-        {
-            unload(); 
-        }
-        else
-        {
-            freeInternalResources();
-        }
+        unload();
     }
     //---------------------------------------------------------------------
     void D3D11Texture::notifyDeviceLost(D3D11Device* device)
@@ -114,22 +105,11 @@ namespace Ogre
 
     }
     //---------------------------------------------------------------------
-    void D3D11Texture::loadImpl()
-    {
-        Texture::loadImpl();
-
-        if (mUsage & TU_RENDERTARGET)
-        {
-            return;
-        }
-
-        _setSrcAttributes(mWidth, mHeight, mDepth, mFormat);
-    }
-    //---------------------------------------------------------------------
     void D3D11Texture::freeInternalResourcesImpl()
     {
         mpTex.Reset();
         mpShaderResourceView.Reset();
+        mpUnorderedAccessView.Reset();
         mp1DTex.Reset();
         mp2DTex.Reset();
         mp3DTex.Reset();
@@ -182,7 +162,7 @@ namespace Ogre
             this->_create3DTex();
             break;
         default:
-            this->freeInternalResources();
+            this->unloadImpl();
             OGRE_EXCEPT( Exception::ERR_INTERNAL_ERROR, "Unknown texture type", "D3D11Texture::createInternalResources" );
         }
     }
@@ -213,7 +193,7 @@ namespace Ogre
         // check result and except if failed
         if (FAILED(hr) || mDevice.isError())
         {
-            this->freeInternalResources();
+            this->unloadImpl();
 			String errorDescription = mDevice.getErrorDescription(hr);
 			OGRE_EXCEPT_EX(Exception::ERR_RENDERINGAPI_ERROR, hr,
 				"Error creating texture\nError Description:" + errorDescription,
@@ -311,7 +291,7 @@ namespace Ogre
         // check result and except if failed
         if (FAILED(hr) || mDevice.isError())
         {
-            this->freeInternalResources();
+            this->unloadImpl();
             String errorDescription = mDevice.getErrorDescription(hr);
 			OGRE_EXCEPT_EX(Exception::ERR_RENDERINGAPI_ERROR, hr,
                 "Error creating texture\nError Description:" + errorDescription, 
@@ -384,6 +364,19 @@ namespace Ogre
 
         this->_setFinalAttributes(desc.Width, desc.Height, desc.ArraySize / getNumFaces(), D3D11Mappings::_getPF(desc.Format), desc.MiscFlags);
     }
+
+    void D3D11Texture::createShaderAccessPoint(uint bindPoint, TextureAccess access, int mipmapLevel,
+                                               int textureArrayIndex, PixelFormat format)
+    {
+        if(mpUnorderedAccessView)
+            return;
+        D3D11_UNORDERED_ACCESS_VIEW_DESC descUAV;
+        descUAV.Format = mD3DFormat;
+        descUAV.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
+        descUAV.Texture2D.MipSlice = static_cast<UINT>( mipmapLevel );
+
+        mDevice->CreateUnorderedAccessView( mp2DTex.Get(), &descUAV, mpUnorderedAccessView.ReleaseAndGetAddressOf() );
+    }
     //---------------------------------------------------------------------
     void D3D11Texture::_create3DTex()
     {
@@ -417,7 +410,7 @@ namespace Ogre
         // check result and except if failed
         if (FAILED(hr) || mDevice.isError())
         {
-            this->freeInternalResources();
+            this->unloadImpl();
             String errorDescription = mDevice.getErrorDescription(hr);
 			OGRE_EXCEPT_EX(Exception::ERR_RENDERINGAPI_ERROR, hr,
                 "Error creating texture\nError Description:" + errorDescription, 
@@ -476,16 +469,6 @@ namespace Ogre
 
         // Create list of subsurfaces for getBuffer()
         _createSurfaceList();
-    }
-    //---------------------------------------------------------------------
-    void D3D11Texture::_setSrcAttributes(unsigned long width, unsigned long height, 
-        unsigned long depth, PixelFormat format)
-    { 
-        // set source image attributes
-        mSrcWidth = width; 
-        mSrcHeight = height; 
-        mSrcDepth = depth;
-        mSrcFormat = format;
     }
     //---------------------------------------------------------------------
     void D3D11Texture::_createSurfaceList(void)

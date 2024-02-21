@@ -80,9 +80,6 @@ protected:
     /** Initialize string maps. */
     void initializeStringMaps();
 
-    /** Write the program dependencies. */
-    void writeProgramDependencies(std::ostream& os, Program* program);
-
     /** Write the input params of the function */
     void writeInputParameters(std::ostream& os, Function* function, GpuProgramType gpuType);
     
@@ -92,12 +89,10 @@ protected:
     void writeUniformBlock(std::ostream& os, const String& name, int binding, const UniformParameterList& uniforms);
 
 protected:
-    typedef std::map<Parameter::Content, const char*>  ParamContentToStringMap;
+    typedef std::map<Parameter::Semantic, const char*>  ParamSemanticToStringMap;
 
-    // Attributes.
-protected:
     // Map parameter content to vertex attributes 
-    ParamContentToStringMap mContentToPerVertexAttributes;
+    ParamSemanticToStringMap mParamSemanticToNameMap;
     // Holds the current glsl version
     int mGLSLVersion;
     // set by derived class

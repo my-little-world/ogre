@@ -1,7 +1,9 @@
 # Ignore CLion project directory and iml files
 .idea/
 *.iml
-
+*.obj
+*.ipch
+*.pch
 # Ignore build directories
 cmake-build-*/
 /build/
@@ -10,6 +12,8 @@ cmake-build-*/
 /embuild/
 /eminstall/
 /mingw/
+/.cache/
+/_skbuild/
 
 # Meta data of macOS's Finder.app
 .DS_Store

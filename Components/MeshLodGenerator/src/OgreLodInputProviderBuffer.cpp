@@ -30,91 +30,37 @@
 
 namespace Ogre
 {
-
     LodInputProviderBuffer::LodInputProviderBuffer( MeshPtr mesh )
     {
         mBuffer.fillBuffer(mesh);
     }
 
-    void LodInputProviderBuffer::initData( LodData* data )
+    void LodInputProviderBuffer::addVertexData(LodData* data, size_t subMeshIndex)
     {
-        tuneContainerSize(data);
-        initialize(data);
-    }
+        bool useSharedVertices = getSubMeshUseSharedVertices(subMeshIndex);
 
-    void LodInputProviderBuffer::tuneContainerSize(LodData* data)
-    {
-        // Get Vertex count for container tuning.
-        bool sharedVerticesAdded = false;
-        size_t trianglesCount = 0;
-        size_t vertexCount = 0;
-        size_t vertexLookupSize = 0;
-        size_t sharedVertexLookupSize = 0;
-        ushort submeshCount = Math::uint16Cast(mBuffer.submesh.size());
-        for (unsigned short i = 0; i < submeshCount; i++) {
-            const LodInputBuffer::Submesh& submesh = mBuffer.submesh[i];
-            trianglesCount += submesh.indexBuffer.indexCount/3; //assume mBuffer provide triangle list only
-            if (!submesh.useSharedVertexBuffer) {
-                size_t count = submesh.vertexBuffer.vertexCount;
-                vertexLookupSize = std::max<size_t>(vertexLookupSize, count);
-                vertexCount += count;
-            } else if (!sharedVerticesAdded) {
-                sharedVerticesAdded = true;
-                sharedVertexLookupSize = mBuffer.sharedVertexBuffer.vertexCount;
-                vertexCount += sharedVertexLookupSize;
-            }
-        }
-
-        // Tune containers:
-        data->mUniqueVertexSet.rehash(4 * vertexCount); // less then 0.25 item/bucket for low collision rate
-
-        data->mTriangleList.reserve(trianglesCount);
-
-        data->mVertexList.reserve(vertexCount);
-        mSharedVertexLookup.reserve(sharedVertexLookupSize);
-        mVertexLookup.reserve(vertexLookupSize);
-        data->mIndexBufferInfoList.resize(submeshCount);
-    }
-
-    void LodInputProviderBuffer::initialize( LodData* data )
-    {
-#if OGRE_DEBUG_MODE
-        data->mMeshName = mBuffer.meshName;
-#endif
-        data->mMeshBoundingSphereRadius = mBuffer.boundingSphereRadius;
-        ushort submeshCount = Math::uint16Cast(mBuffer.submesh.size());
-        for (unsigned short i = 0; i < submeshCount; ++i) {
-            LodInputBuffer::Submesh& submesh = mBuffer.submesh[i];
-            LodVertexBuffer& vertexBuffer =
-                (submesh.useSharedVertexBuffer ? mBuffer.sharedVertexBuffer : submesh.vertexBuffer);
-            addVertexData(data, vertexBuffer, submesh.useSharedVertexBuffer);
-            addIndexData(data, submesh.indexBuffer, submesh.useSharedVertexBuffer, i);
-        }
-
-        // These were only needed for addIndexData() and addVertexData().
-        mSharedVertexLookup.clear();
-        mVertexLookup.clear();
-    }
-    void LodInputProviderBuffer::addVertexData(LodData* data, LodVertexBuffer& vertexBuffer, bool useSharedVertexLookup)
-    {
-        if (useSharedVertexLookup && !mSharedVertexLookup.empty()) {
+        if (useSharedVertices && !mSharedVertexLookup.empty()) {
             return; // We already loaded the shared vertex buffer.
         }
 
-        VertexLookupList& lookup = useSharedVertexLookup ? mSharedVertexLookup : mVertexLookup;
+        VertexLookupList& lookup = useSharedVertices ? mSharedVertexLookup : mVertexLookup;
         lookup.clear();
 
-        const Vector3* pNormalOut = vertexBuffer.vertexNormalBuffer.get();
+        LodVertexBuffer& vertexBuffer = useSharedVertices ? mBuffer.sharedVertexBuffer : mBuffer.submesh[subMeshIndex].vertexBuffer;
+        const Vector3f* pNormalOut = (Vector3f *)vertexBuffer.vertexNormalBuffer->lock(HardwareBuffer::HBL_READ_ONLY);
         data->mUseVertexNormals = data->mUseVertexNormals && (pNormalOut != NULL);
 
         if(!data->mUseVertexNormals)
-            pNormalOut = &Vector3::ZERO;
+        {
+            static Vector3f zeroNormal(0, 0, 0);
+            pNormalOut = &zeroNormal;
+        }
 
         // Loop through all vertices and insert them to the Unordered Map.
-        Vector3* pOut = vertexBuffer.vertexBuffer.get();
-        Vector3* pEnd = pOut + vertexBuffer.vertexCount;
+        const Vector3f* pOut = (Vector3f *)vertexBuffer.vertexBuffer->lock(HardwareBuffer::HBL_READ_ONLY);
+        const Vector3f* pEnd = pOut + vertexBuffer.vertexCount;
         for (; pOut < pEnd; pOut++) {
-            data->mVertexList.push_back({*pOut, *pNormalOut});
+            data->mVertexList.push_back({Vector3(*pOut), Vector3(*pNormalOut)});
             LodData::Vertex* v = &data->mVertexList.back();
             std::pair<LodData::UniqueVertexSet::iterator, bool> ret;
             ret = data->mUniqueVertexSet.insert(v);
@@ -124,8 +70,8 @@ namespace Ogre
                 v = *ret.first; // Point to the existing vertex.
                 v->seam = true;
                 if(data->mUseVertexNormals){
-                    if(v->normal.x != (*pNormalOut).x){
-                        v->normal += *pNormalOut;
+                    if(v->normal.x != (*pNormalOut)[0]){
+                        v->normal += Vector3(*pNormalOut);
                         if(v->normal.isZeroLength()){
                             v->normal = Vector3(1.0, 0.0, 0.0);
                         }
@@ -145,28 +91,45 @@ namespace Ogre
             }
             lookup.push_back(v);
         }
+        vertexBuffer.vertexBuffer->unlock();
+        vertexBuffer.vertexNormalBuffer->unlock();
     }
 
-    void LodInputProviderBuffer::addIndexData(LodData* data, LodIndexBuffer& indexBuffer, bool useSharedVertexLookup, unsigned short submeshID)
+    const IndexData* LodInputProviderBuffer::getSubMeshIndexData(size_t subMeshIndex) const
     {
-        size_t isize = indexBuffer.indexSize;
-        data->mIndexBufferInfoList[submeshID].indexSize = isize;
-        data->mIndexBufferInfoList[submeshID].indexCount = indexBuffer.indexCount;
-        VertexLookupList& lookup = useSharedVertexLookup ? mSharedVertexLookup : mVertexLookup;
-
-        // Lock the buffer for reading.
-        unsigned char* iStart = indexBuffer.indexBuffer.get();
-        if(!iStart) {
-            return;
-        }
-        unsigned char* iEnd = iStart + indexBuffer.indexCount * isize;
-        if (isize == sizeof(unsigned short)) {
-            addIndexDataImpl<unsigned short>(data, (unsigned short*) iStart, (unsigned short*) iEnd, lookup, submeshID);
-        } else {
-            // Unsupported index size.
-            OgreAssert(isize == sizeof(unsigned int), "");
-            addIndexDataImpl<unsigned int>(data, (unsigned int*) iStart, (unsigned int*) iEnd, lookup, submeshID);
-        }
+        return &mBuffer.submesh[subMeshIndex].indexBuffer;
     }
 
+    const String & LodInputProviderBuffer::getMeshName()
+    {
+        return mBuffer.meshName;
+    }
+    size_t LodInputProviderBuffer::getMeshSharedVertexCount()
+    {
+        return mBuffer.sharedVertexBuffer.vertexCount;
+    }
+    float LodInputProviderBuffer::getMeshBoundingSphereRadius()
+    {
+        return mBuffer.boundingSphereRadius;
+    }
+    size_t LodInputProviderBuffer::getSubMeshCount()
+    {
+        return mBuffer.submesh.size();
+    }
+    bool LodInputProviderBuffer::getSubMeshUseSharedVertices(size_t subMeshIndex)
+    {
+        return mBuffer.submesh[subMeshIndex].useSharedVertexBuffer;
+    }
+    size_t LodInputProviderBuffer::getSubMeshOwnVertexCount(size_t subMeshIndex)
+    {
+        return mBuffer.submesh[subMeshIndex].vertexBuffer.vertexCount;
+    }
+    size_t LodInputProviderBuffer::getSubMeshIndexCount(size_t subMeshIndex)
+    {
+        return mBuffer.submesh[subMeshIndex].indexBuffer.indexCount;
+    }
+    RenderOperation::OperationType LodInputProviderBuffer::getSubMeshRenderOp(size_t subMeshIndex)
+    {
+        return mBuffer.submesh[subMeshIndex].operationType;
+    }
 }

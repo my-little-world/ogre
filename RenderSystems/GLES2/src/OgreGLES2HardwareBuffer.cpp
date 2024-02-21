@@ -27,6 +27,8 @@ THE SOFTWARE.
 */
 
 #include "OgreGLES2HardwareBuffer.h"
+
+#include <memory>
 #include "OgreRoot.h"
 #include "OgreGLES2RenderSystem.h"
 #include "OgreGLES2StateCacheManager.h"
@@ -34,7 +36,7 @@ THE SOFTWARE.
 
 namespace Ogre {
     GLES2HardwareBuffer::GLES2HardwareBuffer(GLenum target, size_t sizeInBytes, uint32 usage, bool useShadowBuffer)
-        : HardwareBuffer(usage, false, useShadowBuffer || HANDLE_CONTEXT_LOSS), mTarget(target)
+        : HardwareBuffer(usage, useShadowBuffer || HANDLE_CONTEXT_LOSS), mTarget(target)
     {
         mSizeInBytes = sizeInBytes;
         mRenderSystem = static_cast<GLES2RenderSystem*>(Root::getSingleton().getRenderSystem());
@@ -42,7 +44,7 @@ namespace Ogre {
 
         if (useShadowBuffer || HANDLE_CONTEXT_LOSS)
         {
-            mShadowBuffer.reset(new DefaultHardwareBuffer(mSizeInBytes));
+            mShadowBuffer = std::make_unique<DefaultHardwareBuffer>(mSizeInBytes);
         }
     }
 
@@ -198,10 +200,6 @@ namespace Ogre {
         {
             mShadowBuffer->copyData(srcBuffer, srcOffset, dstOffset, length, discardWholeBuffer);
         }
-        // Zero out this(destination) buffer
-        OGRE_CHECK_GL_ERROR(glBindBuffer(mTarget, mBufferId));
-        OGRE_CHECK_GL_ERROR(glBufferData(mTarget, length, 0, getGLUsage(mUsage)));
-        OGRE_CHECK_GL_ERROR(glBindBuffer(mTarget, 0));
 
         // Do it the fast way.
         OGRE_CHECK_GL_ERROR(glBindBuffer(GL_COPY_READ_BUFFER,

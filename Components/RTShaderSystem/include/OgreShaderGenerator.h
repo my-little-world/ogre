@@ -54,6 +54,8 @@ class SGRenderObjectListener;
 class SGSceneManagerListener;
 class SGScriptTranslatorManager;
 class SGResourceGroupListener;
+class SGMaterialSerializerListener;
+class ProgramManager;
 
 /** Shader generator system main interface. This singleton based class
 enables automatic generation of shader code based on existing material techniques.
@@ -316,7 +318,7 @@ public:
     @param dstMat The destination material
     @return True if successful
     */
-    bool cloneShaderBasedTechniques(const Material& srcMat, Material& dstMat);
+    bool cloneShaderBasedTechniques(Material& srcMat, Material& dstMat);
 
     /** 
     Remove all shader based techniques that created by this shader generator.   
@@ -440,9 +442,11 @@ public:
     */
     const String& getRTShaderScheme(size_t index) const;
 
+    /// mark the given texture unit as non-FFP
+    static void _markNonFFP(const TextureUnitState* tu);
+
     /// same as @ref MSN_SHADERGEN
     static String DEFAULT_SCHEME_NAME;
-
 private:
     class SGPass;
     class SGTechnique;

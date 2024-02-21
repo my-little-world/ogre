@@ -153,7 +153,7 @@ public:
 class RSQuadOperation: public CompositorInstance::RenderSystemOperation
 {
 public:
-    RSQuadOperation(CompositorInstance *inInstance, uint32 inPass_id, MaterialPtr inMat):
+    RSQuadOperation(CompositorInstance *inInstance, uint32 inPass_id, const MaterialPtr& inMat):
       mat(inMat), instance(inInstance), pass_id(inPass_id),
       mQuadCornerModified(false),
       mQuadFarCorners(false),
@@ -277,7 +277,7 @@ public:
     CompositorInstance *instance;
     uint32 pass_id;
 
-    RSComputeOperation(CompositorInstance *inInstance, uint32 inPass_id, MaterialPtr inMat):
+    RSComputeOperation(CompositorInstance *inInstance, uint32 inPass_id, const MaterialPtr& inMat):
       mat(inMat), instance(inInstance), pass_id(inPass_id)
     {
         instance->_fireNotifyMaterialSetup(pass_id, mat);
@@ -291,12 +291,16 @@ public:
         // Queue passes from mat
         for(auto* pass : technique->getPasses())
         {
+            int tuIdx = 0;
+            for(auto* tu : pass->getTextureUnitStates())
+                rs->_setTextureUnitSettings(tuIdx++, *tu);
             auto params = pass->getGpuProgramParameters(GPT_COMPUTE_PROGRAM);
             params->_updateAutoParams(sm->_getAutoParamDataSource(), GPV_GLOBAL);
             rs->bindGpuProgram(pass->getComputeProgram()->_getBindingDelegate());
             rs->bindGpuProgramParameters(GPT_COMPUTE_PROGRAM, params, GPV_GLOBAL);
             rs->_dispatchCompute(thread_groups);
         }
+        rs->unbindGpuProgram(GPT_COMPUTE_PROGRAM);
     }
 };
 
@@ -328,12 +332,10 @@ void CompositorInstance::collectPasses(TargetOperation &finalState, const Compos
         {
             if(pass->getFirstRenderQueue() < finalState.currentQueueGroupID)
             {
-                /// Mismatch -- warn user
                 /// XXX We could support repeating the last queue, with some effort
-                LogManager::getSingleton().logWarning("in compilation of Compositor "
-                    +mCompositor->getName()+": Attempt to render queue "+
-                    StringConverter::toString(pass->getFirstRenderQueue())+" after "+
-                    StringConverter::toString(finalState.currentQueueGroupID));
+                LogManager::getSingleton().logError(StringUtil::format(
+                    "Compositor '%s': cannot use first_render_queue %d after last_render_queue %d",
+                    mCompositor->getName().c_str(), pass->getFirstRenderQueue(), finalState.currentQueueGroupID - 1));
             }
 
             RSSetSchemeOperation* setSchemeOperation = 0;
@@ -447,9 +449,6 @@ void CompositorInstance::collectPasses(TargetOperation &finalState, const Compos
             }
             break;
         case CompositionPass::PT_RENDERCUSTOM:
-		
-			finalState.currentQueueGroupID = pass->getFirstRenderQueue();
-		
             RenderSystemOperation* customOperation = CompositorManager::getSingleton().
                 getCustomCompositionPass(pass->getCustomType())->createOperation(this, pass);
             queueRenderSystemOp(finalState, customOperation);

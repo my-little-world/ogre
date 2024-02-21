@@ -83,10 +83,6 @@ include_directories("include/Threading" "src/")
 if (OGRE_THREAD_PROVIDER EQUAL 0)
 	list(APPEND THREAD_HEADER_FILES
 		include/Threading/OgreThreadDefinesNone.h
-		include/Threading/OgreDefaultWorkQueueStandard.h
-	)
-	set(THREAD_SOURCE_FILES
-		src/Threading/OgreDefaultWorkQueueStandard.cpp
 	)
 elseif (OGRE_THREAD_PROVIDER EQUAL 1)
   include_directories(${Boost_INCLUDE_DIRS})
@@ -95,37 +91,16 @@ elseif (OGRE_THREAD_PROVIDER EQUAL 1)
 	list(APPEND THREAD_HEADER_FILES
 		include/Threading/OgreThreadDefinesBoost.h
 		include/Threading/OgreThreadHeadersBoost.h
-		include/Threading/OgreDefaultWorkQueueStandard.h
-	)
-	set(THREAD_SOURCE_FILES
-		src/Threading/OgreDefaultWorkQueueStandard.cpp
 	)
 elseif (OGRE_THREAD_PROVIDER EQUAL 2)
 	list(APPEND THREAD_HEADER_FILES
 		include/Threading/OgreThreadDefinesPoco.h
 		include/Threading/OgreThreadHeadersPoco.h
-		include/Threading/OgreDefaultWorkQueueStandard.h
-	)
-	set(THREAD_SOURCE_FILES
-		src/Threading/OgreDefaultWorkQueueStandard.cpp
-	)
-elseif (OGRE_THREAD_PROVIDER EQUAL 3)
-	list(APPEND THREAD_HEADER_FILES
-		include/Threading/OgreThreadDefinesTBB.h
-		include/Threading/OgreThreadHeadersTBB.h
-		include/Threading/OgreDefaultWorkQueueTBB.h
-	)
-	set(THREAD_SOURCE_FILES
-		src/Threading/OgreDefaultWorkQueueTBB.cpp
 	)
 elseif (OGRE_THREAD_PROVIDER EQUAL 4)
 	list(APPEND THREAD_HEADER_FILES
 		include/Threading/OgreThreadDefinesSTD.h
 		include/Threading/OgreThreadHeadersSTD.h
-		include/Threading/OgreDefaultWorkQueueStandard.h
-	)
-	list(APPEND THREAD_SOURCE_FILES
-		src/Threading/OgreDefaultWorkQueueStandard.cpp
 	)
 endif ()
 
@@ -182,7 +157,7 @@ set (TARGET_LINK_FLAGS "")
 # setup OgreMain target
 
 get_native_precompiled_header(OgreMain)
-add_library(OgreMain ${OGRE_LIB_TYPE} ${OgreMain_pch} ${HEADER_FILES} ${SOURCE_FILES} ${PLATFORM_HEADERS} ${PLATFORM_SOURCE_FILES} ${THREAD_HEADER_FILES} ${THREAD_SOURCE_FILES})
+add_library(OgreMain ${OGRE_LIB_TYPE} ${OgreMain_pch} ${HEADER_FILES} ${SOURCE_FILES} ${PLATFORM_HEADERS} ${PLATFORM_SOURCE_FILES} ${THREAD_HEADER_FILES})
 
 if (WINDOWS_STORE OR WINDOWS_PHONE)
 	set_target_properties(OgreMain PROPERTIES VS_WINRT_COMPONENT "true")
@@ -201,7 +176,7 @@ target_include_directories(OgreMain PUBLIC
   PRIVATE "${OGRE_PROFILING_REMOTERY_PATH}")
 
 # In visual studio 2010 - 64 bit we get this error: "LINK : fatal error LNK1210: exceeded internal ILK size limit; link with /INCREMENTAL:NO"
-if(WIN32 AND MSVC10 AND CMAKE_CL_64)
+if(WIN32 AND MSVC10 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_target_properties(OgreMain PROPERTIES 
                         VERSION ${OGRE_SOVERSION}
                         LINK_FLAGS "/INCREMENTAL:NO"

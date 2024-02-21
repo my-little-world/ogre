@@ -96,18 +96,12 @@ namespace Ogre {
         bool mRenderQueuePrioritySet;
         /// The render queue priority to use when rendering this renderable
         ushort mRenderQueuePriority;
-#if !OGRE_NO_MESHLOD
-        /// The LOD number of the material to use, calculated by Entity::_notifyCurrentCamera
-        unsigned short mMaterialLodIndex;
-#else
-        const unsigned short mMaterialLodIndex; // = 0
-#endif
         /// Blend buffer details for dedicated geometry
         std::unique_ptr<VertexData> mSkelAnimVertexData;
         /// Quick lookup of buffers
-        TempBlendedBufferInfo mTempSkelAnimInfo;
+        Entity::TempBlendedBufferInfo mTempSkelAnimInfo;
         /// Temp buffer details for software Vertex anim geometry
-        TempBlendedBufferInfo mTempVertexAnimInfo;
+        Entity::TempBlendedBufferInfo mTempVertexAnimInfo;
         /// Vertex data details for software Vertex anim of shared geometry
         std::unique_ptr<VertexData> mSoftwareVertexAnimVertexData;
         /// Vertex data details for hardware Vertex anim of shared geometry
@@ -197,7 +191,6 @@ namespace Ogre {
 
 
         const MaterialPtr& getMaterial(void) const override { return mMaterialPtr; }
-        Technique* getTechnique(void) const override;
         void getRenderOperation(RenderOperation& op) override;
 
         /** Tells this SubEntity to draw a subset of the SubMesh by adjusting the index buffer extents.
@@ -254,14 +247,6 @@ namespace Ogre {
             The positions/normals of the returned vertex data is in object space.
         */
         VertexData* _getHardwareVertexAnimVertexData(void);
-        /** Advanced method to get the temp buffer information for software 
-        skeletal animation.
-        */
-        TempBlendedBufferInfo* _getSkelAnimTempBufferInfo(void);
-        /** Advanced method to get the temp buffer information for software 
-        morph animation.
-        */
-        TempBlendedBufferInfo* _getVertexAnimTempBufferInfo(void);
         /// Retrieve the VertexData which should be used for GPU binding
         VertexData* getVertexDataForBinding(void);
 

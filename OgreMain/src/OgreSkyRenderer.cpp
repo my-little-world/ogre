@@ -26,6 +26,8 @@ THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
 
+#include <memory>
+
 #include "OgreStableHeaders.h"
 
 #include "OgreEntity.h"
@@ -117,8 +119,7 @@ void SceneManager::SkyPlaneRenderer::setSkyPlane(
         }
         // Create, use the same name for mesh and entity
         // manually construct as we don't want this to be destroyed on destroyAllMovableObjects
-        MovableObjectFactory* factory =
-            Root::getSingleton().getMovableObjectFactory(EntityFactory::FACTORY_TYPE_NAME);
+        MovableObjectFactory* factory = Root::getSingleton().getMovableObjectFactory(MOT_ENTITY);
         NameValuePairList params;
         params["mesh"] = meshName;
         mSkyPlaneEntity = static_cast<Entity*>(factory->createInstance(meshName, mSceneManager, &params));
@@ -126,7 +127,7 @@ void SceneManager::SkyPlaneRenderer::setSkyPlane(
         mSkyPlaneEntity->setCastShadows(false);
         mSkyPlaneEntity->setRenderQueueGroup(renderQueue);
 
-        MovableObjectCollection* objectMap = mSceneManager->getMovableObjectCollection(EntityFactory::FACTORY_TYPE_NAME);
+        MovableObjectCollection* objectMap = mSceneManager->getMovableObjectCollection(MOT_ENTITY);
         objectMap->map[meshName] = mSkyPlaneEntity;
 
         // Create node and attach
@@ -195,7 +196,7 @@ void SceneManager::SkyBoxRenderer::setSkyBox(
         // Create object
         if (!mSkyBoxObj)
         {
-            mSkyBoxObj.reset(new ManualObject("SkyBox"));
+            mSkyBoxObj = std::make_unique<ManualObject>("SkyBox");
             mSkyBoxObj->setCastShadows(false);
             mSceneNode->attachObject(mSkyBoxObj.get());
         }
@@ -295,8 +296,7 @@ void SceneManager::SkyDomeRenderer::setSkyDome(
                 mSkyDomeEntity[i] = 0;
             }
             // construct manually so we don't have problems if destroyAllMovableObjects called
-            MovableObjectFactory* factory =
-                Root::getSingleton().getMovableObjectFactory(EntityFactory::FACTORY_TYPE_NAME);
+            MovableObjectFactory* factory = Root::getSingleton().getMovableObjectFactory(MOT_ENTITY);
 
             NameValuePairList params;
             params["mesh"] = planeMesh->getName();
@@ -306,7 +306,7 @@ void SceneManager::SkyDomeRenderer::setSkyDome(
             mSkyDomeEntity[i]->setRenderQueueGroup(renderQueue);
 
 
-            MovableObjectCollection* objectMap = mSceneManager->getMovableObjectCollection(EntityFactory::FACTORY_TYPE_NAME);
+            MovableObjectCollection* objectMap = mSceneManager->getMovableObjectCollection(MOT_ENTITY);
             objectMap->map[entName] = mSkyDomeEntity[i];
 
             // Attach to node

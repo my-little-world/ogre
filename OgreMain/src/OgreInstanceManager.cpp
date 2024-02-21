@@ -475,7 +475,7 @@ namespace Ogre
     }
     //-----------------------------------------------------------------------
     template< typename TIndexType >
-    void copyIndexBuffer(IndexData* idxData, const IndicesMap& indicesMap, size_t indexStart)
+    void copyIndexBuffer(IndexData* idxData, const IndicesMap& indicesMap, uint32 indexStart)
     {
         size_t start = std::max(indexStart, idxData->indexStart);
         size_t count = idxData->indexCount - (start - idxData->indexStart);
@@ -587,8 +587,7 @@ namespace Ogre
 			}
 
             // Store new attributes
-            subMesh->useSharedVertices = false;
-            subMesh->vertexData = newVertexData;
+            subMesh->resetVertexData(newVertexData);
 
             // Transfer bone assignments to the submesh
             size_t offset = curVertexOffset + newVertexData->vertexCount;
@@ -606,8 +605,7 @@ namespace Ogre
         }
 
         // Release shared vertex data
-        delete mesh->sharedVertexData;
-        mesh->sharedVertexData = NULL;
+        mesh->resetVertexData();
         mesh->clearBoneAssignments();
 
         if( mesh->isEdgeListBuilt() )

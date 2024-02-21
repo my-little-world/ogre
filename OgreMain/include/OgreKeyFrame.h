@@ -84,17 +84,17 @@ namespace Ogre
         ~NumericKeyFrame() {}
 
         /** Get the value at this keyframe. */
-        virtual const AnyNumeric& getValue(void) const;
+        const Any& getValue(void) const { return mValue; }
         /** Set the value at this keyframe.
 
             All keyframe values must have a consistent type. 
         */
-        virtual void setValue(const AnyNumeric& val);
+        void setValue(const Any& val) { mValue = val; }
 
         /** Clone a keyframe (internal use only) */
         KeyFrame* _clone(AnimationTrack* newParent) const override;
     private:
-        AnyNumeric mValue;
+        Any mValue;
     };
 
 
@@ -203,20 +203,20 @@ namespace Ogre
             /** Influence level of the linked pose. 
                 1.0 for full influence (full offset), 0.0 for no influence.
             */
-            Real influence;
+            float influence;
 
-            PoseRef(ushort p, Real i) : poseIndex(p), influence(i) {}
+            PoseRef(ushort p, float i) : poseIndex(p), influence(i) {}
         };
         typedef std::vector<PoseRef> PoseRefList;
 
         /** Add a new pose reference. 
         @see PoseRef
         */
-        void addPoseReference(ushort poseIndex, Real influence);
+        void addPoseReference(ushort poseIndex, float influence);
         /** Update the influence of a pose reference. 
         @see PoseRef
         */
-        void updatePoseReference(ushort poseIndex, Real influence);
+        void updatePoseReference(ushort poseIndex, float influence);
         /** Remove reference to a given pose. 
         @param poseIndex The pose index (not the index of the reference)
         */

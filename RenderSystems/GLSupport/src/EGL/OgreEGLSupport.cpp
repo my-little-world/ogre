@@ -192,30 +192,6 @@ namespace Ogre {
         return glConfig;
     }
 
-    ::EGLConfig EGLSupport::getGLConfigFromDrawable(::EGLSurface drawable,
-                                                    unsigned int *w, unsigned int *h)
-    {
-        ::EGLConfig glConfig;
-        EGLint id = 0;
-        ::EGLConfig *configs;
-        EGLint numConfigs;
-
-        if (eglQuerySurface(mGLDisplay, drawable, EGL_CONFIG_ID, &id) == EGL_FALSE)
-        {
-            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Fail to get config from drawable");
-            return 0;
-        }
-        EGL_CHECK_ERROR
-        eglQuerySurface(mGLDisplay, drawable, EGL_WIDTH, (EGLint *) w);
-        EGL_CHECK_ERROR
-        eglQuerySurface(mGLDisplay, drawable, EGL_HEIGHT, (EGLint *) h);
-        EGL_CHECK_ERROR
-        configs = getConfigs(&numConfigs);
-        glConfig = configs[id];
-        free(configs);
-        return glConfig;
-    }
-
     //------------------------------------------------------------------------
     // A helper class for the implementation of selectFBConfig
     //------------------------------------------------------------------------
@@ -234,13 +210,10 @@ namespace Ogre {
 
             void load(EGLSupport* const glSupport, EGLConfig glConfig)
             {
-                std::map<int,int>::iterator it;
-
-                for (it = fields.begin(); it != fields.end(); it++)
+                for (auto& f : fields)
                 {
-                    it->second = EGL_NONE;
-
-                    glSupport->getGLConfigAttrib(glConfig, it->first, &it->second);
+                    f.second = EGL_NONE;
+                    glSupport->getGLConfigAttrib(glConfig, f.first, &f.second);
                 }
             }
 
@@ -261,12 +234,10 @@ namespace Ogre {
                     }
                 }
 
-                std::map<int,int>::iterator it;
-
-                for (it = fields.begin(); it != fields.end(); it++)
+                for (auto& f : fields)
                 {
-                    if (it->first != EGL_CONFIG_CAVEAT &&
-                        fields[it->first] > alternative.fields[it->first])
+                    if (f.first != EGL_CONFIG_CAVEAT &&
+                        fields[f.first] > alternative.fields[f.first])
                     {
                         return true;
                     }
@@ -336,7 +307,7 @@ namespace Ogre {
 
     ::EGLContext EGLSupport::createNewContext(EGLDisplay eglDisplay,
                           ::EGLConfig glconfig,
-                                              ::EGLContext shareList) const 
+                                              ::EGLContext shareList) const
     {
         EGLint contextAttrs[] = {
             EGL_CONTEXT_MAJOR_VERSION, 3,

@@ -175,7 +175,7 @@ namespace Ogre
          */
         static ShadowCameraSetupPtr create(Real n = 0.1f, bool useSimpleNOpt = true, Degree angle = Radian(0.451f))
         {
-            return std::make_shared<LiSPSMShadowCameraSetup>();
+            return std::make_shared<LiSPSMShadowCameraSetup>(n, useSimpleNOpt, angle);
         }
 
         /** Returns a LiSPSM shadow camera.
@@ -221,7 +221,7 @@ namespace Ogre
             between the light and camera direction reduces from 20 degrees to 0
             degrees, the perspective skew will be proportionately removed.
         */
-        virtual void setCameraLightDirectionThreshold(Degree angle);
+        void setCameraLightDirectionThreshold(Degree angle);
 
         /** Sets the threshold between the camera and the light direction below
         which the LiSPSM projection is 'flattened', since coincident light

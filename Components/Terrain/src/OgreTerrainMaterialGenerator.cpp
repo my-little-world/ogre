@@ -50,8 +50,7 @@ namespace Ogre
 {
     //---------------------------------------------------------------------
     TerrainMaterialGenerator::TerrainMaterialGenerator() 
-        : mActiveProfile(0)
-        , mChangeCounter(0)
+        : mChangeCounter(0)
         , mDebugLevel(0) 
         , mCompositeMapSM(0)
         , mCompositeMapCam(0)
@@ -64,9 +63,6 @@ namespace Ogre
     //---------------------------------------------------------------------
     TerrainMaterialGenerator::~TerrainMaterialGenerator()
     {
-        for (ProfileList::iterator i = mProfiles.begin(); i != mProfiles.end(); ++i)
-            OGRE_DELETE *i;
-
         if (mCompositeMapRTT && TextureManager::getSingletonPtr())
         {
             TextureManager::getSingleton().remove(mCompositeMapRTT->getHandle());
@@ -89,7 +85,7 @@ namespace Ogre
         if (!mCompositeMapSM)
         {
             // dedicated SceneManager
-            mCompositeMapSM = Root::getSingleton().createSceneManager(DefaultSceneManagerFactory::FACTORY_TYPE_NAME);
+            mCompositeMapSM = Root::getSingleton().createSceneManager();
             mCompositeMapCam = mCompositeMapSM->createCamera("cam");
             mCompositeMapSM->getRootSceneNode()->attachObject(mCompositeMapCam);
             mCompositeMapCam->setProjectionType(PT_ORTHOGRAPHIC);
@@ -169,7 +165,7 @@ namespace Ogre
     }
     //---------------------------------------------------------------------
     //---------------------------------------------------------------------
-    void TerrainMaterialGenerator::Profile::updateCompositeMap(const Terrain* terrain, const Rect& rect)
+    void TerrainMaterialGenerator::updateCompositeMap(const Terrain* terrain, const Rect& rect)
     {
         // convert point-space rect into image space
         int32 compSize = terrain->getCompositeMap()->getWidth();
@@ -188,11 +184,7 @@ namespace Ogre
 
         imgRect = imgRect.intersect({0, 0, compSize, compSize});
 
-        mParent->_renderCompositeMap(
-            compSize, imgRect, 
-            terrain->getCompositeMapMaterial(), 
-            terrain->getCompositeMap());
-
+        _renderCompositeMap(compSize, imgRect, terrain->getCompositeMapMaterial(), terrain->getCompositeMap());
     }
 
 

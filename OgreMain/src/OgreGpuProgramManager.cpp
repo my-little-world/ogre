@@ -27,6 +27,8 @@ THE SOFTWARE.
 */
 #include "OgreStableHeaders.h"
 #include "OgreGpuProgramManager.h"
+
+#include <memory>
 #include "OgreHighLevelGpuProgramManager.h"
 #include "OgreUnifiedHighLevelGpuProgram.h"
 #include "OgreStreamSerialiser.h"
@@ -131,9 +133,9 @@ namespace {
         mSaveMicrocodesToCache = false;
         mCacheDirty = false;
 
-        mNullFactory.reset(new NullProgramFactory());
+        mNullFactory = std::make_unique<NullProgramFactory>();
         addFactory(mNullFactory.get());
-        mUnifiedFactory.reset(new UnifiedHighLevelGpuProgramFactory());
+        mUnifiedFactory = std::make_unique<UnifiedHighLevelGpuProgramFactory>();
         addFactory(mUnifiedFactory.get());
 
         ResourceGroupManager::getSingleton()._registerResourceManager(mResourceType, this);
@@ -251,9 +253,8 @@ namespace {
         SharedParametersMap::const_iterator i = mSharedParametersMap.find(name);
         if (i == mSharedParametersMap.end())
         {
-            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, 
-                "No shared parameter set with name '" + name + "'!", 
-                "GpuProgramManager::getSharedParameters");
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
+                        "referenced shared_params '" + name + "' not found");
         }
         return i->second;
     }
@@ -337,7 +338,7 @@ namespace {
         }
     }
     //---------------------------------------------------------------------
-    void GpuProgramManager::saveMicrocodeCache( DataStreamPtr stream ) const
+    void GpuProgramManager::saveMicrocodeCache( const DataStreamPtr& stream ) const
     {
         if (!mCacheDirty)
             return; 
@@ -372,7 +373,7 @@ namespace {
         serialiser.writeChunkEnd(CACHE_CHUNK_ID);
     }
     //---------------------------------------------------------------------
-    void GpuProgramManager::loadMicrocodeCache( DataStreamPtr stream )
+    void GpuProgramManager::loadMicrocodeCache( const DataStreamPtr& stream )
     {
         mMicrocodeCache.clear();
 

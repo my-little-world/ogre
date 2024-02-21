@@ -63,10 +63,6 @@ namespace Ogre {
         CompositorManager();
         virtual ~CompositorManager();
 
-        /** Initialises the Compositor manager, which also triggers it to
-            parse all available .compositor scripts. */
-        void initialise(void);
-
         /**
          * Create a new compositor
          * @see ResourceManager::createResource
@@ -75,7 +71,7 @@ namespace Ogre {
                             bool isManual = false, ManualResourceLoader* loader = 0,
                             const NameValuePairList* createParams = 0);
 
-        /// Get a resource by name
+        /// Get a resource by name. For example, a compositor defined in some .compositor script.
         /// @see ResourceManager::getResourceByName
         CompositorPtr getByName(const String& name, const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME) const;
 
@@ -247,9 +243,9 @@ namespace Ogre {
         ChainTexturesByDef mChainTexturesByDef;
 
         bool isInputPreviousTarget(CompositorInstance* inst, const Ogre::String& localName);
-        bool isInputPreviousTarget(CompositorInstance* inst, TexturePtr tex);
+        bool isInputPreviousTarget(CompositorInstance* inst, const TexturePtr& tex);
         bool isInputToOutputTarget(CompositorInstance* inst, const Ogre::String& localName);
-        bool isInputToOutputTarget(CompositorInstance* inst, TexturePtr tex);
+        bool isInputToOutputTarget(CompositorInstance* inst, const TexturePtr& tex);
 
     };
     /** @} */

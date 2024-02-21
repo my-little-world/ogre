@@ -32,7 +32,7 @@ THE SOFTWARE.
 
 namespace Ogre {
 
-    String Camera::msMovableType = "Camera";
+    const String MOT_CAMERA = "Camera";
     //-----------------------------------------------------------------------
     Camera::Camera( const String& name, SceneManager* sm)
         : Frustum(name),
@@ -73,7 +73,6 @@ namespace Ogre {
 
         // Init matrices
         mViewMatrix = Affine3::ZERO;
-        mProjMatrixRS = Matrix4::ZERO;
 
         mParentNode = 0;
 
@@ -649,7 +648,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     const String& Camera::getMovableType(void) const
     {
-        return msMovableType;
+        return MOT_CAMERA;
     }
     //-----------------------------------------------------------------------
     void Camera::setLodBias(Real factor)
@@ -692,14 +691,6 @@ namespace Ogre {
     void Camera::getCameraToViewportRay(Real screenX, Real screenY, Ray* outRay) const
     {
         Matrix4 inverseVP = (getProjectionMatrix() * getViewMatrix(true)).inverse();
-
-#if OGRE_NO_VIEWPORT_ORIENTATIONMODE == 0
-        // We need to convert screen point to our oriented viewport (temp solution)
-        Real tX = screenX; Real a = getOrientationMode() * Math::HALF_PI;
-        screenX = Math::Cos(a) * (tX-0.5f) + Math::Sin(a) * (screenY-0.5f) + 0.5f;
-        screenY = Math::Sin(a) * (tX-0.5f) + Math::Cos(a) * (screenY-0.5f) + 0.5f;
-        if ((int)getOrientationMode()&1) screenY = 1.f - screenY;
-#endif
 
         Real nx = (2.0f * screenX) - 1.0f;
         Real ny = 1.0f - (2.0f * screenY);

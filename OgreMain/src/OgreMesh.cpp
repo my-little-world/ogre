@@ -49,8 +49,8 @@ namespace Ogre {
         mHasManualLodLevel(false),
         mNumLods(1),
         mBufferManager(0),
-        mVertexBufferUsage(HardwareBuffer::HBU_STATIC_WRITE_ONLY),
-        mIndexBufferUsage(HardwareBuffer::HBU_STATIC_WRITE_ONLY),
+        mVertexBufferUsage(HBU_GPU_ONLY),
+        mIndexBufferUsage(HBU_GPU_ONLY),
         mVertexBufferShadowBuffer(false),
         mIndexBufferShadowBuffer(false),
         mPreparedForShadowVolumes(false),
@@ -73,6 +73,12 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     Mesh::~Mesh()
     {
+        if (!HardwareBufferManager::getSingletonPtr()) // LogManager might be also gone already
+        {
+            printf("ERROR: '%s' is being destroyed after HardwareBufferManager. This is a bug in user code.\n", mName.c_str());
+            OgreAssertDbg(false,  "Mesh destroyed after HardwareBufferManager"); // assert in debug mode
+            return; // try not to crash
+        }
         // have to call this here reather than in Resource destructor
         // since calling virtual methods in base destructors causes crash
         unload();
@@ -243,8 +249,7 @@ namespace Ogre {
         }
         if (sharedVertexData)
         {
-            OGRE_DELETE sharedVertexData;
-            sharedVertexData = NULL;
+            resetVertexData();
         }
         // Clear SubMesh lists
         mSubMeshList.clear();
@@ -314,7 +319,7 @@ namespace Ogre {
         // Copy shared geometry and index map, if any
         if (sharedVertexData)
         {
-            newMesh->sharedVertexData = sharedVertexData->clone(true, mBufferManager);
+            newMesh->resetVertexData(sharedVertexData->clone(true, mBufferManager));
             newMesh->sharedBlendIndexToBoneIndexMap = sharedBlendIndexToBoneIndexMap;
         }
 
@@ -1237,13 +1242,13 @@ namespace Ogre {
     //---------------------------------------------------------------------
     void Mesh::setVertexBufferPolicy(HardwareBuffer::Usage vbUsage, bool shadowBuffer)
     {
-        mVertexBufferUsage = vbUsage;
+        mVertexBufferUsage = (HardwareBufferUsage)vbUsage;
         mVertexBufferShadowBuffer = shadowBuffer;
     }
     //---------------------------------------------------------------------
     void Mesh::setIndexBufferPolicy(HardwareBuffer::Usage vbUsage, bool shadowBuffer)
     {
-        mIndexBufferUsage = vbUsage;
+        mIndexBufferUsage = (HardwareBufferUsage)vbUsage;
         mIndexBufferShadowBuffer = shadowBuffer;
     }
     //---------------------------------------------------------------------
@@ -1386,9 +1391,8 @@ namespace Ogre {
         }
     }
     //---------------------------------------------------------------------
-    void Mesh::buildTangentVectors(VertexElementSemantic targetSemantic, 
-        unsigned short sourceTexCoordSet, unsigned short index, 
-        bool splitMirrored, bool splitRotated, bool storeParityInW)
+    void Mesh::buildTangentVectors(unsigned short sourceTexCoordSet, bool splitMirrored, bool splitRotated,
+                                   bool storeParityInW)
     {
 
         TangentSpaceCalc tangentsCalc;
@@ -1411,8 +1415,7 @@ namespace Ogre {
             }
             if (found)
             {
-                TangentSpaceCalc::Result res = 
-                    tangentsCalc.build(targetSemantic, sourceTexCoordSet, index);
+                TangentSpaceCalc::Result res = tangentsCalc.build(sourceTexCoordSet);
 
                 // If any vertex splitting happened, we have to give them bone assignments
                 if (mSkeleton)
@@ -1461,8 +1464,7 @@ namespace Ogre {
                 tangentsCalc.clear();
                 tangentsCalc.setVertexData(sm->vertexData);
                 tangentsCalc.addIndexData(sm->indexData, sm->operationType);
-                TangentSpaceCalc::Result res = 
-                    tangentsCalc.build(targetSemantic, sourceTexCoordSet, index);
+                TangentSpaceCalc::Result res = tangentsCalc.build(sourceTexCoordSet);
 
                 // If any vertex splitting happened, we have to give them bone assignments
                 if (mSkeleton)
@@ -1490,8 +1492,7 @@ namespace Ogre {
 
     }
     //---------------------------------------------------------------------
-    bool Mesh::suggestTangentVectorBuildParams(VertexElementSemantic targetSemantic,
-        unsigned short& outSourceCoordSet, unsigned short& outIndex)
+    bool Mesh::suggestTangentVectorBuildParams(unsigned short& outSourceCoordSet)
     {
         // Go through all the vertex data and locate source and dest (must agree)
         bool sharedGeometryDone = false;
@@ -1516,58 +1517,31 @@ namespace Ogre {
             unsigned short targetIndex = 0;
             for (targetIndex = 0; targetIndex < OGRE_MAX_TEXTURE_COORD_SETS; ++targetIndex)
             {
-                const VertexElement* testElem =
-                    vertexData->vertexDeclaration->findElementBySemantic(
-                        VES_TEXTURE_COORDINATES, targetIndex);
+                auto testElem =
+                    vertexData->vertexDeclaration->findElementBySemantic(VES_TEXTURE_COORDINATES, targetIndex);
                 if (!testElem)
                     break; // finish if we've run out, t will be the target
 
-                if (!sourceElem)
+                // We're still looking for the source texture coords
+                if (testElem->getType() == VET_FLOAT2)
                 {
-                    // We're still looking for the source texture coords
-                    if (testElem->getType() == VET_FLOAT2)
-                    {
-                        // Ok, we found it
-                        sourceElem = testElem;
-                    }
+                    // Ok, we found it
+                    sourceElem = testElem;
+                    break;
                 }
-                
-                if(!foundExisting && targetSemantic == VES_TEXTURE_COORDINATES)
-                {
-                    // We're looking for the destination
-                    // Check to see if we've found a possible
-                    if (testElem->getType() == VET_FLOAT3)
-                    {
-                        // This is a 3D set, might be tangents
-                        foundExisting = true;
-                    }
-
-                }
-
-            }
-
-            if (!foundExisting && targetSemantic != VES_TEXTURE_COORDINATES)
-            {
-                targetIndex = 0;
-                // Look for existing semantic
-                const VertexElement* testElem =
-                    vertexData->vertexDeclaration->findElementBySemantic(
-                    targetSemantic, targetIndex);
-                if (testElem)
-                {
-                    foundExisting = true;
-                }
-
             }
 
             // After iterating, we should have a source and a possible destination (t)
             if (!sourceElem)
             {
                 OGRE_EXCEPT(Exception::ERR_ITEM_NOT_FOUND,
-                    "Cannot locate an appropriate 2D texture coordinate set for "
-                    "all the vertex data in this mesh to create tangents from. ",
-                    "Mesh::suggestTangentVectorBuildParams");
+                            "Cannot locate an appropriate 2D texture coordinate set for "
+                            "all the vertex data in this mesh to create tangents from. ");
             }
+
+            // Look for existing semantic
+            foundExisting = vertexData->vertexDeclaration->findElementBySemantic(VES_TANGENT);
+
             // Check that we agree with previous decisions, if this is not the
             // first one, and if we're not just using the existing one
             if (!firstOne && !foundExisting)
@@ -1575,24 +1549,14 @@ namespace Ogre {
                 if (sourceElem->getIndex() != outSourceCoordSet)
                 {
                     OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
-                        "Multiple sets of vertex data in this mesh disagree on "
-                        "the appropriate index to use for the source texture coordinates. "
-                        "This ambiguity must be rectified before tangents can be generated.",
-                        "Mesh::suggestTangentVectorBuildParams");
-                }
-                if (targetIndex != outIndex)
-                {
-                    OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
-                        "Multiple sets of vertex data in this mesh disagree on "
-                        "the appropriate index to use for the target texture coordinates. "
-                        "This ambiguity must be rectified before tangents can be generated.",
-                        "Mesh::suggestTangentVectorBuildParams");
+                                "Multiple sets of vertex data in this mesh disagree on "
+                                "the appropriate index to use for the texture coordinates. "
+                                "This ambiguity must be rectified before tangents can be generated.");
                 }
             }
 
             // Otherwise, save this result
             outSourceCoordSet = sourceElem->getIndex();
-            outIndex = targetIndex;
 
             firstOne = false;
 
@@ -1734,7 +1698,7 @@ namespace Ogre {
 
         mMeshLodUsageList[0].edgeData = eb.build();
 
-#if OGREUG_MODE
+#if OGRE_DEBUG_MODE
         // Override default log
         Log* log = LogManager::getSingleton().createLog(
             mName + "_lod0"+
@@ -1936,7 +1900,7 @@ namespace Ogre {
             targetVertexData->vertexCount);
     }
     //---------------------------------------------------------------------
-    void Mesh::softwareVertexMorph(Real t,
+    void Mesh::softwareVertexMorph(float t,
         const HardwareVertexBufferSharedPtr& b1,
         const HardwareVertexBufferSharedPtr& b2,
         VertexData* targetVertexData)
@@ -1985,9 +1949,9 @@ namespace Ogre {
             morphNormals);
     }
     //---------------------------------------------------------------------
-    void Mesh::softwareVertexPoseBlend(Real weight,
-        const std::map<size_t, Vector3>& vertexOffsetMap,
-        const std::map<size_t, Vector3>& normalsMap,
+    void Mesh::softwareVertexPoseBlend(float weight,
+        const std::map<uint32, Vector3f>& vertexOffsetMap,
+        const std::map<uint32, Vector3f>& normalsMap,
         VertexData* targetVertexData)
     {
         // Do nothing if no weight
@@ -2017,11 +1981,11 @@ namespace Ogre {
             // Adjust pointer
             float *pdst = pBase + i.first*elemsPerVertex;
 
-            *pdst = *pdst + (i.second.x * weight);
+            *pdst = *pdst + (i.second[0] * weight);
             ++pdst;
-            *pdst = *pdst + (i.second.y * weight);
+            *pdst = *pdst + (i.second[01] * weight);
             ++pdst;
-            *pdst = *pdst + (i.second.z * weight);
+            *pdst = *pdst + (i.second[2] * weight);
             ++pdst;
             
         }
@@ -2035,11 +1999,11 @@ namespace Ogre {
                 // Adjust pointer
                 float *pdst = pNormBase + i.first*elemsPerVertex;
 
-                *pdst = *pdst + (i.second.x * weight);
+                *pdst = *pdst + (i.second[0] * weight);
                 ++pdst;
-                *pdst = *pdst + (i.second.y * weight);
+                *pdst = *pdst + (i.second[1] * weight);
                 ++pdst;
-                *pdst = *pdst + (i.second.z * weight);
+                *pdst = *pdst + (i.second[2] * weight);
                 ++pdst;             
                 
             }

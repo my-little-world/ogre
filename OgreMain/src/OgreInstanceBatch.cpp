@@ -34,6 +34,8 @@ THE SOFTWARE.
 
 namespace Ogre
 {
+    const String MOT_INSTANCE_BATCH = "InstanceBatch";
+
     InstanceBatch::InstanceBatch( InstanceManager *creator, MeshPtr &meshReference,
                                     const MaterialPtr &material, size_t instancesPerBatch,
                                     const Mesh::IndexMap *indexToBoneMap, const String &batchName ) :
@@ -48,7 +50,6 @@ namespace Ogre
                 mBoundsDirty( false ),
                 mBoundsUpdated( false ),
                 mCurrentCamera( 0 ),
-                mMaterialLodIndex( 0 ),
                 mDirtyAnimation(true),
                 mTechnSupportsSkeletal( true ),
                 mCameraDistLastUpdateFrameNumber( std::numeric_limits<unsigned long>::max() ),
@@ -428,8 +429,7 @@ namespace Ogre
     //-----------------------------------------------------------------------
     const String& InstanceBatch::getMovableType(void) const
     {
-        static String sType = "InstanceBatch";
-        return sType;
+        return MOT_INSTANCE_BATCH;
     }
     //-----------------------------------------------------------------------
     void InstanceBatch::_notifyCurrentCamera( Camera* cam )
@@ -543,11 +543,6 @@ namespace Ogre
     const LightList& InstanceBatch::getLights( void ) const
     {
         return queryLights();
-    }
-    //-----------------------------------------------------------------------
-    Technique* InstanceBatch::getTechnique( void ) const
-    {
-        return mMaterial->getBestTechnique( mMaterialLodIndex, this );
     }
     //-----------------------------------------------------------------------
     void InstanceBatch::_updateRenderQueue( RenderQueue* queue )

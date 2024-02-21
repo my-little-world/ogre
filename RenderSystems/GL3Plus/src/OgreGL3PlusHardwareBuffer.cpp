@@ -27,6 +27,8 @@ Copyright (c) 2000-2014 Torus Knot Software Ltd
 */
 
 #include "OgreGL3PlusHardwareBuffer.h"
+
+#include <memory>
 #include "OgreRoot.h"
 #include "OgreGL3PlusRenderSystem.h"
 #include "OgreGL3PlusStateCacheManager.h"
@@ -35,7 +37,7 @@ Copyright (c) 2000-2014 Torus Knot Software Ltd
 namespace Ogre {
 
     GL3PlusHardwareBuffer::GL3PlusHardwareBuffer(GLenum target, size_t sizeInBytes, uint32 usage, bool useShadowBuffer)
-    : HardwareBuffer(usage, false, useShadowBuffer), mTarget(target)
+    : HardwareBuffer(usage, useShadowBuffer), mTarget(target)
     {
         mSizeInBytes = sizeInBytes;
         mRenderSystem = static_cast<GL3PlusRenderSystem*>(Root::getSingleton().getRenderSystem());
@@ -51,7 +53,7 @@ namespace Ogre {
 
         if (useShadowBuffer)
         {
-            mShadowBuffer.reset(new DefaultHardwareBuffer(mSizeInBytes));
+            mShadowBuffer = std::make_unique<DefaultHardwareBuffer>(mSizeInBytes);
         }
     }
 
@@ -180,10 +182,6 @@ namespace Ogre {
         {
             mShadowBuffer->copyData(srcBuffer, srcOffset, dstOffset, length, discardWholeBuffer);
         }
-
-        // Zero out this(destination) buffer
-        mRenderSystem->_getStateCacheManager()->bindGLBuffer(mTarget, mBufferId);
-        OGRE_CHECK_GL_ERROR(glBufferData(mTarget, length, 0, getGLUsage(mUsage)));
 
         // Do it the fast way.
         mRenderSystem->_getStateCacheManager()->bindGLBuffer(

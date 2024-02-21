@@ -454,7 +454,7 @@ namespace Ogre {
         void deriveRootBone(void) const;
 
         /// Debugging method
-        void _dumpContents(const String& filename);
+        _OgreExport friend std::ostream& operator<<(std::ostream& o, const Skeleton& s);
 
         void loadImpl() override {}
         void unloadImpl() override { unprepareImpl(); }
@@ -475,7 +475,7 @@ namespace Ogre {
         LinkedSkeletonAnimationSource(const String& skelName, Real scl)
             : skeletonName(skelName), scale(scl) {}
             LinkedSkeletonAnimationSource(const String& skelName, Real scl, 
-                SkeletonPtr skelPtr)
+                const SkeletonPtr& skelPtr)
                 : skeletonName(skelName), pSkeleton(skelPtr), scale(scl) {}
     };
     /** @} */

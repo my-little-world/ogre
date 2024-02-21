@@ -293,7 +293,6 @@ namespace Ogre {
         static const Ogre::TextureAddressingMode TAM_MIRROR = Ogre::TAM_MIRROR;
         static const Ogre::TextureAddressingMode TAM_CLAMP = Ogre::TAM_CLAMP;
         static const Ogre::TextureAddressingMode TAM_BORDER = Ogre::TAM_BORDER;
-        static const Ogre::TextureAddressingMode TAM_UNKNOWN = Ogre::TAM_UNKNOWN;
 
         OGRE_DEPRECATED typedef Ogre::TextureAddressingMode TextureAddressingMode;
         OGRE_DEPRECATED typedef Sampler::UVWAddressingMode UVWAddressingMode;
@@ -321,7 +320,7 @@ namespace Ogre {
             Real frequency;
             Real phase;
             Real amplitude;
-            ControllerReal* controller;
+            ControllerFloat* controller;
             const Frustum* frustum;
         };
 
@@ -348,7 +347,7 @@ namespace Ogre {
         @param texCoordSet
             The index of the texture coordinate set to use.
         */
-        TextureUnitState( Pass* parent, const String& texName, unsigned int texCoordSet = 0);
+        TextureUnitState( Pass* parent, const String& texName, uint8 texCoordSet = 0);
 
         /** Get the name of current texture image for this layer.
 
@@ -472,19 +471,6 @@ namespace Ogre {
         */
         unsigned int getNumFrames(void) const;
 
-
-        /** The type of unit to bind the texture settings to.
-            @deprecated only D3D9 has separate sampler bindings. All other RenderSystems use unified pipelines.
-         */
-        enum BindingType : uint8
-        {
-            /** Regular fragment processing unit - the default. */
-            BT_FRAGMENT = 0,
-            /** Vertex processing unit - indicates this unit will be used for 
-                a vertex texture fetch.
-            */
-            BT_VERTEX = 1
-        };
         /** Enum identifying the type of content this texture unit contains.
         */
         enum ContentType : uint8
@@ -498,12 +484,6 @@ namespace Ogre {
             /// when the pass is rendered within a compositor sequence.
             CONTENT_COMPOSITOR = 2
         };
-
-        /// @deprecated obsolete
-        OGRE_DEPRECATED void setBindingType(BindingType bt);
-
-        /// @deprecated obsolete
-        OGRE_DEPRECATED BindingType getBindingType(void) const;
 
         /** Set the type of content this TextureUnitState references.
 
@@ -554,14 +534,18 @@ namespace Ogre {
         @note
         Only applies to the fixed function pipeline and has no effect if a fragment program is used.
         */
-        unsigned int getTextureCoordSet(void) const;
+        uint8 getTextureCoordSet(void) const;
 
         /** Sets which texture coordinate set is to be used for this texture layer.
 
             A mesh can define multiple sets of texture coordinates, this sets which one this
             material uses.
         */
-        void setTextureCoordSet(unsigned int set);
+        void setTextureCoordSet(uint8 set);
+
+        /// Enables Unordered Access to the provided mipLevel of the texture
+        void setUnorderedAccessMipLevel(int mipLevel) { mUnorderedAccessMipLevel = mipLevel; }
+        int getUnorderedAccessMipLevel() const { return mUnorderedAccessMipLevel; }
 
         /** Sets a matrix used to transform any texture coordinates on this layer.
 
@@ -1006,14 +990,14 @@ namespace Ogre {
         @param mrtIndex
             The index of the wanted texture, if referencing an MRT.
         */
-        void setCompositorReference(const String& compositorName, const String& textureName, size_t mrtIndex = 0);
+        void setCompositorReference(const String& compositorName, const String& textureName, uint32 mrtIndex = 0);
 
         /** Gets the name of the compositor that this texture references. */
         const String& getReferencedCompositorName() const { return mCompositorRefName; }
         /** Gets the name of the texture in the compositor that this texture references. */
         const String& getReferencedTextureName() const { return mCompositorRefTexName; }
         /** Gets the MRT index of the texture in the compositor that this texture references. */ 
-        size_t getReferencedMRTIndex() const { return mCompositorRefMrtIndex; }
+        uint32 getReferencedMRTIndex() const { return mCompositorRefMrtIndex; }
     
         /// Gets the parent Pass object.
         Pass* getParent(void) const { return mParent; }
@@ -1026,8 +1010,6 @@ namespace Ogre {
         void _load(void);
         /** Internal method for unloading this object as part of Material::unload. */
         void _unload(void);
-        /// @deprecated do not use
-        OGRE_DEPRECATED bool hasViewRelativeTextureCoordinateGeneration(void) const;
 
         /// Is this loaded?
         bool isLoaded(void) const;
@@ -1066,7 +1048,7 @@ namespace Ogre {
         /** Gets the animation controller (as created because of setAnimatedTexture)
             if it exists.
         */
-        ControllerReal* _getAnimController() const { return mAnimController; }
+        ControllerFloat* _getAnimController() const { return mAnimController; }
 
         /// return a sampler local to this TUS instead of the shared global one
         const SamplerPtr& _getLocalSampler();
@@ -1080,7 +1062,7 @@ private:
         /// Duration of animation in seconds.
         Real mAnimDuration;
 
-        unsigned int mTextureCoordSetIndex;
+        int mUnorderedAccessMipLevel;
 
         LayerBlendModeEx mColourBlendMode;
         SceneBlendFactor mColourBlendFallbackSrc;
@@ -1093,16 +1075,16 @@ private:
         Radian mRotate;
         mutable Matrix4 mTexModMatrix;
 
-        /// Binding type (fragment, vertex, tessellation hull and domain pipeline).
-        BindingType mBindingType;
         /// Content type of texture (normal loaded texture, auto-texture).
         ContentType mContentType;
 
         mutable bool mTextureLoadFailed;
         mutable bool mRecalcTexMatrix;
 
+        uint8 mTextureCoordSetIndex;
+
         /// The index of the referenced texture if referencing an MRT in a compositor.
-        size_t mCompositorRefMrtIndex;
+        uint32 mCompositorRefMrtIndex;
 
         //-----------------------------------------------------------------------------
         // Complex members (those that can't be copied using memcpy) are at the end to 
@@ -1122,7 +1104,7 @@ private:
         // preserving even if assign from others
         //
         Pass* mParent;
-        ControllerReal* mAnimController;
+        ControllerFloat* mAnimController;
         //-----------------------------------------------------------------------------
 
 

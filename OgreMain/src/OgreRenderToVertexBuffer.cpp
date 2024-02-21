@@ -29,6 +29,8 @@ THE SOFTWARE.
 #include "OgreStableHeaders.h"
 #include "OgreRenderToVertexBuffer.h"
 
+#include <memory>
+
 namespace Ogre {
     //-----------------------------------------------------------------------
     RenderToVertexBuffer::RenderToVertexBuffer() :
@@ -38,7 +40,7 @@ namespace Ogre {
         mSourceRenderable(0),
         mMaxVertexCount(1000)
     {
-        mVertexData.reset(new VertexData);
+        mVertexData = std::make_unique<VertexData>();
     }
     RenderToVertexBuffer::~RenderToVertexBuffer() = default; // ensure unique_ptr destructors are in cpp
     //-----------------------------------------------------------------------
@@ -60,5 +62,36 @@ namespace Ogre {
            already loaded anyway)
         */
         mMaterial->load();
+    }
+    void RenderToVertexBuffer::getRenderOperation(RenderOperation& op)
+    {
+        op.operationType = mOperationType;
+        op.useIndexes = false;
+        op.vertexData = mVertexData.get();
+    }
+    Pass* RenderToVertexBuffer::derivePass(SceneManager* sceneMgr)
+    {
+        // Single pass only for now.
+        Ogre::Pass* r2vbPass = mMaterial->getBestTechnique()->getPass(0);
+        // Set pass before binding buffers to activate the GPU programs.
+        sceneMgr->_setPass(r2vbPass);
+
+        r2vbPass->_updateAutoParams(sceneMgr->_getAutoParamDataSource(), GPV_GLOBAL);
+
+        // Bind shader parameters.
+        RenderSystem* targetRenderSystem = Root::getSingleton().getRenderSystem();
+        if (r2vbPass->hasVertexProgram())
+        {
+            targetRenderSystem->bindGpuProgramParameters(GPT_VERTEX_PROGRAM,
+                                                         r2vbPass->getVertexProgramParameters(), GPV_ALL);
+        }
+        if (r2vbPass->hasGeometryProgram())
+        {
+            targetRenderSystem->bindGpuProgramParameters(GPT_GEOMETRY_PROGRAM,
+                                                         r2vbPass->getGeometryProgramParameters(), GPV_ALL);
+        }
+        //TODO add tessellation stages
+
+        return r2vbPass;
     }
 }

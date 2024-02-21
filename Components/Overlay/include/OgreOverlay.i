@@ -6,7 +6,6 @@
 %{
 /* Includes the header in the wrapper code */
 #include "Ogre.h"
-#include "OgreUnifiedHighLevelGpuProgram.h"
 
 #include "OgreOverlayPrerequisites.h"
 #include "OgreFont.h"
@@ -83,5 +82,6 @@ SHARED_PTR(TextAreaOverlayElement);
 %include "OgreTextAreaOverlayElement.h"
 
 #ifdef HAVE_IMGUI
+%apply Ogre::String* INOUT { Ogre::String& renderSystemName };
 %include "OgreImGuiOverlay.h"
 #endif

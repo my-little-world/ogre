@@ -29,7 +29,6 @@ THE SOFTWARE.
 #ifdef RTSHADER_SYSTEM_BUILD_EXT_SHADERS
 
 #define SGX_LIB_INTEGRATEDPSSM                      "SGXLib_IntegratedPSSM"
-#define SGX_FUNC_COMPUTE_SHADOW_COLOUR3             "SGX_ComputeShadowFactor_PSSM3"
 
 namespace Ogre {
 namespace RTShader {
@@ -39,6 +38,7 @@ namespace RTShader {
 /************************************************************************/
 String IntegratedPSSM3::Type = "SGX_IntegratedPSSM3";
 const String SRS_INTEGRATED_PSSM3 = "SGX_IntegratedPSSM3";
+const String SRS_SHADOW_MAPPING = "SGX_IntegratedPSSM3";
 
 //-----------------------------------------------------------------------
 IntegratedPSSM3::IntegratedPSSM3()
@@ -49,6 +49,7 @@ IntegratedPSSM3::IntegratedPSSM3()
     mDebug = false;
     mIsD3D9 = false;
     mShadowTextureParamsList.resize(1); // normal single texture depth shadowmapping
+    mMultiLightCount = 1;
 }
 
 //-----------------------------------------------------------------------
@@ -59,9 +60,12 @@ int IntegratedPSSM3::getExecutionOrder() const
 
 //-----------------------------------------------------------------------
 void IntegratedPSSM3::updateGpuProgramsParams(Renderable* rend, const Pass* pass,
-                                             const AutoParamDataSource* source, 
+                                             const AutoParamDataSource* source,
                                              const LightList* pLightList)
 {
+    if (mMultiLightCount > 1)
+        return;
+
     Vector4 vSplitPoints;
 
     for(size_t i = 0; i < mShadowTextureParamsList.size() - 1; i++)
@@ -92,25 +96,23 @@ void IntegratedPSSM3::copyFrom(const SubRenderState& rhs)
     mUseTextureCompare = rhsPssm.mUseTextureCompare;
     mUseColourShadows = rhsPssm.mUseColourShadows;
     mDebug = rhsPssm.mDebug;
+    mMultiLightCount = rhsPssm.mMultiLightCount;
     mShadowTextureParamsList.resize(rhsPssm.mShadowTextureParamsList.size());
 
     ShadowTextureParamsConstIterator itSrc = rhsPssm.mShadowTextureParamsList.begin();
-    ShadowTextureParamsIterator itDst = mShadowTextureParamsList.begin();
-
-    while(itDst != mShadowTextureParamsList.end())
+    for (auto& p : mShadowTextureParamsList)
     {
-        itDst->mMaxRange = itSrc->mMaxRange;        
+        p.mMaxRange = itSrc->mMaxRange;
         ++itSrc;
-        ++itDst;
     }
 }
 
 //-----------------------------------------------------------------------
-bool IntegratedPSSM3::preAddToRenderState(const RenderState* renderState, 
+bool IntegratedPSSM3::preAddToRenderState(const RenderState* renderState,
                                          Pass* srcPass, Pass* dstPass)
 {
     if (!srcPass->getParent()->getParent()->getReceiveShadows() ||
-        renderState->getLightCount().isZeroLength())
+        renderState->getLightCount() == 0)
         return false;
 
     mIsD3D9 = ShaderGenerator::getSingleton().getTargetLanguage() == "hlsl" &&
@@ -123,25 +125,18 @@ bool IntegratedPSSM3::preAddToRenderState(const RenderState* renderState,
     mUseTextureCompare = PixelUtil::isDepth(shadowTexFormat) && !mIsD3D9;
     mUseColourShadows = PixelUtil::getComponentType(shadowTexFormat) == PCT_BYTE; // use colour shadowmaps for byte textures
 
-    ShadowTextureParamsIterator it = mShadowTextureParamsList.begin();
+    if(mMultiLightCount > 1)
+        mShadowTextureParamsList.resize(mMultiLightCount);
 
-    while(it != mShadowTextureParamsList.end())
+    auto shadowSampler = TextureManager::getSingleton().getSampler(mUseTextureCompare ? "Ogre/DepthShadowSampler"
+                                                                                      : "Ogre/ShadowSampler");
+    for (auto& p : mShadowTextureParamsList)
     {
         TextureUnitState* curShadowTexture = dstPass->createTextureUnitState();
-            
         curShadowTexture->setContentType(TextureUnitState::CONTENT_SHADOW);
-        curShadowTexture->setTextureAddressingMode(TextureUnitState::TAM_BORDER);
-        curShadowTexture->setTextureBorderColour(ColourValue::White);
-        if(mUseTextureCompare)
-        {
-            curShadowTexture->setTextureCompareEnabled(true);
-            curShadowTexture->setTextureCompareFunction(CMPF_LESS_EQUAL);
-        }
-        it->mTextureSamplerIndex = dstPass->getNumTextureUnitStates() - 1;
-        ++it;
+        curShadowTexture->setSampler(shadowSampler);
+        p.mTextureSamplerIndex = dstPass->getNumTextureUnitStates() - 1;
     }
-
-    
 
     return true;
 }
@@ -173,9 +168,32 @@ bool IntegratedPSSM3::setParameter(const String& name, const String& value)
             mPCFxSamples = 4;
         else
             return false;
+
+        return true;
+    }
+    else if (name == "light_count")
+    {
+        mMultiLightCount = StringConverter::parseInt(value);
+        return true;
     }
 
     return false;
+}
+
+void IntegratedPSSM3::setParameter(const String& name, const Any& value)
+{
+    if(name == "split_points")
+    {
+        setSplitPoints(any_cast<SplitPointList>(value));
+        return;
+    }
+    else if (name == "debug")
+    {
+        mDebug = any_cast<bool>(value);
+        return;
+    }
+
+    SubRenderState::setParameter(name, value);
 }
 
 //-----------------------------------------------------------------------
@@ -185,12 +203,12 @@ bool IntegratedPSSM3::resolveParameters(ProgramSet* programSet)
     Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
     Function* vsMain = vsProgram->getEntryPointFunction();
     Function* psMain = psProgram->getEntryPointFunction();
-    
+
     // Get input position parameter.
     mVSInPos = vsMain->getLocalParameter(Parameter::SPC_POSITION_OBJECT_SPACE);
     if(!mVSInPos)
         mVSInPos = vsMain->getInputParameter(Parameter::SPC_POSITION_OBJECT_SPACE);
-    
+
     // Get output position parameter.
     mVSOutPos = vsMain->getOutputParameter(Parameter::SPC_POSITION_PROJECTIVE_SPACE);
 
@@ -203,27 +221,22 @@ bool IntegratedPSSM3::resolveParameters(ProgramSet* programSet)
     mPSInDepth = psMain->resolveInputParameter(mVSOutPos);
 
     // Resolve computed local shadow colour parameter.
-    mPSLocalShadowFactor = psMain->resolveLocalParameter(GCT_FLOAT1, "lShadowFactor");
+    mPSLocalShadowFactor = psMain->resolveLocalParameter(GCT_FLOAT1, "lShadowFactor", mMultiLightCount);
 
     // Resolve computed local shadow colour parameter.
     mPSSplitPoints = psProgram->resolveParameter(GCT_FLOAT4, "pssm_split_points");
-    
-    ShadowTextureParamsIterator it = mShadowTextureParamsList.begin();
+
     int lightIndex = 0;
 
-    while(it != mShadowTextureParamsList.end())
+    for (auto& p : mShadowTextureParamsList)
     {
-        it->mWorldViewProjMatrix = vsProgram->resolveParameter(GpuProgramParameters::ACT_TEXTURE_WORLDVIEWPROJ_MATRIX, lightIndex);
-
-        it->mVSOutLightPosition = vsMain->resolveOutputParameter(Parameter::Content(Parameter::SPC_POSITION_LIGHT_SPACE0 + lightIndex));        
-        it->mPSInLightPosition = psMain->resolveInputParameter(it->mVSOutLightPosition);
+        p.mWorldViewProjMatrix = vsProgram->resolveParameter(GpuProgramParameters::ACT_TEXTURE_WORLDVIEWPROJ_MATRIX, lightIndex);
+        p.mVSOutLightPosition = vsMain->resolveOutputParameter(Parameter::Content(Parameter::SPC_POSITION_LIGHT_SPACE0 + lightIndex));
+        p.mPSInLightPosition = psMain->resolveInputParameter(p.mVSOutLightPosition);
         auto stype = mUseTextureCompare ? GCT_SAMPLER2DSHADOW : GCT_SAMPLER2D;
-        it->mTextureSampler = psProgram->resolveParameter(stype, "shadow_map", it->mTextureSamplerIndex);
-        it->mInvTextureSize = psProgram->resolveParameter(GpuProgramParameters::ACT_INVERSE_TEXTURE_SIZE,
-                                                          it->mTextureSamplerIndex);
-
+        p.mTextureSampler = psProgram->resolveParameter(stype, "shadow_map", p.mTextureSamplerIndex);
+        p.mInvTextureSize = psProgram->resolveParameter(GpuProgramParameters::ACT_INVERSE_TEXTURE_SIZE, p.mTextureSamplerIndex);
         ++lightIndex;
-        ++it;
     }
 
     if (!(mVSInPos.get()) || !(mVSOutPos.get()))
@@ -240,8 +253,8 @@ bool IntegratedPSSM3::resolveDependencies(ProgramSet* programSet)
     Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
     psProgram->addDependency(SGX_LIB_INTEGRATEDPSSM);
 
-    psProgram->addPreprocessorDefines(StringUtil::format("PROJ_SPACE_SPLITS,PSSM_NUM_SPLITS=%zu,PCF_XSAMPLES=%.1f",
-                                                         mShadowTextureParamsList.size(), mPCFxSamples));
+    psProgram->addPreprocessorDefines(StringUtil::format("PSSM_NUM_SPLITS=%zu,PCF_XSAMPLES=%.1f,SHADOWLIGHT_COUNT=%d",
+                                                         mShadowTextureParamsList.size(), mPCFxSamples, mMultiLightCount));
 
     if(mDebug)
         psProgram->addPreprocessorDefines("DEBUG_PSSM");
@@ -258,8 +271,8 @@ bool IntegratedPSSM3::resolveDependencies(ProgramSet* programSet)
 //-----------------------------------------------------------------------
 bool IntegratedPSSM3::addFunctionInvocations(ProgramSet* programSet)
 {
-    Program* vsProgram = programSet->getCpuProgram(GPT_VERTEX_PROGRAM); 
-    Function* vsMain = vsProgram->getEntryPointFunction();  
+    Program* vsProgram = programSet->getCpuProgram(GPT_VERTEX_PROGRAM);
+    Function* vsMain = vsProgram->getEntryPointFunction();
     Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
 
     // Add vertex shader invocations.
@@ -284,13 +297,10 @@ bool IntegratedPSSM3::addVSInvocation(Function* vsMain, const int groupOrder)
         stage.assign(vsOutPos, mVSOutPos);
     }
 
-    // Compute world space position.    
-    ShadowTextureParamsIterator it = mShadowTextureParamsList.begin();
-
-    while(it != mShadowTextureParamsList.end())
+    // Compute world space position.
+    for (auto& p : mShadowTextureParamsList)
     {
-        stage.callFunction(FFP_FUNC_TRANSFORM, it->mWorldViewProjMatrix, mVSInPos, it->mVSOutLightPosition);
-        ++it;
+        stage.callBuiltin("mul", p.mWorldViewProjMatrix, mVSInPos, p.mVSOutLightPosition);
     }
 
     return true;
@@ -302,12 +312,15 @@ bool IntegratedPSSM3::addPSInvocation(Program* psProgram, const int groupOrder)
     Function* psMain = psProgram->getEntryPointFunction();
     auto stage = psMain->getStage(groupOrder);
 
-    if(mShadowTextureParamsList.size() < 2)
+    if(mShadowTextureParamsList.size() < 2  || mMultiLightCount > 1)
     {
-        ShadowTextureParams& splitParams0 = mShadowTextureParamsList[0];
-        stage.callFunction("SGX_ShadowPCF4",
-                           {In(splitParams0.mTextureSampler), In(splitParams0.mPSInLightPosition),
-                            In(splitParams0.mInvTextureSize).xy(), Out(mPSLocalShadowFactor)});
+        for(uchar i = 0; i < mMultiLightCount; ++i)
+        {
+            ShadowTextureParams& params = mShadowTextureParamsList[i];
+            stage.callFunction("SGX_ShadowPCF4",
+                               {In(params.mTextureSampler), In(params.mPSInLightPosition),
+                                In(params.mInvTextureSize).xy(), Out(mPSLocalShadowFactor), At(i)});
+        }
     }
     else
     {
@@ -326,9 +339,16 @@ bool IntegratedPSSM3::addPSInvocation(Program* psProgram, const int groupOrder)
         }
 
         params.push_back(Out(mPSLocalShadowFactor));
+        params.push_back(At(0));
+
+        if(mDebug)
+        {
+            auto sceneCol = psProgram->resolveParameter(GpuProgramParameters::ACT_DERIVED_SCENE_COLOUR);
+            params.push_back(InOut(sceneCol));
+        }
 
         // Compute shadow factor.
-        stage.callFunction(SGX_FUNC_COMPUTE_SHADOW_COLOUR3, params);
+        stage.callFunction("SGX_ComputeShadowFactor_PSSM3", params);
     }
 
     // shadow factor is applied by lighting stages
@@ -336,42 +356,62 @@ bool IntegratedPSSM3::addPSInvocation(Program* psProgram, const int groupOrder)
 }
 
 //-----------------------------------------------------------------------
-SubRenderState* IntegratedPSSM3Factory::createInstance(ScriptCompiler* compiler, 
+SubRenderState* IntegratedPSSM3Factory::createInstance(ScriptCompiler* compiler,
                                                       PropertyAbstractNode* prop, Pass* pass, SGScriptTranslator* translator)
 {
     if (prop->name == "integrated_pssm4")
-    {       
-        if (prop->values.size() == 4)
+    {
+        compiler->addError(ScriptCompiler::CE_DEPRECATEDSYMBOL, prop->file, prop->line, "integrated_pssm4. Use shadow_mapping instead.");
+
+        SubRenderState* subRenderState = createOrRetrieveInstance(translator);
+
+        auto it = prop->values.begin();
+        auto itEnd = prop->values.end();
+
+        if (prop->values.size() >= 4)
         {
-            IntegratedPSSM3::SplitPointList splitPointList; 
+            IntegratedPSSM3::SplitPointList splitPointList;
+            if(SGScriptTranslator::getVector(it, itEnd, splitPointList, 4))
+                subRenderState->setParameter("split_points", splitPointList);
 
-            AbstractNodeList::const_iterator it = prop->values.begin();
-            AbstractNodeList::const_iterator itEnd = prop->values.end();
+            std::advance(it, 4);
+        }
 
-            while(it != itEnd)
+        for (; it != itEnd; ++it)
+        {
+            const auto& val = (*it)->getString();
+            if(val == "debug")
             {
-                Real curSplitValue;
-                
-                if (false == SGScriptTranslator::getReal(*it, &curSplitValue))
-                {
-                    return NULL;
-                }
-
-                splitPointList.push_back(curSplitValue);
-
-                ++it;
+                subRenderState->setParameter("debug", "true");
             }
-
-            if (splitPointList.size() == 4)
+            else if(val == "pcf16")
             {
-                SubRenderState* subRenderState = createOrRetrieveInstance(translator);
-                IntegratedPSSM3* pssmSubRenderState = static_cast<IntegratedPSSM3*>(subRenderState);
-
-                pssmSubRenderState->setSplitPoints(splitPointList);
-
-                return pssmSubRenderState;
+                subRenderState->setParameter("filter", "pcf16");
             }
-        }       
+        }
+
+        return subRenderState;
+    }
+
+    if (prop->name == "shadow_mapping")
+    {
+        SubRenderState* subRenderState = createOrRetrieveInstance(translator);
+
+        auto it = prop->values.begin();
+        while(it != prop->values.end())
+        {
+            String paramName = (*it)->getString();
+            String paramValue = (*++it)->getString();
+
+            if (!subRenderState->setParameter(paramName, paramValue))
+            {
+                compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line, paramName);
+                return subRenderState;
+            }
+            it++;
+        }
+
+        return subRenderState;
     }
 
     return NULL;

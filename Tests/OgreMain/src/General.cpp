@@ -54,6 +54,9 @@ THE SOFTWARE.
 
 #include "OgreKeyFrame.h"
 
+#include "OgreBillboardSet.h"
+#include "OgreBillboard.h"
+
 #include <random>
 using std::minstd_rand;
 
@@ -101,13 +104,88 @@ TEST(Root,shutdown)
     root.shutdown();
 }
 
-TEST(SceneManager,removeAndDestroyAllChildren)
+TEST(SceneManager, removeAndDestroyAllChildren)
 {
     Root root("");
     SceneManager* sm = root.createSceneManager();
     sm->getRootSceneNode()->createChildSceneNode();
     sm->getRootSceneNode()->createChildSceneNode();
     sm->getRootSceneNode()->removeAndDestroyAllChildren();
+}
+
+struct SceneNodeTest : public RootWithoutRenderSystemFixture {
+    SceneManager* mSceneMgr;
+
+    void SetUp() override {
+        RootWithoutRenderSystemFixture::SetUp();
+        mSceneMgr = mRoot->createSceneManager();
+    }
+};
+
+TEST_F(SceneNodeTest, detachAllObjects){
+	auto sinbad = mSceneMgr->createEntity("sinbad", "Sinbad.mesh");
+	auto sinbad2 = mSceneMgr->createEntity("sinbad2", "Sinbad.mesh");
+	SceneNode* node = mSceneMgr->getRootSceneNode()->createChildSceneNode("parent");
+    node->attachObject(sinbad);
+    node->attachObject(sinbad2);
+
+	auto sinbad3 = mSceneMgr->createEntity("sinbad3", "Sinbad.mesh");
+	SceneNode* child = node->createChildSceneNode("child");
+    child->attachObject(sinbad3);
+    node->destroyAllObjects();
+    EXPECT_FALSE(mSceneMgr->hasEntity("sinbad"));
+    EXPECT_FALSE(mSceneMgr->hasEntity("sinbad2"));
+    EXPECT_TRUE(mSceneMgr->hasEntity("sinbad3"));
+    EXPECT_EQ(node->numAttachedObjects(), 0);
+    EXPECT_EQ(child->numAttachedObjects(), 1);
+}
+
+TEST_F(SceneNodeTest, destroyAllChildrenAndObjects)
+{
+	auto sinbad = mSceneMgr->createEntity("sinbad", "Sinbad.mesh");
+	SceneNode* node = mSceneMgr->getRootSceneNode()->createChildSceneNode("parent");
+    node->attachObject(sinbad);
+
+	auto sinbad2 = mSceneMgr->createEntity("sinbad2", "Sinbad.mesh");
+	SceneNode* child = node->createChildSceneNode("child");
+    child->attachObject(sinbad2);
+
+	auto sinbad3 = mSceneMgr->createEntity("sinbad3", "Sinbad.mesh");
+	SceneNode* grandchild = node->createChildSceneNode("grandchild");
+    grandchild->attachObject(sinbad3);
+
+    node->destroyAllChildrenAndObjects();
+    EXPECT_FALSE(mSceneMgr->hasSceneNode("grandchild"));
+    EXPECT_FALSE(mSceneMgr->hasEntity("sinbad3"));
+    EXPECT_FALSE(mSceneMgr->hasSceneNode("child"));
+    EXPECT_FALSE(mSceneMgr->hasEntity("sinbad2"));
+    EXPECT_FALSE(mSceneMgr->hasEntity("sinbad"));
+    EXPECT_TRUE(mSceneMgr->hasSceneNode("parent"));
+}
+
+TEST_F(SceneNodeTest, destroyChildAndObjects)
+{
+
+	auto sinbad = mSceneMgr->createEntity("sinbad", "Sinbad.mesh");
+	SceneNode* node = mSceneMgr->getRootSceneNode()->createChildSceneNode("parent");
+    node->attachObject(sinbad);
+
+	auto sinbad2 = mSceneMgr->createEntity("sinbad2", "Sinbad.mesh");
+	SceneNode* child = node->createChildSceneNode("child");
+    child->attachObject(sinbad2);
+
+	auto sinbad3 = mSceneMgr->createEntity("sinbad3", "Sinbad.mesh");
+	SceneNode* grandchild = child->createChildSceneNode("grandchild");
+    grandchild->attachObject(sinbad3);
+
+    node->destroyChildAndObjects("child");
+
+    EXPECT_FALSE(mSceneMgr->hasSceneNode("grandchild"));
+    EXPECT_FALSE(mSceneMgr->hasSceneNode("child"));
+    EXPECT_TRUE(mSceneMgr->hasSceneNode("parent"));
+    EXPECT_FALSE(mSceneMgr->hasEntity("sinbad2"));
+    EXPECT_FALSE(mSceneMgr->hasEntity("sinbad3"));
+    EXPECT_TRUE(mSceneMgr->hasEntity("sinbad"));
 }
 
 static void createRandomEntityClones(Entity* ent, size_t cloneCount, const Vector3& min,
@@ -531,12 +609,12 @@ TEST(Light, AnimableValue)
 
     l.setSpotlightInnerAngle(Radian(0));
     auto spotlightInner = l.createAnimableValue("spotlightInner");
-    spotlightInner->applyDeltaValue(Real(1));
+    spotlightInner->applyDeltaValue(Radian(1));
     EXPECT_EQ(l.getSpotlightInnerAngle(), Radian(1));
 
     l.setSpotlightOuterAngle(Radian(0));
     auto spotlightOuter = l.createAnimableValue("spotlightOuter");
-    spotlightOuter->applyDeltaValue(Real(1));
+    spotlightOuter->applyDeltaValue(Radian(1));
     EXPECT_EQ(l.getSpotlightOuterAngle(), Radian(1));
 
     l.setSpotlightFalloff(0);
@@ -566,4 +644,55 @@ TEST(Light, AnimationTrack)
 
     attenuation->apply(0.5);
     EXPECT_EQ(l.getAttenuation(), Vector4f(1.5, 3, 4.5, 6));
+}
+
+TEST(GpuProgramParams, Variability)
+{
+    auto constants = std::make_shared<GpuNamedConstants>();
+    constants->map["parameter"] = GpuConstantDefinition();
+    constants->map["parameter"].constType = GCT_MATRIX_4X4;
+
+    GpuProgramParameters params;
+    params._setNamedConstants(constants);
+    params.setNamedAutoConstant("parameter", GpuProgramParameters::ACT_WORLD_MATRIX);
+
+    GpuProgramParameters params2;
+    params2._setNamedConstants(constants);
+    params2.clearNamedAutoConstant("parameter");
+
+    EXPECT_EQ(params.getConstantDefinition("parameter").variability, GPV_PER_OBJECT);
+}
+
+TEST(Billboard, TextureCoords)
+{
+    Root root("");
+    MaterialManager::getSingleton().initialise();
+
+    float xsegs = 3;
+    float ysegs = 3;
+    BillboardSet bbs("name");
+    bbs.setTextureStacksAndSlices(ysegs, xsegs);
+
+    auto& texcoords = bbs.getTextureCoords();
+
+
+    float width = 300;
+    float height = 300;
+    float gap = 20;
+
+    for (int y = 0; y < ysegs; ++y)
+    {
+        for (int x = 0; x < xsegs; ++x)
+        {
+            FloatRect ref((x + 0) / xsegs, (ysegs - y - 1) / ysegs, // uv
+                          (x + 1) / xsegs, (ysegs - y - 0) / ysegs);
+            auto& genRect = texcoords[(ysegs - y - 1)*xsegs + x];
+            EXPECT_EQ(genRect, ref);
+
+            // only for visualisation
+            Billboard* bb = bbs.createBillboard({(x * width / xsegs) + ((x - 1) * gap), // position
+                                                 (y * height / ysegs) + ((y - 1) * gap), 0});
+            bb->setTexcoordIndex((ysegs - y - 1)*xsegs + x);
+        }
+    }
 }

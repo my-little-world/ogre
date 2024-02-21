@@ -106,12 +106,6 @@ public:
     void _findVisibleObjects ( Camera * cam,
         VisibleObjectsBoundsInfo* visibleBounds, bool onlyShadowCasters ) override;
 
-    /** Alerts each unculled object, notifying it that it will be drawn.
-     * Useful for doing calculations only on nodes that will be drawn, prior
-     * to drawing them...
-     */
-    virtual void _alertVisibleObjects( void );
-
     /** Walks through the octree, adding any visible objects to the render queue.
 
     If any octant in the octree if completely within the view frustum,
@@ -219,14 +213,11 @@ protected:
 /// Factory for OctreeSceneManager
 class OctreeSceneManagerFactory : public SceneManagerFactory
 {
-protected:
-    void initMetaData(void) const override;
 public:
-    OctreeSceneManagerFactory() {}
-    ~OctreeSceneManagerFactory() {}
     /// Factory type name
     static const String FACTORY_TYPE_NAME;
     SceneManager* createInstance(const String& instanceName) override;
+    const String& getTypeName(void) const override { return FACTORY_TYPE_NAME; }
 };
 
 

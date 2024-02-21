@@ -173,22 +173,14 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void SceneNode::detachObject(MovableObject* obj)
     {
-        ObjectMap::iterator i, iend;
-        iend = mObjectsByName.end();
-        for (i = mObjectsByName.begin(); i != iend; ++i)
-        {
-            if (*i == obj)
-            {
-                std::swap(*i, mObjectsByName.back());
-                mObjectsByName.pop_back();
-                break;
-            }
-        }
+        auto it = std::find(mObjectsByName.begin(), mObjectsByName.end(), obj);
+        OgreAssert(it != mObjectsByName.end(), "Object is not attached to this node");
+        std::swap(*it, mObjectsByName.back());
+        mObjectsByName.pop_back();
         obj->_notifyAttached((SceneNode*)0);
 
         // Make sure bounds get updated (must go right to the top)
         needUpdate();
-
     }
     //-----------------------------------------------------------------------
     void SceneNode::detachAllObjects(void)
@@ -202,17 +194,25 @@ namespace Ogre {
         needUpdate();
     }
     //-----------------------------------------------------------------------
+    void SceneNode::destroyAllObjects(void)
+    {
+        while (!getAttachedObjects().empty()) {
+            auto obj = getAttachedObjects().front();
+            getCreator()->destroyMovableObject(obj);
+        }
+        needUpdate();
+    }
+    //-----------------------------------------------------------------------
     void SceneNode::_updateBounds(void)
     {
         // Reset bounds first
         mWorldAABB.setNull();
 
         // Update bounds from own attached objects
-        ObjectMap::iterator i;
-        for (i = mObjectsByName.begin(); i != mObjectsByName.end(); ++i)
+        for (auto *o : mObjectsByName)
         {
             // Merge world bounds of each object
-            mWorldAABB.merge((*i)->getWorldBoundingBox(true));
+            mWorldAABB.merge(o->getWorldBoundingBox(true));
         }
 
         // Merge with children
@@ -233,13 +233,9 @@ namespace Ogre {
             return;
 
         // Add all entities
-        ObjectMap::iterator iobj;
-        ObjectMap::iterator iobjend = mObjectsByName.end();
-        for (iobj = mObjectsByName.begin(); iobj != iobjend; ++iobj)
+        for (auto *o : mObjectsByName)
         {
-            MovableObject* mo = *iobj;
-
-            queue->processVisibleObject(mo, cam, onlyShadowCasters, visibleBounds);
+            queue->processVisibleObject(o, cam, onlyShadowCasters, visibleBounds);
         }
 
         if (includeChildren)
@@ -291,27 +287,26 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void SceneNode::removeAndDestroyChild(const String& name)
     {
-        SceneNode* pChild = static_cast<SceneNode*>(getChild(name));
+        SceneNode* pChild = static_cast<SceneNode*>(removeChild(name));
         pChild->removeAndDestroyAllChildren();
 
-        removeChild(name);
         pChild->getCreator()->destroySceneNode(name);
 
     }
     //-----------------------------------------------------------------------
     void SceneNode::removeAndDestroyChild(unsigned short index)
     {
-        SceneNode* pChild = static_cast<SceneNode*>(getChildren()[index]);
+        SceneNode* pChild = static_cast<SceneNode*>(removeChild(index));
         pChild->removeAndDestroyAllChildren();
 
-        removeChild(index);
         pChild->getCreator()->destroySceneNode(pChild);
     }
     //-----------------------------------------------------------------------
     void SceneNode::removeAndDestroyChild(SceneNode* child)
     {
-        removeAndDestroyChild(std::find(getChildren().begin(), getChildren().end(), child) -
-                              getChildren().begin());
+        auto it = std::find(getChildren().begin(), getChildren().end(), child);
+        OgreAssert(it != getChildren().end(), "Not a child of this SceneNode");
+        removeAndDestroyChild(it - getChildren().begin());
     }
     //-----------------------------------------------------------------------
     void SceneNode::removeAndDestroyAllChildren(void)
@@ -327,6 +322,48 @@ namespace Ogre {
         mChildren.clear();
         needUpdate();
     }
+    //-----------------------------------------------------------------------
+    void SceneNode::destroyChildAndObjects(const String& name) {
+        SceneNode* pChild = static_cast<SceneNode*>(getChild(name));
+        pChild->destroyAllChildrenAndObjects();
+
+        removeChild(name);
+        pChild->getCreator()->destroySceneNode(name);
+
+    }
+
+    void SceneNode::destroyChildAndObjects(unsigned short index) {
+        SceneNode* pChild = static_cast<SceneNode*>(removeChild(index));
+        pChild->destroyAllChildrenAndObjects();
+
+        pChild->getCreator()->destroySceneNode(pChild);
+    }
+
+    void SceneNode::destroyChildAndObjects(SceneNode * child)
+    {
+        auto it = std::find(getChildren().begin(), getChildren().end(), child);
+        OgreAssert(it != getChildren().end(), "Not a child of this SceneNode");
+        destroyChildAndObjects(it - getChildren().begin());
+    }
+
+    void SceneNode::destroyAllChildrenAndObjects()
+    {
+        //remove objects directly attached to this node
+        destroyAllObjects();
+
+        //go over children
+        while(!getChildren().empty()) {
+            SceneNode* child = static_cast<SceneNode*>(getChildren().front());
+            //recurse
+            child->destroyAllChildrenAndObjects();
+
+            //destroy child
+            child->getCreator()->destroySceneNode(child);
+        }
+        mChildren.clear();
+        needUpdate();
+    }
+    //-----------------------------------------------------------------------
     void SceneNode::loadChildren(const String& filename)
     {
         String baseName, strExt;
@@ -595,7 +632,4 @@ namespace Ogre {
             }
         }
     }
-
-
-
 }

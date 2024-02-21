@@ -49,8 +49,6 @@ CompositorManager& CompositorManager::getSingleton(void)
 CompositorManager::CompositorManager():
     mRectangle(0)
 {
-    initialise();
-
     // Loading order (just after materials)
     mLoadOrder = 110.0f;
 
@@ -91,10 +89,6 @@ CompositorPtr CompositorManager::create (const String& name, const String& group
 CompositorPtr CompositorManager::getByName(const String& name, const String& groupName) const
 {
     return static_pointer_cast<Compositor>(getResourceByName(name, groupName));
-}
-//-----------------------------------------------------------------------
-void CompositorManager::initialise(void)
-{
 }
 //-----------------------------------------------------------------------
 CompositorChain *CompositorManager::getCompositorChain(Viewport *vp)
@@ -328,7 +322,7 @@ bool CompositorManager::isInputPreviousTarget(CompositorInstance* inst, const Og
 
 }
 //---------------------------------------------------------------------
-bool CompositorManager::isInputPreviousTarget(CompositorInstance* inst, TexturePtr tex)
+bool CompositorManager::isInputPreviousTarget(CompositorInstance* inst, const TexturePtr& tex)
 {
     const CompositionTechnique::TargetPasses& passes = inst->getTechnique()->getTargetPasses();
     for (auto *tp : passes)
@@ -363,7 +357,7 @@ bool CompositorManager::isInputToOutputTarget(CompositorInstance* inst, const Og
 
 }
 //---------------------------------------------------------------------()
-bool CompositorManager::isInputToOutputTarget(CompositorInstance* inst, TexturePtr tex)
+bool CompositorManager::isInputToOutputTarget(CompositorInstance* inst, const TexturePtr& tex)
 {
     CompositionTargetPass* tp = inst->getTechnique()->getOutputTargetPass();
     for (auto *p : tp->getPasses())

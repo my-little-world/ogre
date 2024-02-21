@@ -84,7 +84,7 @@ bool TerrainTransform::createCpuSubPrograms(ProgramSet* programSet)
         stage.assign(In(uvin).xy(), uv);
     }
 
-    stage.callFunction("FFP_Transform", wvpMatrix, positionIn, positionOut);
+    stage.callBuiltin("mul", wvpMatrix, positionIn, positionOut);
     stage.callFunction("applyLODMorph", {In(delta), In(lodMorph), InOut(positionOut).mask(heightAxis[mAlign])});
 
     return true;
@@ -101,6 +101,10 @@ bool TerrainSurface::setParameter(const String& name, const String& value)
     else if (name == "use_parallax_mapping")
     {
         return StringConverter::parse(value, mUseParallaxMapping);
+    }
+    else if (name == "use_parallax_occlusion_mapping")
+    {
+        return StringConverter::parse(value, mUseParallaxOcclusionMapping);
     }
     else if (name == "use_specular_mapping")
     {
@@ -200,6 +204,11 @@ bool TerrainSurface::createCpuSubPrograms(ProgramSet* programSet)
     if (mUseNormalMapping && mUseParallaxMapping)
     {
         psProgram->addPreprocessorDefines("TERRAIN_PARALLAX_MAPPING");
+        if (mUseParallaxOcclusionMapping)
+        {
+            psProgram->addPreprocessorDefines("POM_MAX_DISTANCE=400.0,POM_LAYER_COUNT=32");
+        }
+
         // assuming: lighting stage computed this
         auto vsOutViewPos = vsMain->resolveOutputParameter(Parameter::SPC_POSITION_VIEW_SPACE);
         viewPos = psMain->resolveInputParameter(vsOutViewPos);
@@ -237,7 +246,7 @@ bool TerrainSurface::createCpuSubPrograms(ProgramSet* programSet)
     auto stage = psMain->getStage(FFP_PS_COLOUR_BEGIN);
     stage.assign(Vector4(1), outDiffuse); // FFPColour logic
     stage.callFunction("SGX_FetchNormal", globalNormal, uvPS, normal);
-    stage.callFunction("FFP_Transform", ITMat, normal, normal);
+    stage.callBuiltin("mul", ITMat, normal, normal);
 
     auto psSpecular = psMain->resolveLocalParameter(Parameter::SPC_COLOR_SPECULAR);
     stage.assign(Vector4::ZERO, psSpecular);
@@ -251,6 +260,10 @@ bool TerrainSurface::createCpuSubPrograms(ProgramSet* programSet)
         blendWeights.push_back(weight);
     }
 
+    // Call TBN calculation
+    auto psOutTBN = psMain->resolveLocalParameter(GpuConstantType::GCT_MATRIX_3X3, "TBN");
+    stage.callFunction("SGX_CalculateTerrainTBN", {In(normal), In(ITMat), Out(psOutTBN)});
+
     stage.assign(Vector4::ZERO, diffuseSpec);
     stage.assign(Vector3(0, 0, 1), TSnormal);
     for (int l = 0; l < mTerrain->getLayerCount(); ++l)
@@ -263,8 +276,10 @@ bool TerrainSurface::createCpuSubPrograms(ProgramSet* programSet)
             if (mUseParallaxMapping)
             {
                 args.push_back(In(viewPos));
-                args.push_back(In(Vector2(0.03, -0.04)));
+                args.push_back(In(0.04)); //Scale
+                args.push_back(In(psOutTBN));
             }
+
             auto normtex = psProgram->resolveParameter(GCT_SAMPLER2D, "normtex", texUnit++);
             args.push_back(In(normtex));
             args.push_back(Out(TSnormal));
@@ -279,16 +294,21 @@ bool TerrainSurface::createCpuSubPrograms(ProgramSet* programSet)
 
     // fake vertexcolour input for TVC_SPECULAR
     if(mUseSpecularMapping)
-        stage.mul(In(diffuseSpec).z(), Vector4(1), diffuse);
+        stage.mul(In(diffuseSpec).w(), Vector4(1), diffuse);
 
     if(lightMap)
     {
-        auto shadowFactor = psMain->resolveLocalParameter(GCT_FLOAT1, "lShadowFactor");
+        auto shadowFactor = psMain->getLocalParameter("lShadowFactor");
+        if(!shadowFactor)
+        {
+            shadowFactor = psMain->resolveLocalParameter(GCT_FLOAT1, "lShadowFactor", 1);
+            psProgram->addPreprocessorDefines("SHADOWLIGHT_COUNT=1");
+        }
         stage = psMain->getStage(FFP_PS_COLOUR_BEGIN - 1); // before the PSSM stage
-        stage.assign(1, shadowFactor);
+        stage.assign({In(1), Out(shadowFactor), At(0)});
 
         stage = psMain->getStage(FFP_PS_COLOUR_BEGIN + 1); // after the PSSM stage
-        stage.callFunction("getShadowFactor", {In(lightMap), In(uvPS), InOut(shadowFactor)});
+        stage.callFunction("getShadowFactor", {In(lightMap), In(uvPS), InOut(shadowFactor), At(0)});
     }
 
     if(globalColourMap)

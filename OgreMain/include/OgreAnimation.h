@@ -137,12 +137,6 @@ namespace Ogre {
         */
         NodeAnimationTrack* createNodeTrack(unsigned short handle);
 
-        /** Creates a NumericAnimationTrack for animating any numeric value.
-        @param handle Handle to give the track, used for accessing the track later. 
-            Must be unique within this Animation.
-        */
-        NumericAnimationTrack* createNumericTrack(unsigned short handle);
-
         /** Creates a VertexAnimationTrack for animating vertex position data.
         @param handle Handle to give the track, used for accessing the track later. 
             Must be unique within this Animation, and is used to identify the target. For example
@@ -310,7 +304,7 @@ namespace Ogre {
         @param weight The influence to give to this track, 1.0 for full influence, less to blend with
           other animations.
         */
-        void applyToVertexData(VertexData* data, Real timePos, Real weight = 1.0);
+        void applyToVertexData(VertexData* data, Real timePos, float weight = 1.0);
 
         /** Tells the animation how to interpolate between keyframes.
 

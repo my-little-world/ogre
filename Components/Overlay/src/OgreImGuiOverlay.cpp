@@ -24,6 +24,44 @@
 namespace Ogre
 {
 
+static void DrawConfigOption(RenderSystem* rs, const ConfigOption& opt)
+{
+    if(ImGui::BeginCombo(opt.name.c_str(), opt.currentValue.c_str()))
+    {
+        for(const auto& it : opt.possibleValues)
+        {
+            if(ImGui::Selectable(it.c_str(), it == opt.currentValue))
+                rs->setConfigOption(opt.name, it);
+        }
+        ImGui::EndCombo();
+    }
+}
+
+void DrawRenderingSettings(String& rsName)
+{
+    auto root = Root::getSingletonPtr();
+    OgreAssert(root, "Root must be created");
+
+    if(rsName.empty())
+        rsName = root->getRenderSystem()->getName();
+
+    if(ImGui::BeginCombo("Render System", rsName.c_str()))
+    {
+        for(const auto& it : root->getAvailableRenderers())
+        {
+            if(ImGui::Selectable(it->getName().c_str(), it->getName() == rsName))
+                rsName = it->getName();
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::SeparatorText("Options");
+
+    auto rs = root->getRenderSystemByName(rsName);
+    for(const auto& it : rs->getConfigOptions())
+        DrawConfigOption(rs, it.second);
+}
+
 ImGuiOverlay::ImGuiOverlay() : Overlay("ImGuiOverlay")
 {
     ImGui::CreateContext();
@@ -96,13 +134,13 @@ ImFont* ImGuiOverlay::addFont(const String& name, const String& group)
 
     ImGuiIO& io = ImGui::GetIO();
     const ImWchar* cprangePtr = io.Fonts->GetGlyphRangesDefault();
-    if (!cprange.empty())
-    {
-        cprange.push_back(0); // terminate
-        mCodePointRanges.push_back(cprange);
-        // ptr must persist until createFontTexture
-        cprangePtr = mCodePointRanges.back().data();
-    }
+    if (cprange.empty())
+        cprange = {32, 126}; // ogre default
+
+    cprange.push_back(0); // terminate
+    mCodePointRanges.push_back(cprange);
+    // ptr must persist until createFontTexture
+    cprangePtr = mCodePointRanges.back().data();
 
     float vpScale = OverlayManager::getSingleton().getPixelRatio();
 
@@ -281,7 +319,7 @@ void ImGuiOverlay::ImGUIRenderable::initialise(void)
     mRenderOp.indexData->indexStart = 0;
     mRenderOp.operationType = RenderOperation::OT_TRIANGLE_LIST;
     mRenderOp.useIndexes = true;
-    mRenderOp.useGlobalInstancingVertexBufferIsAvailable = false;
+    mRenderOp.useGlobalInstancing = false;
 
     VertexDeclaration* decl = mRenderOp.vertexData->vertexDeclaration;
 
@@ -296,6 +334,10 @@ void ImGuiOverlay::ImGUIRenderable::initialise(void)
 //-----------------------------------------------------------------------------------
 ImGuiOverlay::ImGUIRenderable::~ImGUIRenderable()
 {
+    if(mFontTex)
+        TextureManager::getSingleton().remove(mFontTex);
+    if(mMaterial)
+        MaterialManager::getSingleton().remove(mMaterial);
     OGRE_DELETE mRenderOp.vertexData;
     OGRE_DELETE mRenderOp.indexData;
 }

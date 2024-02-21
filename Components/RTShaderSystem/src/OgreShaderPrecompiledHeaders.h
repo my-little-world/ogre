@@ -82,13 +82,9 @@ THE SOFTWARE.
 #include "OgreShaderCookTorranceLighting.h"
 #include "OgreShaderImageBasedLighting.h"
 
-#include "OgreShaderHLSLProgramProcessor.h"
-#include "OgreShaderGLSLProgramProcessor.h"
-
 #include "OgreShaderProgramWriter.h"
 #include "OgreShaderProgramWriterManager.h"
 #include "OgreShaderCGProgramWriter.h"
-#include "OgreShaderHLSLProgramWriter.h"
 #include "OgreShaderGLSLProgramWriter.h"
 #include "OgreShaderGLSLESProgramWriter.h"
 
@@ -97,6 +93,7 @@ THE SOFTWARE.
 #define FFP_FUNC_TRANSFORM                          "FFP_Transform"
 
 // Fixed Function Library: Texturing functions
+#define FFP_LIB_TEXTURING                           "FFPLib_Texturing"
 #define FFP_FUNC_TRANSFORM_TEXCOORD                 "FFP_TransformTexCoord"
 #define FFP_FUNC_GENERATE_TEXCOORD_ENV_NORMAL       "FFP_GenerateTexCoord_EnvMap_Normal"
 #define FFP_FUNC_GENERATE_TEXCOORD_ENV_SPHERE       "FFP_GenerateTexCoord_EnvMap_Sphere"
@@ -107,24 +104,43 @@ THE SOFTWARE.
 
 // Fixed Function Library: Fog functions
 #define FFP_LIB_FOG                                 "FFPLib_Fog"
-#define FFP_FUNC_VERTEXFOG_LINEAR                   "FFP_VertexFog_Linear"
-#define FFP_FUNC_VERTEXFOG_EXP                      "FFP_VertexFog_Exp"
-#define FFP_FUNC_VERTEXFOG_EXP2                     "FFP_VertexFog_Exp2"
-#define FFP_FUNC_PIXELFOG_DEPTH                     "FFP_PixelFog_Depth"
-#define FFP_FUNC_PIXELFOG_LINEAR                    "FFP_PixelFog_Linear"
-#define FFP_FUNC_PIXELFOG_EXP                       "FFP_PixelFog_Exp"
-#define FFP_FUNC_PIXELFOG_EXP2                      "FFP_PixelFog_Exp2"
 
 // Fixed Function Library: Alpha Test
 #define FFP_LIB_ALPHA_TEST							"FFPLib_AlphaTest"
 #define FFP_FUNC_ALPHA_TEST							"FFP_Alpha_Test"
 
 #define SGX_LIB_PERPIXELLIGHTING                    "SGXLib_PerPixelLighting"
-#define SGX_FUNC_LIGHT_DIRECTIONAL_DIFFUSE          "SGX_Light_Directional_Diffuse"
-#define SGX_FUNC_LIGHT_DIRECTIONAL_DIFFUSESPECULAR  "SGX_Light_Directional_DiffuseSpecular"
-#define SGX_FUNC_LIGHT_POINT_DIFFUSE                "SGX_Light_Point_Diffuse"
-#define SGX_FUNC_LIGHT_POINT_DIFFUSESPECULAR        "SGX_Light_Point_DiffuseSpecular"
-#define SGX_FUNC_LIGHT_SPOT_DIFFUSE                 "SGX_Light_Spot_Diffuse"
-#define SGX_FUNC_LIGHT_SPOT_DIFFUSESPECULAR         "SGX_Light_Spot_DiffuseSpecular"
+
+namespace Ogre {
+namespace RTShader {
+class LayeredBlendingFactory : public SubRenderStateFactory
+{
+public:
+    const String& getType() const override;
+    SubRenderState* createInstance(ScriptCompiler* compiler, PropertyAbstractNode* prop, TextureUnitState* texState,
+                                   SGScriptTranslator* translator) override;
+    void writeInstance(MaterialSerializer* ser, SubRenderState* subRenderState, const TextureUnitState* srcTextureUnit,
+                       const TextureUnitState* dstTextureUnit) override;
+
+private:
+    SubRenderState* createInstanceImpl() override;
+    LayeredBlending* createOrRetrieveSubRenderState(SGScriptTranslator* translator);
+};
+
+class FFPTexturingFactory : public SubRenderStateFactory
+{
+public:
+    const String& getType() const override;
+    SubRenderState* createInstance(ScriptCompiler* compiler, PropertyAbstractNode* prop, Pass* pass,
+                                   SGScriptTranslator* translator) override;
+    void writeInstance(MaterialSerializer* ser, SubRenderState* subRenderState, Pass* srcPass, Pass* dstPass) override;
+protected:
+    SubRenderState* createInstanceImpl() override;
+};
+
+uint16 ensureLtcLUTPresent(Pass* dstPass);
+
+} // namespace RTShader
+} // namespace Ogre
 
 #endif 

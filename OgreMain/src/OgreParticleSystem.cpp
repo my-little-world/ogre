@@ -25,6 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
+#include "OgreProfiler.h"
 #include "OgreStableHeaders.h"
 
 #include "OgreParticleSystem.h"
@@ -131,16 +132,16 @@ namespace Ogre {
 
     //-----------------------------------------------------------------------
     // Local class for updating based on time
-    class ParticleSystemUpdateValue : public ControllerValue<Real>
+    class ParticleSystemUpdateValue : public ControllerValue<float>
     {
     protected:
         ParticleSystem* mTarget;
     public:
         ParticleSystemUpdateValue(ParticleSystem* target) : mTarget(target) {}
 
-        Real getValue(void) const override { return 0; } // N/A
+        float getValue(void) const override { return 0; } // N/A
 
-        void setValue(Real value) override { mTarget->_update(value); }
+        void setValue(float value) override { mTarget->_update(value); }
 
     };
     //-----------------------------------------------------------------------
@@ -427,6 +428,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void ParticleSystem::_update(Real timeElapsed)
     {
+        OgreProfile("ParticleSystem");
         // Only update if attached to a node
         if (!mParentNode)
             return;
@@ -503,6 +505,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void ParticleSystem::_expire(Real timeElapsed)
     {
+        OgreProfile("_expire");
         Particle* pParticle;
         ParticleEmitter* pParticleEmitter;
 
@@ -548,6 +551,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void ParticleSystem::_triggerEmitters(Real timeElapsed)
     {
+        OgreProfile("_triggerEmitters");
         // Add up requests for emission
         static std::vector<unsigned> requested;
         static std::vector<unsigned> emittedRequested;
@@ -682,6 +686,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void ParticleSystem::_triggerAffectors(Real timeElapsed)
     {
+        OgreProfile("_triggerAffectors");
         for (auto a : mAffectors)
         {
             a->_affectParticles(this, timeElapsed);
@@ -830,7 +835,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void ParticleSystem::_updateBounds()
     {
-
+        OgreProfile("_updateBounds");
         if (mParentNode && (mBoundsAutoUpdate || mBoundsUpdateTime > 0.0f))
         {
             if (mActiveParticles.empty())
@@ -920,7 +925,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     const String& ParticleSystem::getMovableType(void) const
     {
-        return ParticleSystemFactory::FACTORY_TYPE_NAME;
+        return MOT_PARTICLE_SYSTEM;
     }
     //-----------------------------------------------------------------------
     void ParticleSystem::setDefaultDimensions( Real width, Real height )
@@ -1552,6 +1557,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     ParticleAffectorFactory::~ParticleAffectorFactory() 
     {
+        OGRE_IGNORE_DEPRECATED_BEGIN
         // Destroy all affectors
         for (auto *a : mAffectors)
         {
@@ -1559,20 +1565,23 @@ namespace Ogre {
         }
             
         mAffectors.clear();
+        OGRE_IGNORE_DEPRECATED_END
     }
     //-----------------------------------------------------------------------
     void ParticleAffectorFactory::destroyAffector(ParticleAffector* e)
     {
+        delete e;
+        OGRE_IGNORE_DEPRECATED_BEGIN
         std::vector<ParticleAffector*>::iterator i;
         for (i = mAffectors.begin(); i != mAffectors.end(); ++i)
         {
             if ((*i) == e)
             {
                 mAffectors.erase(i);
-                OGRE_DELETE e;
                 break;
             }
         }
+        OGRE_IGNORE_DEPRECATED_END
     }
 
 }

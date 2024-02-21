@@ -41,9 +41,6 @@ namespace Ogre {
     *  @{
     */
 
-    /// Define a list of usage flags
-    typedef std::vector<HardwareBuffer::Usage> BufferUsageList;
-
     /** collects together all the vertex-related information used to render geometry.
      *
      * The RenderOperation requires a pointer to a VertexData object, and it is also used in Mesh and
@@ -65,6 +62,10 @@ namespace Ogre {
         VertexData& operator=(const VertexData& rhs); /* do not use */
 
         HardwareBufferManagerBase* mMgr;
+
+        typedef std::vector<HardwareBufferUsage> BufferUsageList;
+        void reorganiseBuffers(VertexDeclaration* newDeclaration, const BufferUsageList& bufferUsage,
+                               HardwareBufferManagerBase* mgr);
     public:
         /** Constructor.
         @note 
@@ -95,22 +96,22 @@ namespace Ogre {
         /// Whether this class should delete the declaration and binding
         bool mDeleteDclBinding;
         /// The position in the bound buffers to start reading vertex data from. This allows you to use a single buffer for many different renderables.
-        size_t vertexStart;
+        uint32 vertexStart;
         /// The number of vertices to process in this particular rendering group
-        size_t vertexCount;
+        uint32 vertexCount;
 
 
         /// Struct used to hold hardware morph / pose vertex data information
         struct HardwareAnimationData
         {
             unsigned short targetBufferIndex;
-            Real parametric;
+            float parametric;
         };
         typedef std::vector<HardwareAnimationData> HardwareAnimationDataList;
+        /// Number of hardware animation data items used
+        uint32 hwAnimDataItemsUsed;
         /// VertexElements used for hardware morph / pose animation
         HardwareAnimationDataList hwAnimationDataList;
-        /// Number of hardware animation data items used
-        size_t hwAnimDataItemsUsed;
         
         /** Clones this vertex data, potentially including replicating any vertex buffers.
         @param copyData Whether to create new vertex buffers too or just reference the existing ones
@@ -161,28 +162,6 @@ namespace Ogre {
             can be reused in the shadow algorithm.
         */
         HardwareVertexBufferSharedPtr hardwareShadowVolWBuffer;
-
-
-        /** Reorganises the data in the vertex buffers according to the 
-            new vertex declaration passed in. Note that new vertex buffers
-            are created and written to, so if the buffers being referenced 
-            by this vertex data object are also used by others, then the 
-            original buffers will not be damaged by this operation.
-            Once this operation has completed, the new declaration 
-            passed in will overwrite the current one.
-        @param newDeclaration The vertex declaration which will be used
-            for the reorganised buffer state. Note that the new declaration
-            must not include any elements which do not already exist in the 
-            current declaration; you can drop elements by 
-            excluding them from the declaration if you wish, however.
-        @param bufferUsage Vector of usage flags which indicate the usage options
-            for each new vertex buffer created. The indexes of the entries must correspond
-            to the buffer binding values referenced in the declaration.
-        @param mgr Optional pointer to the manager to use to create new declarations
-            and buffers etc. If not supplied, the HardwareBufferManager singleton will be used
-        */
-        void reorganiseBuffers(VertexDeclaration* newDeclaration, const BufferUsageList& bufferUsage, 
-            HardwareBufferManagerBase* mgr = 0);
 
         /** Reorganises the data in the vertex buffers according to the 
             new vertex declaration passed in. Note that new vertex buffers
@@ -258,11 +237,6 @@ namespace Ogre {
     /** Summary class collecting together index data source information. */
     class _OgreExport IndexData : public IndexDataAlloc
     {
-    private:
-        /// Protected copy constructor, to prevent misuse
-        IndexData(const IndexData& rhs); /* do nothing, should not use */
-        /// Protected operator=, to prevent misuse
-        IndexData& operator=(const IndexData& rhs); /* do not use */
     public:
         IndexData();
         ~IndexData();
@@ -270,10 +244,10 @@ namespace Ogre {
         HardwareIndexBufferSharedPtr indexBuffer;
 
         /// Index in the buffer to start from for this operation
-        size_t indexStart;
+        uint32 indexStart;
 
         /// The number of indexes to use from the buffer
-        size_t indexCount;
+        uint32 indexCount;
 
         /** Clones this index data, potentially including replicating the index buffer.
         @param copyData Whether to create new buffers too or just reference the existing ones
@@ -303,7 +277,7 @@ namespace Ogre {
     {
         public:
             VertexCacheProfiler(unsigned int cachesize = 16)
-                : size ( cachesize ), tail (0), buffersize (0), hit (0), miss (0)
+                : size ( cachesize ), tail (0), buffersize (0), hit (0), miss (0), triangles(0)
             {
                 cache = OGRE_ALLOC_T(uint32, size, MEMCATEGORY_GEOMETRY);
             }
@@ -314,18 +288,25 @@ namespace Ogre {
             }
 
             void profile(const HardwareIndexBufferSharedPtr& indexBuffer);
-            void reset() { hit = 0; miss = 0; tail = 0; buffersize = 0; }
+            void reset() { hit = 0; miss = 0; tail = 0; buffersize = 0; triangles = 0; }
             void flush() { tail = 0; buffersize = 0; }
 
             unsigned int getHits() { return hit; }
             unsigned int getMisses() { return miss; }
             unsigned int getSize() { return size; }
+
+            /** Get the average cache miss ratio
+
+            @return ratio of vertex cache misses to the triangle count (0.5 - 3.0)
+            */
+            float getAvgCacheMissRatio() { return (float)miss / triangles; }
         private:
             unsigned int size;
             uint32 *cache;
 
             unsigned int tail, buffersize;
             unsigned int hit, miss;
+            uint32 triangles;
 
             bool inCache(unsigned int index);
     };

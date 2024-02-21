@@ -13,14 +13,15 @@ Vertex, geometry and fragment programs can be low-level (i.e. assembler code wri
 Here is an example of a definition of a low-level vertex program:
 
 ```cpp
-vertex_program myVertexProgram asm
+vertex_program myVertexProgram spirv
 {
-    source myVertexProgram.asm
-    syntax vs_1_1
+    source myVertexProgram.spv
 }
 ```
 
-As you can see, that’s very simple, and defining a fragment or geometry program is exactly the same, just with @c vertex_program replaced with @c fragment_program or @c geometry_program, respectively. You give the program a name in the header, followed by the word ’asm’ to indicate that this is a low-level program. Inside the braces, you specify where the source is going to come from (and this is loaded from any of the resource locations as with other media), and also indicate the syntax being used. You might wonder why the syntax specification is required when many of the assembler syntaxes have a header identifying them anyway - well the reason is that the engine needs to know what syntax the program is in before reading it, because during compilation of the material, we want to skip programs which use an unsupportable syntax quickly, without loading the program first.
+As you can see, that’s very simple, and defining a fragment or geometry program is exactly the same, just with @c vertex_program replaced with @c fragment_program or @c geometry_program, respectively. Likewise, for tessellation and compute programs, use @c tessellation_hull_program, @c tessellation_domain_program, and @c compute_program.
+
+You give the program a name in the header, followed by the word @c spirv to indicate the syntax being used. Inside the braces, you specify where the source is going to come from (and this is loaded from any of the resource locations as with other media). The syntax specification is necessary for the engine to know what syntax the program is in before reading it. During the compilation of the material, it is important to quickly skip programs that use unsupported syntax to avoid loading the program first.
 
 # Default Program Parameters {#Default-Program-Parameters}
 
@@ -187,6 +188,20 @@ param_named skewMatrix float4 0.5 0 -0.5 1.0
 This means that `mat[0]` is the first column in GLSL, but the first row in HLSL and %Ogre. %Ogre takes care of transposing square matrices before uploading them with GLSL, so matrix-vector multiplication `M*v` just works and `mat[0]` will return the same data.
 However, with non-square matrices transposing would change their GLSL type from e.g. `mat2x4` (two columns, four rows) to `mat4x2` (two rows, four columns) and consequently what `mat[0]` would return. Therefore %Ogre just passes such matrices unchanged and you have to handle this case (notably in skinning) yourself by either transposing the matrix in the shader or column-wise access.
 
+## Transform Feedback Varyings {#Transform-Feedback-Varyings}
+
+Similarly to vertex attributes, the transform feedback varyings are bound by name.
+Only interleaved output to a single buffer is supported. The offsets are given by the Ogre::VertexDeclaration.
+The available varyings are:
+
+| Semantic | Varying name |
+|----------|--------------|
+| Ogre::VES_POSITION | xfb_position |
+| Ogre::VES_NORMAL | xfb_normal |
+| Ogre::VES_COLOUR | xfb_colour |
+| Ogre::VES_COLOUR2 | xfb_colour2 |
+| Ogre::VES_TEXTURE_COORDINATES | xfb_uv0 - xfb_uv7 |
+
 ## Compatibility profile GLSL features {#Legacy-GLSL-features}
 
 The following features are only available when using the legacy OpenGL profile. Notably they are not available with GL3+ or GLES2.
@@ -237,7 +252,7 @@ fragment_program myCgFragmentProgram cg
 }
 ```
 
-There are a few differences between this and the assembler program - to begin with, we declare that the fragment program is of type `cg` rather than `asm`, which indicates that it’s a high-level program using Cg. The `source` parameter is the same, except this time it’s referencing a Cg source file instead of a file of assembler.
+There are a few differences between this and the assembler program - to begin with, we declare that the fragment program is of type `cg` rather than `spirv`, which indicates that it’s a high-level program using Cg. The `source` parameter is the same, except this time it’s referencing a Cg source file instead of a file of assembler.
 
 Here is where things start to change. Instead of a fixed `syntax` parameter, you specify one or more `profiles`; profiles are how Cg compiles a program down to the low-level assembler. The profiles have the same names as the assembler syntax codes mentioned above; the main difference is that you can list more than one, thus allowing the program to be compiled down to more low-level syntaxes so you can write a single high-level program which runs on both D3D and GL. You are advised to just enter the simplest profiles under which your programs can be compiled in order to give it the maximum compatibility. The ordering also matters; if a card supports more than one syntax then the one listed first will be used.
 
@@ -354,10 +369,9 @@ You can get a definitive list of the syntaxes supported by the current card by c
 Assembler shaders don’t have named constants (also called uniform parameters) because the language does not support them - however if you for example decided to precompile your shaders from a high-level language down to assembler for performance or obscurity, you might still want to use the named parameters. Well, you actually can - GpuNamedConstants which contains the named parameter mappings has a ’save’ method which you can use to write this data to disk, where you can reference it later using the manual\_named\_constants directive inside your assembler program declaration, e.g.
 
 ```cpp
-vertex_program myVertexProgram asm
+vertex_program myVertexProgram spirv
 {
-    source myVertexProgram.asm
-    syntax vs_1_1
+    source myVertexProgram.spv
     manual_named_constants myVertexProgram.constants
 }
 ```
@@ -845,7 +859,7 @@ The following defines are available:
 - The current shader type: e.g. @c OGRE_VERTEX_SHADER, @c OGRE_FRAGMENT_SHADER
 - Whether @ref reversed-depth is enabled: @c OGRE_REVERSED_Z
 
-# Cross-platform macros
+# Cross-platform macros {#OgreUnifiedShader}
 
 Additionally, the `OgreUnifiedShader.h` provides macros to map GLSL to HLSL and (to some extent) Metal.
 
@@ -855,6 +869,7 @@ In general, you have to do the following changes compared to regular GLSL:
 - Add the `#include <OgreUnifiedShader.h>` directive at the top of the file
 - Use the `MAIN_PARAMETERS` and `MAIN_DECLARATION` directives instead of `void main()`
 - Use the `IN`/ `OUT` macros to specify non-uniform parameters that are passed to the main function.
+- Wrap the uniform paramters in the `OGRE_UNIFORMS` macro
 - Declare Samplers with `SAMPLER2D/3D/CUBE/..` macros instead of `sampler2D/3D/Cube/..`
 - Use `mtxFromRows` / `mtxFromCols` to construct matrices from vectors
 - Use the HLSL style `mul` instead of `*` to multiply matrices
@@ -876,7 +891,10 @@ to make it cross-platform, we need to modify it as:
 
 ```cpp
 #include <OgreUnifiedShader.h>
+
+OGRE_UNIFORMS(
 uniform mat4 worldMatrix;
+)
 
 MAIN_PARAMETERS
 IN(vec4 vertex, POSITION)

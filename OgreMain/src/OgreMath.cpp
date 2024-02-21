@@ -136,13 +136,6 @@ namespace Ogre
             return Radian(-HALF_PI);
         }
     }
-    //-----------------------------------------------------------------------
-    float Math::UnitRandom ()
-    {
-        if (mRandProvider)
-            return mRandProvider->getRandomUnit();
-        else return rand() / float(RAND_MAX);
-    }
     
     //-----------------------------------------------------------------------
     void Math::SetRandomValueProvider(RandomValueProvider* provider)
@@ -291,18 +284,6 @@ namespace Ogre
 
 
         return true;
-    }
-    //-----------------------------------------------------------------------
-    std::pair<bool, Real> Math::intersects(const Ray& ray, 
-        const std::list<Plane>& planes, bool normalIsOutside)
-    {
-        std::vector<Plane> planesVec;
-        planesVec.reserve(planes.size());
-        for (auto plane : planes)
-        {
-            planesVec.push_back(plane);
-        }
-        return intersects(ray, planesVec, normalIsOutside);
     }
     //-----------------------------------------------------------------------
     std::pair<bool, Real> Math::intersects(const Ray& ray, 

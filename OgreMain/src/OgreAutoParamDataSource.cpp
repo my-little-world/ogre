@@ -70,7 +70,7 @@ namespace Ogre {
         mBlankLight.setDiffuseColour(ColourValue::Black);
         mBlankLight.setSpecularColour(ColourValue::Black);
         mBlankLight.setAttenuation(0,1,0,0);
-        mBlankLight._notifyAttached(&mDummyNode);
+        mDummyNode.attachObject(&mBlankLight);
         for(size_t i = 0; i < OGRE_MAX_SIMULTANEOUS_LIGHTS; ++i)
         {
             mTextureViewProjMatrixDirty[i] = true;
@@ -214,10 +214,16 @@ namespace Ogre {
         return getLight(index).getPowerScale();
     }
     //-----------------------------------------------------------------------------
-    const Vector4f& AutoParamDataSource::getLightAttenuation(size_t index) const
+    Vector4f AutoParamDataSource::getLightAttenuation(size_t index) const
     {
+        const Light& l = getLight(index);
+        if(l.getType() == Light::LT_RECTLIGHT)
+        {
+            auto rot = getViewMatrix().linear();
+            return Vector4f(Vector3f(rot * Vector3(l.getDerivedSourceHalfHeight())), 0.0);
+        }
         // range, const, linear, quad
-        return getLight(index).getAttenuation();
+        return l.getAttenuation();
     }
     //-----------------------------------------------------------------------------
     Vector4f AutoParamDataSource::getSpotlightParams(size_t index) const
@@ -230,6 +236,11 @@ namespace Ogre {
                            Math::Cos(l.getSpotlightOuterAngle().valueRadians() * 0.5f),
                            l.getSpotlightFalloff(),
                            1.0);
+        }
+        else if(l.getType() == Light::LT_RECTLIGHT)
+        {
+            auto rot = getViewMatrix().linear();
+            return Vector4f(Vector3f(rot * Vector3(l.getDerivedSourceHalfWidth())), 2.0);
         }
         else
         {
@@ -661,9 +672,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------------
     const Matrix4& AutoParamDataSource::getTextureViewProjMatrix(size_t index) const
     {
-        if (index < OGRE_MAX_SIMULTANEOUS_LIGHTS)
+        if (index < OGRE_MAX_SIMULTANEOUS_LIGHTS && mCurrentTextureProjector[index])
         {
-            if (mTextureViewProjMatrixDirty[index] && mCurrentTextureProjector[index])
+            if (mTextureViewProjMatrixDirty[index])
             {
                 if (mCameraRelativeRendering)
                 {
@@ -694,9 +705,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------------
     const Matrix4& AutoParamDataSource::getTextureWorldViewProjMatrix(size_t index) const
     {
-        if (index < OGRE_MAX_SIMULTANEOUS_LIGHTS)
+        if (index < OGRE_MAX_SIMULTANEOUS_LIGHTS && mCurrentTextureProjector[index])
         {
-            if (mTextureWorldViewProjMatrixDirty[index] && mCurrentTextureProjector[index])
+            if (mTextureWorldViewProjMatrixDirty[index])
             {
                 mTextureWorldViewProjMatrix[index] = 
                     getTextureViewProjMatrix(index) * getWorldMatrix();
@@ -1052,6 +1063,10 @@ namespace Ogre {
     void AutoParamDataSource::incPassNumber(void)
     {
         ++mPassNumber;
+    }
+    int AutoParamDataSource::getMaterialLodIndex() const
+    {
+        return mCurrentRenderable->_getMaterialLodIndex();
     }
     //-----------------------------------------------------------------------------
     const Vector4& AutoParamDataSource::getSceneDepthRange() const

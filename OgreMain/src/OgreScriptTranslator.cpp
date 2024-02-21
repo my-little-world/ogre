@@ -47,7 +47,7 @@ THE SOFTWARE.
 #include "OgreGpuProgramUsage.h"
 
 namespace Ogre{
-    static void applyTextureAliases(const Material* mat, const NameValuePairList& aliasList)
+    static void applyTextureAliases(ScriptCompiler *compiler, const Material* mat, const NameValuePairList& aliasList)
     {
         for (auto t : mat->getTechniques())
         {
@@ -59,33 +59,16 @@ namespace Ogre{
                     if (aliasIt == aliasList.end())
                         continue;
 
+                    ProcessResourceNameScriptCompilerEvent evt(ProcessResourceNameScriptCompilerEvent::TEXTURE, aliasIt->second);
+                    compiler->_fireEvent(&evt, 0);
+
                     if (tus->getNumFrames() > 1)
-                        tus->setAnimatedTextureName(aliasIt->second, tus->getNumFrames(),
+                        tus->setAnimatedTextureName(evt.mName, tus->getNumFrames(),
                                                     tus->getAnimationDuration());
                     else
-                        tus->setTextureName(aliasIt->second, tus->getTextureType());
+                        tus->setTextureName(evt.mName, tus->getTextureType());
                 }
             }
-        }
-    }
-
-    static GpuProgramType translateIDToGpuProgramType(uint32 id)
-    {
-        switch (id)
-        {
-        case ID_VERTEX_PROGRAM:
-        default:
-            return GPT_VERTEX_PROGRAM;
-        case ID_GEOMETRY_PROGRAM:
-            return GPT_GEOMETRY_PROGRAM;
-        case ID_FRAGMENT_PROGRAM:
-            return GPT_FRAGMENT_PROGRAM;
-            case ID_TESSELLATION_HULL_PROGRAM:
-            return GPT_HULL_PROGRAM;
-            case ID_TESSELLATION_DOMAIN_PROGRAM:
-            return GPT_DOMAIN_PROGRAM;
-        case ID_COMPUTE_PROGRAM:
-            return GPT_COMPUTE_PROGRAM;
         }
     }
 
@@ -407,26 +390,6 @@ namespace Ogre{
         }
         return true;
     }
-
-    template<> bool getValue(const AbstractNodePtr& node, TextureUnitState::BindingType& result)
-    {
-        if(node->type != ANT_ATOM)
-            return false;
-
-        switch (static_cast<AtomAbstractNode*>(node.get())->id)
-        {
-        case ID_VERTEX:
-            result = TextureUnitState::BT_VERTEX;
-            break;
-        case ID_FRAGMENT:
-            result = TextureUnitState::BT_FRAGMENT;
-            break;
-        default:
-            return false;
-        }
-        return true;
-    }
-
 
     template<> bool getValue(const AbstractNodePtr& node, CompositionTargetPass::InputMode& result)
     {
@@ -1092,6 +1055,7 @@ namespace Ogre{
         mMaterial->_notifyOrigin(obj->file);
 
         bool bval;
+        String sval;
 
         for(auto & i : obj->children)
         {
@@ -1126,13 +1090,12 @@ namespace Ogre{
                         compiler->addError(ScriptCompiler::CE_DEPRECATEDSYMBOL, prop->file,
                                            prop->line,
                                            "lod_distances. Use lod_values.");
-
                         // Read in LOD distances
                         Material::LodValueList lods;
-                        for(AbstractNodeList::iterator j = prop->values.begin(); j != prop->values.end(); ++j)
+                        for(auto& j : prop->values)
                         {
                             Real v = 0;
-                            if(getReal(*j, &v))
+                            if(getReal(j, &v))
                                 lods.push_back(v);
                             else
                                 compiler->addError(ScriptCompiler::CE_NUMBEREXPECTED, prop->file, prop->line,
@@ -1142,26 +1105,17 @@ namespace Ogre{
                     }
                     break;
                 case ID_LOD_STRATEGY:
-                    if (prop->values.empty())
+                    if(getValue(prop, compiler, sval))
                     {
-                        compiler->addError(ScriptCompiler::CE_STRINGEXPECTED, prop->file, prop->line);
-                    }
-                    else if (prop->values.size() > 1)
-                    {
-                        compiler->addError(ScriptCompiler::CE_FEWERPARAMETERSEXPECTED, prop->file, prop->line,
-                                           "lod_strategy only supports 1 argument");
-                    }
-                    else
-                    {
-                        LodStrategy *strategy = LodStrategyManager::getSingleton().getStrategy(prop->values.front()->getString());
-                        if (strategy)
-                            mMaterial->setLodStrategy(strategy);
+                            if (sval == "Distance" || sval == "PixelCount")
+                                compiler->addError(ScriptCompiler::CE_DEPRECATEDSYMBOL, prop->file, prop->line,
+                                                   sval + ". use distance_box or pixel_count");
 
-                        if (!strategy)
-                        {
-                            compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line,
-                                               "lod_strategy argument must be a valid LOD strategy");
-                        }
+                            LodStrategy* strategy = LodStrategyManager::getSingleton().getStrategy(sval);
+                            if (strategy)
+                                mMaterial->setLodStrategy(strategy);
+                            else
+                                compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line, sval);
                     }
                     break;
                 case ID_RECEIVE_SHADOWS:
@@ -1200,15 +1154,7 @@ namespace Ogre{
             }
         }
 
-        OGRE_IGNORE_DEPRECATED_BEGIN
-        // Apply the texture aliases
-        if(compiler->getListener())
-        {
-            PreApplyTextureAliasesScriptCompilerEvent locEvt(mMaterial, &mTextureAliases);
-            compiler->_fireEvent(&locEvt, 0);
-        }
-        OGRE_IGNORE_DEPRECATED_END
-        applyTextureAliases(mMaterial, mTextureAliases);
+        applyTextureAliases(compiler, mMaterial, mTextureAliases);
         mTextureAliases.clear();
     }
 
@@ -1834,14 +1780,6 @@ namespace Ogre{
                         mPass->setManualCullingMode(mmode);
                     compiler->addError(ScriptCompiler::CE_DEPRECATEDSYMBOL, prop->file, prop->line,
                                        prop->name + ". Only used by the BSP scene manager.");
-                    break;
-                case ID_NORMALISE_NORMALS:
-                    OGRE_IGNORE_DEPRECATED_BEGIN
-                    if(getValue(prop, compiler, bval))
-                        mPass->setNormaliseNormals(bval);
-                    OGRE_IGNORE_DEPRECATED_END
-                    compiler->addError(ScriptCompiler::CE_DEPRECATEDSYMBOL, prop->file, prop->line,
-                                       prop->name + ". Only used by fixed function APIs.");
                     break;
                 case ID_LIGHTING:
                     if(getValue(prop, compiler, bval))
@@ -2638,6 +2576,10 @@ namespace Ogre{
                                                prop->file, prop->line, sval);
                     }
                     break;
+                case ID_UNORDERED_ACCESS_MIP:
+                    if(getValue(prop, compiler, uival))
+                        mUnit->setUnorderedAccessMipLevel(uival);
+                    break;
                 case ID_TEXTURE_ALIAS:
                     compiler->addError(ScriptCompiler::CE_DEPRECATEDSYMBOL, prop->file, prop->line,
                         "texture_alias. Use 'texture $variable'");
@@ -3323,17 +3265,6 @@ namespace Ogre{
                             compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
                     }
                     break;
-                case ID_BINDING_TYPE:
-                    TextureUnitState::BindingType bt;
-                    if(getValue(prop, compiler, bt))
-                    {
-                        compiler->addError(ScriptCompiler::CE_DEPRECATEDSYMBOL, prop->file, prop->line,
-                                           "binding_type. no longer needed");
-                        OGRE_IGNORE_DEPRECATED_BEGIN
-                        mUnit->setBindingType(bt);
-                        OGRE_IGNORE_DEPRECATED_END
-                    }
-                    break;
                 case ID_CONTENT_TYPE:
                     if(prop->values.empty())
                     {
@@ -3626,7 +3557,7 @@ namespace Ogre{
         }
 
         // Allocate the program
-        GpuProgramType gpt = translateIDToGpuProgramType(obj->id);
+        GpuProgramType gpt = getProgramType(obj->id);
         GpuProgram *prog = 0;
 
         if(language == "asm")
@@ -3689,6 +3620,10 @@ namespace Ogre{
         if(prog->isSupported() && params)
         {
             GpuProgramParametersSharedPtr ptr = prog->getDefaultParameters();
+
+            if(prog->hasCompileError())
+                return;
+
             GpuProgramTranslator::translateProgramParameters(compiler, ptr, static_cast<ObjectAbstractNode*>(params.get()));
         }
     }
@@ -3772,7 +3707,7 @@ namespace Ogre{
         }
     }
 
-    void GpuProgramTranslator::translateProgramParameters(ScriptCompiler *compiler, GpuProgramParametersSharedPtr params, ObjectAbstractNode *obj)
+    void GpuProgramTranslator::translateProgramParameters(ScriptCompiler *compiler, const GpuProgramParametersSharedPtr& params, ObjectAbstractNode *obj)
     {
         uint32 animParametricsCount = 0;
 
@@ -4396,70 +4331,50 @@ namespace Ogre{
             if(i->type == ANT_PROPERTY)
             {
                 PropertyAbstractNode *prop = static_cast<PropertyAbstractNode*>(i.get());
-                switch(prop->id)
+                if(prop->values.empty())
                 {
-                case ID_MATERIAL:
-                    if(prop->values.empty())
+                    compiler->addError(ScriptCompiler::CE_STRINGEXPECTED, prop->file, prop->line);
+                    return;
+                }
+
+                String value;
+                if(prop->id == ID_MATERIAL)
+                {
+                    if(prop->values.front()->type == ANT_ATOM)
                     {
-                        compiler->addError(ScriptCompiler::CE_STRINGEXPECTED, prop->file, prop->line);
-                        return;
+                        value = ((AtomAbstractNode*)prop->values.front().get())->value;
+
+                        ProcessResourceNameScriptCompilerEvent locEvt(ProcessResourceNameScriptCompilerEvent::MATERIAL, value);
+                        compiler->_fireEvent(&locEvt, 0);
+                        value = locEvt.mName;
                     }
-                    else
+                }
+                else
+                {
+                    // Glob the values together
+                    for(auto& v : prop->values)
                     {
-                        if(prop->values.front()->type == ANT_ATOM)
+                        if(v->type == ANT_ATOM)
                         {
-                            String name = ((AtomAbstractNode*)prop->values.front().get())->value;
-
-                            ProcessResourceNameScriptCompilerEvent locEvt(ProcessResourceNameScriptCompilerEvent::MATERIAL, name);
-                            compiler->_fireEvent(&locEvt, 0);
-
-                            if(!mSystem->setParameter("material", locEvt.mName))
-                            {
-                                if(mSystem->getRenderer())
-                                {
-                                    if(!mSystem->getRenderer()->setParameter("material", locEvt.mName))
-                                        compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line,
-                                                           "material property could not be set with material \"" + locEvt.mName + "\"");
-                                }
-                            }
-                        }
-                    }
-                    break;
-                default:
-                    if(prop->values.empty())
-                    {
-                        compiler->addError(ScriptCompiler::CE_STRINGEXPECTED, prop->file, prop->line);
-                        return;
-                    }
-                    else
-                    {
-                        String name = prop->name, value;
-
-                        // Glob the values together
-                        for(AbstractNodeList::iterator it = prop->values.begin(); it != prop->values.end(); ++it)
-                        {
-                            if((*it)->type == ANT_ATOM)
-                            {
-                                if(value.empty())
-                                    value = ((AtomAbstractNode*)(*it).get())->value;
-                                else
-                                    value = value + " " + ((AtomAbstractNode*)(*it).get())->value;
-                            }
+                            if(value.empty())
+                                value = ((AtomAbstractNode*)v.get())->value;
                             else
-                            {
-                                compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-                                return;
-                            }
+                                value = value + " " + ((AtomAbstractNode*)v.get())->value;
                         }
-
-                        if(!mSystem->setParameter(name, value))
+                        else
                         {
-                            if(mSystem->getRenderer())
-                            {
-                                if(!mSystem->getRenderer()->setParameter(name, value))
-                                    compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-                            }
+                            compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
+                            return;
                         }
+                    }
+                }
+
+                if(!mSystem->setParameter(prop->name, value))
+                {
+                    if(auto renderer = mSystem->getRenderer())
+                    {
+                        if(!renderer->setParameter(prop->name, value))
+                            compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
                     }
                 }
             }

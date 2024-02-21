@@ -9,8 +9,6 @@ using namespace OgreBites;
 
 class _OgreSampleClassExport Sample_ImGui : public SdkSample, public RenderTargetListener
 {
-    std::unique_ptr<ImGuiInputListener> mImguiListener;
-    InputListenerChain mListenerChain;
 public:
     // Basic constructor
     Sample_ImGui()
@@ -31,26 +29,15 @@ public:
         ImGui::ShowDemoWindow();
     }
 
-    bool keyPressed(const KeyboardEvent& evt) override { return mListenerChain.keyPressed(evt); }
-    bool keyReleased(const KeyboardEvent& evt) override { return mListenerChain.keyReleased(evt); }
-    bool mouseMoved(const MouseMotionEvent& evt) override { return mListenerChain.mouseMoved(evt); }
-    bool mouseWheelRolled(const MouseWheelEvent& evt) override { return mListenerChain.mouseWheelRolled(evt); }
-    bool mousePressed(const MouseButtonEvent& evt) override { return mListenerChain.mousePressed(evt); }
-    bool mouseReleased(const MouseButtonEvent& evt) override { return mListenerChain.mouseReleased(evt); }
-    bool textInput (const TextInputEvent& evt) override { return mListenerChain.textInput (evt); }
-
     void setupContent(void) override
     {
-        auto imguiOverlay = new ImGuiOverlay();
+        auto imguiOverlay = mContext->initialiseImGui();
 
-        // handle DPI scaling
         float vpScale = OverlayManager::getSingleton().getPixelRatio();
         ImGui::GetIO().FontGlobalScale = std::round(vpScale); // default font does not work with fractional scaling
-        ImGui::GetStyle().ScaleAllSizes(vpScale);
 
         imguiOverlay->setZOrder(300);
         imguiOverlay->show();
-        OverlayManager::getSingleton().addOverlay(imguiOverlay); // now owned by overlaymgr
 
         /*
             NOTE:
@@ -61,8 +48,8 @@ public:
         */
         mWindow->addListener(this);
 
-        mImguiListener.reset(new ImGuiInputListener());
-        mListenerChain = InputListenerChain({mTrayMgr.get(), mImguiListener.get(), mCameraMan.get()});
+        mInputListenerChain = TouchAgnosticInputListenerChain(
+            mWindow, {mTrayMgr.get(), mContext->getImGuiInputListener(), mCameraMan.get()});
 
         mTrayMgr->showCursor();
         mCameraMan->setStyle(OgreBites::CS_ORBIT);

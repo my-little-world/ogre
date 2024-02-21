@@ -528,22 +528,6 @@ void OctreeSceneManager::_updateSceneGraph( Camera * cam )
     SceneManager::_updateSceneGraph( cam );
 }
 
-void OctreeSceneManager::_alertVisibleObjects( void )
-{
-    OGRE_EXCEPT( Exception::ERR_NOT_IMPLEMENTED,
-        "Function doesn't do as advertised",
-        "OctreeSceneManager::_alertVisibleObjects" );
-
-//    Octree::NodeList::iterator it = mVisible.begin();
-//
-//    while ( it != mVisible.end() )
-//    {
-//        OctreeNode * node = *it;
-//
-//        ++it;
-//    }
-}
-
 void OctreeSceneManager::_findVisibleObjects(Camera * cam, 
     VisibleObjectsBoundsInfo* visibleBounds, bool onlyShadowCasters )
 {
@@ -629,8 +613,8 @@ void OctreeSceneManager::walkOctree( OctreeCamera *camera, RenderQueue *queue,
 
                 mVisible.push_back( sn );
 
-                if (mDebugDrawer)
-                    mDebugDrawer->drawSceneNode(sn);
+                if (getDebugDrawer())
+                    getDebugDrawer()->drawSceneNode(sn);
             }
 
             ++it;
@@ -1123,12 +1107,6 @@ OctreeSceneManager::createIntersectionQuery(uint32 mask)
 }
 //-----------------------------------------------------------------------
 const String OctreeSceneManagerFactory::FACTORY_TYPE_NAME = "OctreeSceneManager";
-//-----------------------------------------------------------------------
-void OctreeSceneManagerFactory::initMetaData(void) const
-{
-    mMetaData.typeName = FACTORY_TYPE_NAME;
-    mMetaData.worldGeometrySupported = false;
-}
 //-----------------------------------------------------------------------
 SceneManager* OctreeSceneManagerFactory::createInstance(
     const String& instanceName)

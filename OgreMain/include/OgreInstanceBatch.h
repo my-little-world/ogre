@@ -121,8 +121,6 @@ namespace Ogre
         bool                mBoundsUpdated; //Set to false by derived classes that need it
         Camera              *mCurrentCamera;
 
-        unsigned short      mMaterialLodIndex;
-
         bool                mDirtyAnimation; //Set to false at start of each _updateRenderQueue
 
         /// False if a technique doesn't support skeletal animation
@@ -146,7 +144,7 @@ namespace Ogre
         virtual void setupVertices( const SubMesh* baseSubMesh ) = 0;
         virtual void setupIndices( const SubMesh* baseSubMesh ) = 0;
         virtual void createAllInstancedEntities(void);
-        virtual void deleteAllInstancedEntities(void);
+        void deleteAllInstancedEntities(void);
         virtual void deleteUnusedInstancedEntities(void);
         /// Creates a new InstancedEntity instance
         virtual InstancedEntity* generateInstancedEntity(size_t num);
@@ -342,8 +340,6 @@ namespace Ogre
         Real getSquaredViewDepth( const Camera* cam ) const override;
         /** @copydoc Renderable::getLights */
         const LightList& getLights( void ) const override;
-        /** @copydoc Renderable::getTechnique */
-        Technique* getTechnique(void) const override;
 
         /** @copydoc MovableObject::getMovableType */
         const String& getMovableType(void) const override;

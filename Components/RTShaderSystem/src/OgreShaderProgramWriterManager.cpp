@@ -52,7 +52,7 @@ ProgramWriterManager::ProgramWriterManager()
     // Add standard shader writer factories
 #if OGRE_PLATFORM != OGRE_PLATFORM_ANDROID
     addProgramWriter("glsl", new GLSLProgramWriter());
-    addProgramWriter("hlsl", new HLSLProgramWriter());
+    addProgramWriter("hlsl", new CGProgramWriter());
 #endif
     addProgramWriter("glslang", new GLSLProgramWriter());
     addProgramWriter("glsles", new GLSLESProgramWriter());
@@ -75,7 +75,5 @@ bool ProgramWriterManager::isLanguageSupported(const String& lang)
 {
     return mProgramWriters.find(lang) != mProgramWriters.end();
 }
-//-----------------------------------------------------------------------
-ProgramWriter* ProgramWriterManager::createProgramWriter(const String& language) { return getProgramWriter(language); }
 }
 }

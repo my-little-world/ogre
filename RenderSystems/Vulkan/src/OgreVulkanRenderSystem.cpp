@@ -534,11 +534,6 @@ namespace Ogre
                 rsc->setCapability( RSC_TEXTURE_COMPRESSION_ETC2 );
             }
 
-            vkGetPhysicalDeviceFormatProperties( mDevice->mPhysicalDevice,
-                                                 VulkanMappings::get( PF_PVRTC_RGB2 ), &props );
-            if( props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT )
-                rsc->setCapability( RSC_TEXTURE_COMPRESSION_PVRTC );
-
             vkGetPhysicalDeviceFormatProperties(
                 mDevice->mPhysicalDevice, VulkanMappings::get( PF_ASTC_RGBA_4X4_LDR ), &props );
             if( props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT )
@@ -580,14 +575,16 @@ namespace Ogre
         rsc->setNonPOW2TexturesLimited( false );
         rsc->setCapability( RSC_HWRENDER_TO_TEXTURE );
         rsc->setCapability( RSC_TEXTURE_FLOAT );
-        rsc->setCapability( RSC_POINT_SPRITES );
-        rsc->setCapability( RSC_POINT_EXTENDED_PARAMETERS );
+        if( mActiveDevice->mDeviceFeatures.largePoints )
+        {
+            rsc->setCapability( RSC_POINT_SPRITES );
+        }
         rsc->setCapability( RSC_TEXTURE_2D_ARRAY );
         rsc->setCapability( RSC_ALPHA_TO_COVERAGE );
         rsc->setCapability( RSC_HW_GAMMA );
         rsc->setCapability( RSC_VERTEX_BUFFER_INSTANCE_DATA );
         rsc->setCapability(RSC_VERTEX_FORMAT_INT_10_10_10_2);
-        rsc->setMaxPointSize( 256 );
+        rsc->setMaxPointSize( deviceLimits.pointSizeRange[1] );
 
         //rsc->setMaximumResolutions( 16384, 4096, 16384 );
         auto maxFloatVectors = deviceLimits.maxUniformBufferRange / (4 * sizeof(float));
@@ -940,7 +937,7 @@ namespace Ogre
 
         for(uint32 i= 0; i < pipelineCi.stageCount; i++)
         {
-            hash = HashCombine(hash, pipelineCi.pStages[i]);
+            hash = HashCombine(hash, mBoundGpuPrograms[i]);
         }
 
         VkPipeline retVal = mPipelineCache[hash];
@@ -1079,32 +1076,13 @@ namespace Ogre
     {
         auto shader = static_cast<VulkanProgram*>(prg);
         shaderStages[prg->getType()] = shader->getPipelineShaderStageCi();
+        mBoundGpuPrograms[prg->getType()] = prg->_getHash();
     }
     void VulkanRenderSystem::bindGpuProgramParameters( GpuProgramType gptype,
                                                        const GpuProgramParametersPtr& params,
                                                        uint16 variabilityMask )
     {
-        switch( gptype )
-        {
-        case GPT_VERTEX_PROGRAM:
-            mActiveVertexGpuProgramParameters = params;
-            break;
-        case GPT_FRAGMENT_PROGRAM:
-            mActiveFragmentGpuProgramParameters = params;
-            break;
-        case GPT_GEOMETRY_PROGRAM:
-            mActiveGeometryGpuProgramParameters = params;
-            break;
-        case GPT_HULL_PROGRAM:
-            mActiveTessellationHullGpuProgramParameters = params;
-            break;
-        case GPT_DOMAIN_PROGRAM:
-            mActiveTessellationDomainGpuProgramParameters = params;
-            break;
-        case GPT_COMPUTE_PROGRAM:
-            mActiveComputeGpuProgramParameters = params;
-            break;
-        }
+        mActiveParameters[gptype] = params;
 
         auto sizeBytes = params->getConstantList().size();
         if(sizeBytes && gptype <= GPT_FRAGMENT_PROGRAM)
@@ -1260,7 +1238,12 @@ namespace Ogre
         }
     }
 
-    void VulkanRenderSystem::_setCullingMode(CullingMode mode) { rasterState.cullMode = VulkanMappings::get(mode); }
+    void VulkanRenderSystem::_setCullingMode(CullingMode mode)
+    {
+        rasterState.cullMode = VulkanMappings::get(mode);
+        // flipFrontFace result is inverted due to inverted clip space Y
+        rasterState.frontFace = !flipFrontFace() ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    }
 
     void VulkanRenderSystem::_setDepthBias(float constantBias, float slopeScaleBias)
     {

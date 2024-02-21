@@ -260,7 +260,7 @@ XmlOptions parseArgs(int numArgs, char **args)
     return opts;
 }
 
-void meshToXML(XmlOptions opts, MeshSerializer& meshSerializer)
+void meshToXML(const XmlOptions& opts, MeshSerializer& meshSerializer)
 {
     auto stream = Root::openFileStream(opts.source);
 
@@ -284,7 +284,7 @@ void meshToXML(XmlOptions opts, MeshSerializer& meshSerializer)
                                        ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
 }
 
-void XMLToBinary(XmlOptions opts, MeshSerializer& meshSerializer)
+void XMLToBinary(const XmlOptions& opts, MeshSerializer& meshSerializer)
 {
     // Read root element and decide from there what type
     String response;
@@ -319,7 +319,7 @@ void XMLToBinary(XmlOptions opts, MeshSerializer& meshSerializer)
             }
         }
 
-        meshSerializer.exportMesh(newMesh.get(), opts.dest, opts.endian);
+        meshSerializer.exportMesh(newMesh, opts.dest, opts.endian);
 
         // Clean up the conversion mesh
         MeshManager::getSingleton().remove("conversion", RGN_DEFAULT);
@@ -342,7 +342,7 @@ void XMLToBinary(XmlOptions opts, MeshSerializer& meshSerializer)
     }
 }
 
-void skeletonToXML(XmlOptions opts)
+void skeletonToXML(const XmlOptions& opts)
 {
     auto stream = Root::openFileStream(opts.source);
     if (!stream)

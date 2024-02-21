@@ -120,7 +120,7 @@ namespace Ogre {
     TextureUnitState::TextureUnitState(Pass* parent)
         : mCurrentFrame(0)
         , mAnimDuration(0)
-        , mTextureCoordSetIndex(0)
+        , mUnorderedAccessMipLevel(-1)
         , mGamma(1)
         , mUMod(0)
         , mVMod(0)
@@ -128,10 +128,10 @@ namespace Ogre {
         , mVScale(1)
         , mRotate(0)
         , mTexModMatrix(Matrix4::IDENTITY)
-        , mBindingType(BT_FRAGMENT)
         , mContentType(CONTENT_NAMED)
         , mTextureLoadFailed(false)
         , mRecalcTexMatrix(false)
+        , mTextureCoordSetIndex(0)
         , mFramePtrs(1)
         , mSampler(TextureManager::getSingletonPtr() ? TextureManager::getSingleton().getDefaultSampler() : DUMMY_SAMPLER)
         , mParent(parent)
@@ -160,40 +160,11 @@ namespace Ogre {
     }
 
     //-----------------------------------------------------------------------
-    TextureUnitState::TextureUnitState( Pass* parent, const String& texName, unsigned int texCoordSet)
-        : mCurrentFrame(0)
-        , mAnimDuration(0)
-        , mTextureCoordSetIndex(0)
-        , mGamma(1)
-        , mUMod(0)
-        , mVMod(0)
-        , mUScale(1)
-        , mVScale(1)
-        , mRotate(0)
-        , mTexModMatrix(Matrix4::IDENTITY)
-        , mBindingType(BT_FRAGMENT)
-        , mContentType(CONTENT_NAMED)
-        , mTextureLoadFailed(false)
-        , mRecalcTexMatrix(false)
-        , mSampler(TextureManager::getSingletonPtr() ? TextureManager::getSingleton().getDefaultSampler() : DUMMY_SAMPLER)
-        , mParent(parent)
-        , mAnimController(0)
+    TextureUnitState::TextureUnitState( Pass* parent, const String& texName, uint8 texCoordSet)
+        : TextureUnitState(parent)
     {
-        mColourBlendMode.blendType = LBT_COLOUR;
-        mAlphaBlendMode.operation = LBX_MODULATE;
-        mAlphaBlendMode.blendType = LBT_ALPHA;
-        mAlphaBlendMode.source1 = LBS_TEXTURE;
-        mAlphaBlendMode.source2 = LBS_CURRENT;
-        setColourOperation(LBO_MODULATE);
-
         setTextureName(texName);
         setTextureCoordSet(texCoordSet);
-
-        if( Pass::getHashFunction() == Pass::getBuiltinHashFunction( Pass::MIN_TEXTURE_CHANGE ) )
-        {
-            mParent->_dirtyHash();
-        }
-
     }
     //-----------------------------------------------------------------------
     TextureUnitState::~TextureUnitState()
@@ -301,17 +272,6 @@ namespace Ogre {
         {
             mParent->_dirtyHash();
         }
-    }
-    //-----------------------------------------------------------------------
-    void TextureUnitState::setBindingType(TextureUnitState::BindingType bt)
-    {
-        mBindingType = bt;
-
-    }
-    //-----------------------------------------------------------------------
-    TextureUnitState::BindingType TextureUnitState::getBindingType(void) const
-    {
-        return mBindingType;
     }
     //-----------------------------------------------------------------------
     void TextureUnitState::setContentType(TextureUnitState::ContentType ct)
@@ -561,12 +521,12 @@ namespace Ogre {
         return mFramePtrs[0] && mFramePtrs[0]->isHardwareGammaEnabled();
     }
     //-----------------------------------------------------------------------
-    unsigned int TextureUnitState::getTextureCoordSet(void) const
+    uint8 TextureUnitState::getTextureCoordSet(void) const
     {
         return mTextureCoordSetIndex;
     }
     //-----------------------------------------------------------------------
-    void TextureUnitState::setTextureCoordSet(unsigned int set)
+    void TextureUnitState::setTextureCoordSet(uint8 set)
     {
         mTextureCoordSetIndex = set;
     }
@@ -1074,6 +1034,9 @@ namespace Ogre {
 
         tex->setGamma(mGamma);
 
+        if(mUnorderedAccessMipLevel > -1)
+            tex->setUsage(HBU_GPU_ONLY | TU_UNORDERED_ACCESS);
+
         try {
             tex->load();
         }
@@ -1211,27 +1174,6 @@ namespace Ogre {
         mParent->_notifyNeedsRecompile();
     }
     //-----------------------------------------------------------------------
-    bool TextureUnitState::hasViewRelativeTextureCoordinateGeneration(void) const
-    {
-        // Right now this only returns true for reflection maps
-
-        EffectMap::const_iterator i, iend;
-        iend = mEffects.end();
-        
-        for(i = mEffects.find(ET_ENVIRONMENT_MAP); i != iend; ++i)
-        {
-            if (i->second.subtype == ENV_REFLECTION)
-                return true;
-        }
-
-        if(mEffects.find(ET_PROJECTIVE_TEXTURE) != iend)
-        {
-            return true;
-        }
-
-        return false;
-    }
-    //-----------------------------------------------------------------------
     void TextureUnitState::setProjectiveTexturing(bool enable, 
         const Frustum* projectionSettings)
     {
@@ -1259,7 +1201,7 @@ namespace Ogre {
         mParent = parent;
     }
     //-----------------------------------------------------------------------------
-    void TextureUnitState::setCompositorReference(const String& compositorName, const String& textureName, size_t mrtIndex)
+    void TextureUnitState::setCompositorReference(const String& compositorName, const String& textureName, uint32 mrtIndex)
     {  
         mCompositorRefName = compositorName; 
         mCompositorRefTexName = textureName; 

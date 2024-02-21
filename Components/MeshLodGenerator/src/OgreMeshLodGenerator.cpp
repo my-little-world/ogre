@@ -33,6 +33,16 @@
 namespace Ogre
 {
 
+struct LodWorkQueueRequest {
+    LodConfig config;
+    LodDataPtr data;
+    LodInputProviderPtr input;
+    LodOutputProviderPtr output;
+    LodCollapseCostPtr cost;
+    LodCollapserPtr collapser;
+    bool isCancelled;
+};
+
 template<> MeshLodGenerator* Singleton<MeshLodGenerator>::msSingleton = 0;
 MeshLodGenerator* MeshLodGenerator::getSingletonPtr()
 {
@@ -110,18 +120,9 @@ void MeshLodGenerator::_configureMeshLodUsage(const LodConfig& lodConfig)
         lodConfig.mesh->buildEdgeList();
 }
 
-MeshLodGenerator::MeshLodGenerator() :
-    mWQWorker(NULL),
-    mWQInjector(NULL)
-{
+MeshLodGenerator::MeshLodGenerator() : mInjectorListener(NULL) {}
+MeshLodGenerator::~MeshLodGenerator() {}
 
-}
-
-MeshLodGenerator::~MeshLodGenerator()
-{
-    delete mWQWorker;
-    delete mWQInjector;
-}
 void MeshLodGenerator::_resolveComponents(LodConfig& lodConfig,
                                           LodCollapseCostPtr& cost,
                                           LodDataPtr& data,
@@ -131,13 +132,19 @@ void MeshLodGenerator::_resolveComponents(LodConfig& lodConfig,
 {
     if(!cost) {
         cost = LodCollapseCostPtr(new LodCollapseCostCurvature);
+        cost->setPreventPunchingHoles(lodConfig.advanced.preventPunchingHoles);
+        cost->setPreventBreakingLines(lodConfig.advanced.preventBreakingLines);
         if(lodConfig.advanced.outsideWeight != 0) {
             cost =
                 LodCollapseCostPtr(new LodCollapseCostOutside(cost, lodConfig.advanced.outsideWeight,
                                                               lodConfig.advanced.outsideWalkAngle));
+            cost->setPreventPunchingHoles(lodConfig.advanced.preventPunchingHoles);
+            cost->setPreventBreakingLines(lodConfig.advanced.preventBreakingLines);
         }
         if(!lodConfig.advanced.profile.empty()) {
             cost = LodCollapseCostPtr(new LodCollapseCostProfiler(lodConfig.advanced.profile, cost));
+            cost->setPreventPunchingHoles(lodConfig.advanced.preventPunchingHoles);
+            cost->setPreventBreakingLines(lodConfig.advanced.preventBreakingLines);
         }
 
     }
@@ -152,22 +159,14 @@ void MeshLodGenerator::_resolveComponents(LodConfig& lodConfig,
             input = LodInputProviderPtr(new LodInputProviderBuffer(lodConfig.mesh));
         }
         if(!output) {
-            if(lodConfig.advanced.useCompression) {
-                output = LodOutputProviderPtr(new LodOutputProviderCompressedBuffer(lodConfig.mesh));
-            } else {
-                output = LodOutputProviderPtr(new LodOutputProviderBuffer(lodConfig.mesh));
-            }
+            output = LodOutputProviderPtr(new LodOutputProviderBuffer(lodConfig.mesh, lodConfig.advanced.useCompression));
         }
     } else {
         if(!input) {
             input = LodInputProviderPtr(new LodInputProviderMesh(lodConfig.mesh));
         }
         if(!output) {
-            if(lodConfig.advanced.useCompression) {
-                output = LodOutputProviderPtr(new LodOutputProviderCompressedMesh(lodConfig.mesh));
-            } else {
-                output = LodOutputProviderPtr(new LodOutputProviderMesh(lodConfig.mesh));
-            }
+            output = LodOutputProviderPtr(new LodOutputProviderMesh(lodConfig.mesh, lodConfig.advanced.useCompression));
         }
     }
 }
@@ -206,11 +205,10 @@ void MeshLodGenerator::generateLodLevels(LodConfig& lodConfig,
             break;
         }
     }
-    if(hasGeneratedLevels || (LodWorkQueueInjector::getSingletonPtr() && LodWorkQueueInjector::getSingletonPtr()->getInjectorListener())) {
+    if(hasGeneratedLevels || mInjectorListener) {
         _resolveComponents(lodConfig, cost, data, input, output, collapser);
         if(lodConfig.advanced.useBackgroundQueue) {
-            _initWorkQueue();
-            LodWorkQueueWorker::getSingleton().addRequestToQueue(lodConfig, cost, data, input, output, collapser);
+            addRequestToQueue(lodConfig, cost, data, input, output, collapser);
         } else {
             _process(lodConfig, cost.get(), data.get(), input.get(), output.get(), collapser.get());
         }
@@ -303,15 +301,75 @@ void MeshLodGenerator::_generateManualLodLevels(LodConfig& lodConfig)
     _configureMeshLodUsage(lodConfig);
 }
 
-void MeshLodGenerator::_initWorkQueue()
+void MeshLodGenerator::addRequestToQueue( LodConfig& lodConfig, LodCollapseCostPtr& cost, LodDataPtr& data, LodInputProviderPtr& input, LodOutputProviderPtr& output, LodCollapserPtr& collapser )
 {
-    if (!LodWorkQueueWorker::getSingletonPtr()) {
-        mWQWorker = new LodWorkQueueWorker();
-    }
-    if (!LodWorkQueueInjector::getSingletonPtr()) {
-        mWQInjector = new LodWorkQueueInjector();
+    LodWorkQueueRequest* req = new LodWorkQueueRequest();
+    req->config = lodConfig;
+    req->cost = cost;
+    req->data = data;
+    req->input = input;
+    req->output = output;
+    req->collapser = collapser;
+    req->isCancelled = false;
+
+    {
+        OGRE_WQ_LOCK_MUTEX(mQueueMutex);
+        mPendingLodRequests.push_back(req);
+
+        Root::getSingleton().getWorkQueue()->addTask([this, req]()
+                                                     { handleRequest(new WorkQueue::Request(0, 0, req, 0, 0), NULL); });
     }
 }
 
+void MeshLodGenerator::clearPendingLodRequests()
+{
+    OGRE_WQ_LOCK_MUTEX(mQueueMutex);
+    for(auto r : mPendingLodRequests)
+        r->isCancelled = true;
+}
+
+WorkQueue::Response* MeshLodGenerator::handleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ)
+{
+    // Called on worker thread by WorkQueue.
+    LodWorkQueueRequest* request = any_cast<LodWorkQueueRequest*>(req->getData());
+    {
+        OGRE_WQ_LOCK_MUTEX(mQueueMutex);
+        mPendingLodRequests.remove(request);
+        if(request->isCancelled)
+        {
+            delete request;
+            return NULL;
+        }
+    }
+
+    _process(request->config, request->cost.get(), request->data.get(), request->input.get(), request->output.get(), request->collapser.get());
+
+    Root::getSingleton().getWorkQueue()->addMainThreadTask(
+        [this, request]() {
+            WorkQueue::Response res(NULL, true, request);
+            handleResponse(&res, NULL);
+            delete request;
+        });
+    return NULL;
+}
+
+void MeshLodGenerator::handleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ)
+{
+    LodWorkQueueRequest* request = any_cast<LodWorkQueueRequest*>(res->getData());
+
+    if(mInjectorListener){
+        if(!mInjectorListener->shouldInject(request)) {
+            return;
+        }
+    }
+
+    request->output->inject();
+    MeshLodGenerator::_configureMeshLodUsage(request->config);
+    //lodConfig.mesh->buildEdgeList();
+
+    if(mInjectorListener){
+        mInjectorListener->injectionCompleted(request);
+    }
+}
 
 }

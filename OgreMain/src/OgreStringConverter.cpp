@@ -322,8 +322,7 @@ namespace Ogre {
         return true;
     }
 
-    template<typename T>
-    static bool parseReals(const String& val, T* dst, size_t n)
+    static bool parseReals(const String& val, Real* dst, size_t n)
     {
         // Split on space
         std::vector<String> vec = StringUtil::split(val);
@@ -394,40 +393,6 @@ namespace Ogre {
         strtod(val.c_str(), &end);
         return end == (val.c_str() + val.size());
     }
-    //-----------------------------------------------------------------------
-    String StringConverter::toString(StereoModeType val)
-    {
-		StringStream stream;
-		switch (val)
-		{
-		case SMT_NONE:
-		  stream << "None";
-		  break;
-		case SMT_FRAME_SEQUENTIAL:
-		  stream << "Frame Sequential";
-		  break;
-		default:
-		  OGRE_EXCEPT(Exception::ERR_NOT_IMPLEMENTED, "Unsupported stereo mode value", "StringConverter::toString(const StereoModeType& val)");
-		}
-
-		return stream.str();
-    }
-    //-----------------------------------------------------------------------
-    StereoModeType StringConverter::parseStereoMode(const String& val, StereoModeType defaultValue)
-    {
-		StereoModeType result = defaultValue;
-		if (val.compare("None") == 0)
-		{
-			result = SMT_NONE;
-		}
-		else if (val.compare("Frame Sequential") == 0)
-		{
-			result = SMT_FRAME_SEQUENTIAL;
-		}
-		
-		return result;
-    }
-	//-----------------------------------------------------------------------
 }
 
 

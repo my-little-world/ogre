@@ -19,6 +19,7 @@
 %ignore ImGui::TreeNodeV;
 %ignore ImGui::TreeNodeExV;
 %ignore ImGui::SetTooltipV;
+%ignore ImGui::SetItemTooltipV;
 %ignore ImGuiTextBuffer::appendfv;
 
 %typemap(in) ImTextureID {
@@ -27,23 +28,64 @@
     if(SWIG_IsOK(res))
         $1 = ($ltype)(argp);
     else
-        SWIG_exception_fail(SWIG_TypeError, "Expected size_t");
+        %argument_fail(SWIG_TypeError, "size_t", $symname, $argnum);
 }
 %typecheck(SWIG_TYPECHECK_POINTER) ImTextureID {
     $1 = true; // actual check in the typemap
 }
 
+%typemap(in) float[4], float[3], float[2] {
+    void* argp;
+    int res = SWIG_ConvertPtr($input, &argp, $descriptor(ImVec4*), $disown);
+    if (SWIG_IsOK(res)) {
+        $1 = ($ltype)argp;
+    } else {
+        %argument_fail(SWIG_TypeError, "ImVec4", $symname, $argnum);
+    }
+}
+
 #ifdef SWIGPYTHON
-%inline %{
-#define __version__ IMGUI_VERSION
-%}
-// ABI break: %rename("__version__") "IMGUI_VERSION";
+// match the signature of the by value variants
+%typemap(argout) float[4], float[3], float[2] {
+    $result = SWIG_Python_AppendOutput($result, SWIG_NewPointerObj($1, $descriptor(ImVec4*), 0));
+}
+
+// for PlotHistogram, PlotLines
+%typemap(in) (const float* values, int values_count)
+{
+    Py_buffer view;
+    int res = PyObject_GetBuffer($input, &view, PyBUF_CONTIG_RO | PyBUF_FORMAT);
+    if (res < 0) {
+        SWIG_fail;
+    }
+    PyBuffer_Release(&view);
+
+    if(view.ndim != 1 || strcmp(view.format, "f") != 0) {
+        %argument_fail(SWIG_TypeError, "array(f)", $symname, $argnum);
+    }
+
+    $1 = ($ltype)view.buf;
+    $2 = view.len / sizeof(float);
+}
+
+%typecheck(SWIG_TYPECHECK_STRING) (const float* values, int values_count) {
+    $1 = true; // actual check in the typemap
+}
+#endif
+
+%typecheck(SWIG_TYPECHECK_STRING) float[4], float[3], float[2] {
+    $1 = true; // actual check in the typemap
+}
+
+#ifdef SWIGPYTHON
+%rename("__version__") "IMGUI_VERSION";
 #endif
 
 // strip duplicate namespace for ImGuiSomething_FlagName flags
-// ABI break: %rename("%(strip:[ImGui])s", regextarget=1) "^ImGui.+_.+";
+%rename("%(strip:[ImGui])s", regextarget=1) "^ImGui.+_.+";
 
 %apply bool* INOUT { bool* p_open };
+%apply bool* INOUT { bool* v };
 %apply float* INOUT { float* v };
 %apply int* INOUT { int* v };
 %include "imgui.h"

@@ -28,6 +28,7 @@
 #ifndef __Sample_H__
 #define __Sample_H__
 
+#include "OgreApplicationContextBase.h"
 #include "OgreRoot.h"
 #include "OgreOverlaySystem.h"
 #include "OgreResourceManager.h"
@@ -52,7 +53,7 @@ namespace OgreBites
     | Base class responsible for everything specific to one sample.
     | Designed to be subclassed for each sample.
     =============================================================================*/
-    class Sample : public InputListener, public TrayListener, public Ogre::GeneralAllocatedObject
+    class Sample : public InputListener, public TrayListener, public Ogre::FrameListener
     {
     public:
         /*=============================================================================
@@ -76,15 +77,13 @@ namespace OgreBites
             mWindow = 0;
             mSceneMgr = 0;
             mDone = true;
-            mResourcesLoaded = false;
             mContentSetup = false;
 
             mCamera = 0;
             mCameraNode = 0;
             mViewport = 0;
 
-            mFSLayer = 0;
-            mOverlaySystem = 0;
+            mContext = 0;
 
             // so we don't have to worry about checking if these keys exist later
             mInfo["Title"] = "Untitled";
@@ -159,34 +158,16 @@ namespace OgreBites
             return false;
         }
 
-        // enable trays GUI for this sample
-        void _setupTrays(Ogre::RenderWindow* window)
-        {
-            mTrayMgr.reset(new TrayManager("SampleControls", window, this));  // create a tray interface
-            // show stats and logo and hide the cursor
-            mTrayMgr->showFrameStats(TL_BOTTOMLEFT);
-            mTrayMgr->showLogo(TL_BOTTOMRIGHT);
-            mTrayMgr->hideCursor();
-        }
-
         /*-----------------------------------------------------------------------------
         | Sets up a sample. Used by the SampleContext class. Do not call directly.
         -----------------------------------------------------------------------------*/
-        virtual void _setup(Ogre::RenderWindow* window, Ogre::FileSystemLayer* fsLayer, Ogre::OverlaySystem* overlaySys)
+        virtual void _setup(ApplicationContextBase* context)
         {
-            mOverlaySystem = overlaySys;
-            mWindow = window;
+            mContext = context;
+            mWindow = context->getRenderWindow();
 
-            mFSLayer = fsLayer;
-
-            locateResources();
             createSceneManager();
             setupView();
-
-            mCameraMan.reset(new CameraMan(mCameraNode));   // create a default camera controller
-
-            loadResources();
-            mResourcesLoaded = true;
             setupContent();
             mContentSetup = true;
 
@@ -206,15 +187,13 @@ namespace OgreBites
                 mSceneMgr->clearScene();
             mContentSetup = false;
 
-            if (mResourcesLoaded)
-                unloadResources();
-            mResourcesLoaded = false;
+            unloadResources();
             if (mSceneMgr) 
             {
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
                 mShaderGenerator->removeSceneManager(mSceneMgr);
 #endif
-                mSceneMgr->removeRenderQueueListener(mOverlaySystem);
+                mSceneMgr->removeRenderQueueListener(mContext->getOverlaySystem());
                 mRoot->destroySceneManager(mSceneMgr);              
             }
             mSceneMgr = 0;
@@ -223,8 +202,7 @@ namespace OgreBites
         }
 
         /*-----------------------------------------------------------------------------
-        | Actions to perform when the context stops sending frame listener events
-        | and input device events to this sample.
+        | Actions to perform when the context stops
         -----------------------------------------------------------------------------*/
         virtual void paused() {}
 
@@ -243,30 +221,7 @@ namespace OgreBites
         | Restores the sample state. Optional. Used during reconfiguration.
         -----------------------------------------------------------------------------*/
         virtual void restoreState(Ogre::NameValuePairList& state) {}
-
-        // callback interface copied from various listeners to be used by SampleContext
-
-        virtual bool frameStarted(const Ogre::FrameEvent& evt) { return true; }
-        virtual bool frameRenderingQueued(const Ogre::FrameEvent& evt) { return true; }
-        virtual bool frameEnded(const Ogre::FrameEvent& evt) { return true; }
-        virtual void windowMoved(Ogre::RenderWindow* rw) {}
-        virtual void windowResized(Ogre::RenderWindow* rw) {}
-        virtual bool windowClosing(Ogre::RenderWindow* rw) { return true; }
-        virtual void windowClosed(Ogre::RenderWindow* rw) {}
-        virtual void windowFocusChange(Ogre::RenderWindow* rw) {}
     protected:
-
-        /*-----------------------------------------------------------------------------
-        | Finds sample-specific resources. No such effort is made for most samples,
-        | but this is useful for special samples with large, exclusive resources.
-        -----------------------------------------------------------------------------*/
-        virtual void locateResources() {}
-
-        /*-----------------------------------------------------------------------------
-        | Loads sample-specific resources. No such effort is made for most samples,
-        | but this is useful for special samples with large, exclusive resources.
-        -----------------------------------------------------------------------------*/
-        virtual void loadResources() {}
 
         /*-----------------------------------------------------------------------------
         | Creates a scene manager for the sample. A generic one is the default,
@@ -279,11 +234,12 @@ namespace OgreBites
             mShaderGenerator->addSceneManager(mSceneMgr);
             auto mainRenderState = mShaderGenerator->getRenderState(Ogre::MSN_SHADERGEN);
             // reset global light state
-            mainRenderState->setLightCount(Ogre::Vector3i(0));
+            mainRenderState->setLightCount(0);
             mainRenderState->setLightCountAutoUpdate(true);
+            mainRenderState->resetToBuiltinSubRenderStates();
 #endif
-            if(mOverlaySystem)
-                mSceneMgr->addRenderQueueListener(mOverlaySystem);
+            if(auto overlaySystem = mContext->getOverlaySystem())
+                mSceneMgr->addRenderQueueListener(overlaySystem);
         }
 
         /*-----------------------------------------------------------------------------
@@ -313,10 +269,9 @@ namespace OgreBites
             }
         }   
 
+        ApplicationContextBase* mContext;
         Ogre::Root* mRoot;                // OGRE root object
-        Ogre::OverlaySystem* mOverlaySystem; // OverlaySystem
         Ogre::RenderWindow* mWindow;      // context render window
-        Ogre::FileSystemLayer* mFSLayer;          // file system abstraction layer
         Ogre::SceneManager* mSceneMgr;    // scene manager for this sample
         Ogre::NameValuePairList mInfo;    // custom sample info
 
@@ -324,12 +279,7 @@ namespace OgreBites
         Ogre::Camera* mCamera;              // main camera
         Ogre::SceneNode* mCameraNode;       // camera node
 
-        // SdkSample fields
-        std::unique_ptr<TrayManager> mTrayMgr;           // tray interface manager
-        std::unique_ptr<CameraMan> mCameraMan;           // basic camera controller
-
         bool mDone;               // flag to mark the end of the sample
-        bool mResourcesLoaded;    // whether or not resources have been loaded
         bool mContentSetup;       // whether or not scene was created
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
         Ogre::RTShader::ShaderGenerator*            mShaderGenerator;           // The Shader generator instance.

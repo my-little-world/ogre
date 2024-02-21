@@ -216,7 +216,7 @@ namespace Ogre {
         unsigned short mNumVisibleBillboards;
 
         /// Internal method for increasing pool size
-        virtual void increasePool(size_t size);
+        void increasePool(size_t size);
 
 
         //-----------------------------------------------------------------------
@@ -400,7 +400,7 @@ namespace Ogre {
         @param size
             The new size for the pool.
         */
-        virtual void setPoolSize(size_t size);
+        void setPoolSize(size_t size);
 
         /** Returns the current size of the billboard pool.
         @return
@@ -741,9 +741,6 @@ namespace Ogre {
             BillboardSet::setTextureCoords()
         */
         const std::vector<FloatRect>& getTextureCoords() const { return mTextureCoords; }
-
-        /// @deprecated
-        OGRE_DEPRECATED Ogre::FloatRect const * getTextureCoords( uint16 * oNumCoords );
         /// @}
 
         /** Set whether or not the BillboardSet will use point rendering
@@ -804,20 +801,6 @@ namespace Ogre {
         /** @copydoc MovableObject::_releaseManualHardwareResources */
         void _releaseManualHardwareResources() override { _destroyBuffers(); }
 
-    };
-
-    /** Factory object for creating BillboardSet instances */
-    class _OgreExport BillboardSetFactory : public MovableObjectFactory
-    {
-    protected:
-        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params) override;
-    public:
-        BillboardSetFactory() {}
-        ~BillboardSetFactory() {}
-
-        static String FACTORY_TYPE_NAME;
-
-        const String& getType(void) const override;
     };
     /** @} */
     /** @} */

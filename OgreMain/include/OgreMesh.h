@@ -38,6 +38,7 @@ THE SOFTWARE.
 #include "OgreHeaderPrefix.h"
 #include "OgreSharedPtr.h"
 #include "OgreUserObjectBindings.h"
+#include "OgreVertexIndexData.h"
 
 
 namespace Ogre {
@@ -168,8 +169,8 @@ namespace Ogre {
         MeshLodUsageList mMeshLodUsageList;
 #endif
         HardwareBufferManagerBase* mBufferManager;
-        HardwareBuffer::Usage mVertexBufferUsage;
-        HardwareBuffer::Usage mIndexBufferUsage;
+        HardwareBufferUsage mVertexBufferUsage;
+        HardwareBufferUsage mIndexBufferUsage;
         bool mVertexBufferShadowBuffer;
         bool mIndexBufferShadowBuffer;
 
@@ -308,6 +309,16 @@ namespace Ogre {
             model data is converted to the OGRE .mesh format.
         */
         VertexData *sharedVertexData;
+
+        /// replace the shared vertex data with a new one
+        void resetVertexData(VertexData* data = nullptr)
+        {
+            delete sharedVertexData;
+            sharedVertexData = data;
+        }
+
+        /// Creates a new shared vertex data object
+        void createVertexData(HardwareBufferManagerBase* mgr = nullptr) { resetVertexData(new VertexData(mgr)); }
 
         /** Shared index map for translating blend index to bone index.
 
@@ -572,9 +583,9 @@ namespace Ogre {
         */
         void setIndexBufferPolicy(HardwareBuffer::Usage usage, bool shadowBuffer = false);
         /** Gets the usage setting for this meshes vertex buffers. */
-        HardwareBuffer::Usage getVertexBufferUsage(void) const { return mVertexBufferUsage; }
+        HardwareBufferUsage getVertexBufferUsage(void) const { return mVertexBufferUsage; }
         /** Gets the usage setting for this meshes index buffers. */
-        HardwareBuffer::Usage getIndexBufferUsage(void) const { return mIndexBufferUsage; }
+        HardwareBufferUsage getIndexBufferUsage(void) const { return mIndexBufferUsage; }
         /** Gets whether or not this meshes vertex buffers are shadowed. */
         bool isVertexBufferShadowed(void) const { return mVertexBufferShadowBuffer; }
         /** Gets whether or not this meshes index buffers are shadowed. */
@@ -643,54 +654,51 @@ namespace Ogre {
         @par
             The prerequisites for calling this method include that the vertex data used by every
             SubMesh has both vertex normals and 2D texture coordinates.
-        @param targetSemantic
-            The semantic to store the tangents in. Defaults to 
-            the explicit tangent binding, but note that this is only usable on more
-            modern hardware (Shader Model 2), so if you need portability with older
-            cards you should change this to a texture coordinate binding instead.
         @param sourceTexCoordSet
             The texture coordinate index which should be used as the source
             of 2D texture coordinates, with which to calculate the tangents.
-        @param index
-            The element index, ie the texture coordinate set which should be used to store the 3D
-            coordinates representing a tangent vector per vertex, if targetSemantic is 
-            VES_TEXTURE_COORDINATES. If this already exists, it will be overwritten.
         @param splitMirrored
             Sets whether or not to split vertices when a mirrored tangent space
-            transition is detected (matrix parity differs). @see TangentSpaceCalc::setSplitMirrored
+            transition is detected (matrix parity differs). @ref TangentSpaceCalc::setSplitMirrored
         @param splitRotated
             Sets whether or not to split vertices when a rotated tangent space
-            is detected. @see TangentSpaceCalc::setSplitRotated
+            is detected. @ref TangentSpaceCalc::setSplitRotated
         @param storeParityInW
             If @c true, store tangents as a 4-vector and include parity in w.
         */
-        void buildTangentVectors(VertexElementSemantic targetSemantic = VES_TANGENT,
-            unsigned short sourceTexCoordSet = 0, unsigned short index = 0, 
-            bool splitMirrored = false, bool splitRotated = false, bool storeParityInW = false);
+        void buildTangentVectors(unsigned short sourceTexCoordSet = 0, bool splitMirrored = false,
+                                 bool splitRotated = false, bool storeParityInW = false);
 
-        /** Ask the mesh to suggest parameters to a future buildTangentVectors call, 
-            should you wish to use texture coordinates to store the tangents. 
+        /// @deprecated
+        OGRE_DEPRECATED void buildTangentVectors(VertexElementSemantic targetSemantic,
+                                                 unsigned short sourceTexCoordSet = 0, unsigned short index = 0,
+                                                 bool splitMirrored = false, bool splitRotated = false,
+                                                 bool storeParityInW = false)
+        {
+            OgreAssert(targetSemantic == VES_TANGENT && index == 0, "Invalid Parameters");
+            buildTangentVectors(sourceTexCoordSet, splitMirrored, splitRotated, storeParityInW);
+        }
 
-            This helper method will suggest source and destination texture coordinate sets
-            for a call to buildTangentVectors. It will detect when there are inappropriate
-            conditions (such as multiple geometry sets which don't agree). 
-            Moreover, it will return 'true' if it detects that there are already 3D
-            coordinates in the mesh, and therefore tangents may have been prepared already.
-        @param targetSemantic
-            The semantic you intend to use to store the tangents
-            if they are not already present;
-            most likely options are VES_TEXTURE_COORDINATES or VES_TANGENT; you should
-            use texture coordinates if you want compatibility with older, pre-SM2
-            graphics cards, and the tangent binding otherwise.
+        /** Ask the mesh to suggest a source texture coordinate set to a future buildTangentVectors call
+
+            It will detect when there are inappropriate
+            conditions (such as multiple geometry sets which don't agree).
         @param outSourceCoordSet
-            Reference to a source texture coordinate set which 
-            will be populated.
-        @param outIndex
-            Reference to a destination element index (e.g. texture coord set)
-            which will be populated
+            Reference to a source texture coordinate set which
+            will be used.
+        @return @c true if it detects that tangents may have been prepared already.
         */
-        bool suggestTangentVectorBuildParams(VertexElementSemantic targetSemantic,
-            unsigned short& outSourceCoordSet, unsigned short& outIndex);
+        bool suggestTangentVectorBuildParams(unsigned short& outSourceCoordSet);
+
+        /// @deprecated
+        OGRE_DEPRECATED bool suggestTangentVectorBuildParams(VertexElementSemantic targetSemantic,
+                                                             unsigned short& outSourceCoordSet,
+                                                             unsigned short& outIndex)
+        {
+            OgreAssert(targetSemantic == VES_TANGENT, "Invalid targetSemantic");
+            outIndex = 0;
+            return suggestTangentVectorBuildParams(outSourceCoordSet);
+        }
 
         /** Builds an edge list for this mesh, which can be used for generating a shadow volume
             among other things.
@@ -788,7 +796,7 @@ namespace Ogre {
             buffer already bound, and the number of vertices must agree with the
             number in start and end
         */
-        static void softwareVertexMorph(Real t, 
+        static void softwareVertexMorph(float t,
             const HardwareVertexBufferSharedPtr& b1, 
             const HardwareVertexBufferSharedPtr& b2, 
             VertexData* targetVertexData);
@@ -812,9 +820,9 @@ namespace Ogre {
             buffer already bound, and the number of vertices must agree with the
             number in start and end.
         */
-        static void softwareVertexPoseBlend(Real weight, 
-            const std::map<size_t, Vector3>& vertexOffsetMap,
-            const std::map<size_t, Vector3>& normalsMap,
+        static void softwareVertexPoseBlend(float weight,
+            const std::map<uint32, Vector3f>& vertexOffsetMap,
+            const std::map<uint32, Vector3f>& normalsMap,
             VertexData* targetVertexData);
         /** Gets a reference to the optional name assignments of the SubMeshes. */
         const SubMeshNameMap& getSubMeshNameMap(void) const { return mSubMeshNameMap; }

@@ -318,10 +318,12 @@ namespace Ogre
                 setEnabled(false);
                 return mEmissionRate;
             }
-            // Keep fractions, otherwise a high frame rate will result in zero emissions!
-            mRemainder += mEmissionRate * timeElapsed;
+
             unsigned short intRequest = (unsigned short)mRemainder;
             mRemainder -= intRequest;
+
+            // Keep fractions, otherwise a high frame rate will result in zero emissions!
+            mRemainder += mEmissionRate * timeElapsed;
 
             // Check duration
             if (mDurationMax)
@@ -554,6 +556,7 @@ namespace Ogre
     void ParticleEmitter::setEnabled(bool enabled)
     {
         mEnabled = enabled;
+        mRemainder = 1.0f; // make sure we emit a particle on next update. Turns emission rate to (t0;r] interval
         // Reset duration & repeat
         initDurationRepeat();
     }
@@ -683,6 +686,7 @@ namespace Ogre
     //-----------------------------------------------------------------------
     ParticleEmitterFactory::~ParticleEmitterFactory()
     {
+        OGRE_IGNORE_DEPRECATED_BEGIN
         // Destroy all emitters
         for (auto& e : mEmitters)
         {
@@ -690,15 +694,18 @@ namespace Ogre
         }
             
         mEmitters.clear();
+        OGRE_IGNORE_DEPRECATED_END
     }
     //-----------------------------------------------------------------------
     void ParticleEmitterFactory::destroyEmitter(ParticleEmitter* e)        
     {
+        delete e;
+        OGRE_IGNORE_DEPRECATED_BEGIN
         auto i = std::find(std::begin(mEmitters), std::end(mEmitters), e);
         if (i != std::end(mEmitters)) {
             mEmitters.erase(i);
-            OGRE_DELETE e;
         }
+        OGRE_IGNORE_DEPRECATED_END
     }
 
     //-----------------------------------------------------------------------

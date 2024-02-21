@@ -363,26 +363,14 @@ namespace Ogre {
             if(belowVersionPos != 0)
                 mSource = mSource.erase(0, belowVersionPos); // drop old definition
 
-            if(mSource.find("out vec4") == String::npos && mType == GPT_FRAGMENT_PROGRAM)
-                mSource.insert(0, "#define gl_FragColor FragColor\nout vec4 FragColor;\n");
-
             // automatically upgrade to glsl150. thank you apple.
             const char* prefixFp =
                     "#version 150\n"
-                    "#define varying in\n"
-                    "#define texture1D texture\n"
-                    "#define texture2D texture\n"
-                    "#define texture3D texture\n"
-                    "#define textureCube texture\n"
-                    "#define texture2DLod textureLod\n"
-                    "#define texture2DProj textureProj\n"
-                    "#define textureCubeLod textureLod\n"
-                    "#define shadow2DProj textureProj\n";
+                    "#define varying in\n";
             const char* prefixVp =
                     "#version 150\n"
                     "#define attribute in\n"
-                    "#define varying out\n"
-                    "#define texture2D texture\n";
+                    "#define varying out\n";
 
             mSource.insert(0, mType == GPT_FRAGMENT_PROGRAM ? prefixFp : prefixVp);
         }
@@ -586,11 +574,11 @@ namespace Ogre {
             if (name == "OgreUniforms") // default buffer
             {
                 extractUniforms(blockIdx);
-                int binding = int(mType);
+                int binding = mType == GPT_COMPUTE_PROGRAM ? 0 : int(mType);
                 if (binding > 1)
                     LogManager::getSingleton().logWarning(
                         getResourceLogName() +
-                        " - using a UBO in this shader type will alias with shared_params");
+                        " - using 'OgreUniforms' in this shader type does alias with shared_params");
 
                 mDefaultBuffer = hbm.createUniformBuffer(values[2]);
                 static_cast<GL3PlusHardwareBuffer*>(mDefaultBuffer.get())->setGLBufferBinding(binding);
@@ -640,8 +628,17 @@ namespace Ogre {
         if(caps->hasCapability(RSC_SEPARATE_SHADER_OBJECTS))
         {
             extractUniforms();
-            extractBufferBlocks(GL_UNIFORM_BLOCK);
-            extractBufferBlocks(GL_SHADER_STORAGE_BLOCK);
+            try
+            {
+                extractBufferBlocks(GL_UNIFORM_BLOCK);
+                extractBufferBlocks(GL_SHADER_STORAGE_BLOCK);
+            }
+            catch (const InvalidParametersException& e)
+            {
+                LogManager::getSingleton().stream(LML_CRITICAL)
+                    << "Program '" << mName << "' is not supported: " << e.getDescription();
+                mCompileError = true;
+            }
             return;
         }
 

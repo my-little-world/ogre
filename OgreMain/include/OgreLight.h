@@ -107,7 +107,9 @@ namespace Ogre {
             /// Directional lights simulate parallel light beams from a distant source, hence have direction but no position
             LT_DIRECTIONAL = 1,
             /// Spotlights simulate a cone of light from a source so require position and direction, plus extra values for falloff
-            LT_SPOTLIGHT = 2
+            LT_SPOTLIGHT = 2,
+            /// A rectangular area light, requires position, direction, width and height
+            LT_RECTLIGHT = 3
         };
 
         /** Default constructor (for Python mainly).
@@ -295,7 +297,17 @@ namespace Ogre {
             clipping.
         */
         Real getSpotlightNearClipDistance() const { return mSpotNearClip; }
-        
+
+        /** Sets the size of the area covered by a area light. */
+        void setSourceSize(float width, float height) { mSourceSize = {width, height}; }
+        Vector2f getSourceSize() const { return mSourceSize; }
+
+        /// The width half vector of the source in world space
+        Vector3f getDerivedSourceHalfWidth() const;
+
+        /// The height half vector of the source in world space
+        Vector3f getDerivedSourceHalfHeight() const;
+
         /** Set a scaling factor to indicate the relative power of a light.
 
             This factor is only useful in High Dynamic Range (HDR) rendering.
@@ -593,9 +605,6 @@ namespace Ogre {
 
         Camera* mCameraToBeRelativeTo;
 
-        /// Shared class-level name for Movable type.
-        static String msMovableType;
-
         mutable PlaneBoundedVolume mNearClipVolume;
         mutable PlaneBoundedVolumeList mFrustumClipVolumes;
 
@@ -606,22 +615,9 @@ namespace Ogre {
         /// Stores the custom parameters for the light.
         CustomParameterMap mCustomParameters;
         Real mPowerScale;
+        Vector2f mSourceSize;
         LightTypes mLightType;
         bool mOwnShadowFarDist;
-    };
-
-    /** Factory object for creating Light instances. */
-    class _OgreExport LightFactory : public MovableObjectFactory
-    {
-    private:
-        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params) override;
-    public:
-        LightFactory() {}
-        ~LightFactory() {}
-
-        static String FACTORY_TYPE_NAME;
-
-        const String& getType(void) const override;
     };
     /** @} */
     /** @} */

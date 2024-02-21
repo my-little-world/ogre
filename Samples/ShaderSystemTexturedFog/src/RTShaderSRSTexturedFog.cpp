@@ -157,11 +157,9 @@ bool RTShaderSRSTexturedFog::resolveDependencies(ProgramSet* programSet)
     Program* vsProgram = programSet->getCpuProgram(GPT_VERTEX_PROGRAM);
     Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
 
-    vsProgram->addDependency(FFP_LIB_FOG);
-    psProgram->addDependency(FFP_LIB_COMMON);
+    vsProgram->addDependency("FFPLib_Fog");
 
-    psProgram->addDependency(FFP_LIB_FOG);
-    psProgram->addDependency(FFP_LIB_TEXTURING);
+    psProgram->addDependency("FFPLib_Fog");
     
     return true;
 }
@@ -184,23 +182,10 @@ bool RTShaderSRSTexturedFog::addFunctionInvocations(ProgramSet* programSet)
     auto psStage = psMain->getStage(FFP_PS_FOG);
     psStage.sampleTexture(mBackgroundTextureSampler, mPSInPosView, mFogColour);
 
-    const char* fogFunc = NULL;
-    switch (mFogMode)
-    {
-    case FOG_LINEAR:
-        fogFunc = "FFP_PixelFog_Linear";
-        break;
-    case FOG_EXP:
-        fogFunc = "FFP_PixelFog_Exp";
-        break;
-    case FOG_EXP2:
-        fogFunc = "FFP_PixelFog_Exp2";
-        break;
-    case FOG_NONE:
-       break;
-    }
+    psProgram->addPreprocessorDefines(StringUtil::format("FOG_TYPE=%d", mFogMode));
+    vsProgram->addPreprocessorDefines(StringUtil::format("FOG_TYPE=%d", mFogMode));
 
-    psStage.callFunction(fogFunc,
+    psStage.callFunction("FFP_PixelFog",
                          {In(mPSInDepth), In(mFogParams), In(mFogColour), In(mPSOutDiffuse), Out(mPSOutDiffuse)});
     return true;
 }

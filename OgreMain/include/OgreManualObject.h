@@ -124,7 +124,7 @@ namespace Ogre
             of clear() begin(). However if you do want to modify the structure 
             from time to time you can do so by clearing and re-specifying the data.
         */
-        virtual void clear(void);
+        void clear(void);
         
         /** Estimate the number of vertices ahead of time.
 
@@ -133,7 +133,7 @@ namespace Ogre
             data - you can make the vertex buffers a little larger than their
             initial needs to allow for growth later with this method.
         */
-        virtual void estimateVertexCount(size_t vcount);
+        virtual void estimateVertexCount(uint32 vcount);
 
         /** Estimate the number of indices ahead of time.
 
@@ -142,7 +142,7 @@ namespace Ogre
             data - you can make the index buffer a little larger than the
             initial need to allow for growth later with this method.
         */
-        virtual void estimateIndexCount(size_t icount);
+        virtual void estimateIndexCount(uint32 icount);
 
         /** Start defining a part of the object.
 
@@ -169,17 +169,13 @@ namespace Ogre
         /** Use before defining geometry to indicate how you intend to update the
             geometry.
         */
-        void setBufferUsage(HardwareBuffer::Usage usage) { mBufferUsage = usage; }
+        void setBufferUsage(HardwareBuffer::Usage usage) { mBufferUsage = (HardwareBufferUsage)usage; }
 
         /// @overload
-        void setDynamic(bool dyn)
-        {
-            mBufferUsage =
-                dyn ? HardwareBuffer::HBU_DYNAMIC_WRITE_ONLY : HardwareBuffer::HBU_STATIC_WRITE_ONLY;
-        }
+        void setDynamic(bool dyn) { mBufferUsage = dyn ? HBU_CPU_TO_GPU : HBU_GPU_ONLY; }
 
         /** Gets whether this object is marked as dynamic */
-        bool getDynamic() const { return mBufferUsage & HardwareBuffer::HBU_DYNAMIC; }
+        bool getDynamic() const { return mBufferUsage & HBU_CPU_ONLY; }
 
         /** Start the definition of an update to a part of the object.
 
@@ -215,10 +211,10 @@ namespace Ogre
                 declareElement(VET_FLOAT3, VES_POSITION);
             }
 
-            mTempVertex.position = pos;
+            mTempVertex.position = Vector3f(pos);
 
             // update bounds
-            mAABB.merge(mTempVertex.position);
+            mAABB.merge(pos);
             mRadius = std::max(mRadius, mTempVertex.position.length());
 
             // reset current texture coord
@@ -241,7 +237,7 @@ namespace Ogre
             {
                 declareElement(VET_FLOAT3, VES_NORMAL);
             }
-            mTempVertex.normal = norm;
+            mTempVertex.normal = Vector3f(norm);
         }
         /// @overload
         void normal(float x, float y, float z)  { normal({x, y, z}); }
@@ -260,7 +256,7 @@ namespace Ogre
             {
                 declareElement(VET_FLOAT3, VES_TANGENT);
             }
-            mTempVertex.tangent = tan;
+            mTempVertex.tangent = Vector3f(tan);
         }
 
         /// @overload
@@ -281,8 +277,7 @@ namespace Ogre
             {
                 declareElement(VET_FLOAT1, VES_TEXTURE_COORDINATES);
             }
-            mTempVertex.texCoordDims[mTexCoordIndex] = 1;
-            mTempVertex.texCoord[mTexCoordIndex].x = u;
+            mTempVertex.texCoord[mTexCoordIndex][0] = u;
 
             ++mTexCoordIndex;
         }
@@ -294,9 +289,8 @@ namespace Ogre
             {
                 declareElement(VET_FLOAT2, VES_TEXTURE_COORDINATES);
             }
-            mTempVertex.texCoordDims[mTexCoordIndex] = 2;
-            mTempVertex.texCoord[mTexCoordIndex].x = u;
-            mTempVertex.texCoord[mTexCoordIndex].y = v;
+            mTempVertex.texCoord[mTexCoordIndex][0] = u;
+            mTempVertex.texCoord[mTexCoordIndex][1] = v;
 
             ++mTexCoordIndex;
         }
@@ -308,10 +302,9 @@ namespace Ogre
             {
                 declareElement(VET_FLOAT3, VES_TEXTURE_COORDINATES);
             }
-            mTempVertex.texCoordDims[mTexCoordIndex] = 3;
-            mTempVertex.texCoord[mTexCoordIndex].x = u;
-            mTempVertex.texCoord[mTexCoordIndex].y = v;
-            mTempVertex.texCoord[mTexCoordIndex].z = w;
+            mTempVertex.texCoord[mTexCoordIndex][0] = u;
+            mTempVertex.texCoord[mTexCoordIndex][1] = v;
+            mTempVertex.texCoord[mTexCoordIndex][2] = w;
 
             ++mTexCoordIndex;
         }
@@ -329,8 +322,7 @@ namespace Ogre
             {
                 declareElement(VET_FLOAT4, VES_TEXTURE_COORDINATES);
             }
-            mTempVertex.texCoordDims[mTexCoordIndex] = 4;
-            mTempVertex.texCoord[mTexCoordIndex] = xyzw;
+            mTempVertex.texCoord[mTexCoordIndex] = Vector4f(xyzw);
 
             ++mTexCoordIndex;
         }
@@ -624,7 +616,7 @@ namespace Ogre
         
     private:
         /// Dynamic?
-        HardwareBuffer::Usage mBufferUsage;
+        HardwareBufferUsage mBufferUsage;
         /// List of subsections
         SectionList mSectionList;
         /// Current section
@@ -634,11 +626,10 @@ namespace Ogre
         /// Temporary vertex structure
         struct TempVertex
         {
-            Vector3 position;
-            Vector3 normal;
-            Vector3 tangent;
-            Vector4 texCoord[OGRE_MAX_TEXTURE_COORD_SETS];
-            ushort texCoordDims[OGRE_MAX_TEXTURE_COORD_SETS];
+            Vector3f position;
+            Vector3f normal;
+            Vector3f tangent;
+            Vector4f texCoord[OGRE_MAX_TEXTURE_COORD_SETS];
             ColourValue colour;
         };
         /// Temp storage
@@ -658,9 +649,9 @@ namespace Ogre
         /// Current declaration vertex size
         size_t mDeclSize;
         /// Estimated vertex count
-        size_t mEstVertexCount;
+        uint32 mEstVertexCount;
         /// Estimated index count
-        size_t mEstIndexCount;
+        uint32 mEstIndexCount;
         /// Current texture coordinate
         ushort mTexCoordIndex;
         /// Bounding box
@@ -682,32 +673,17 @@ namespace Ogre
 
 
         /// Delete temp buffers and reset init counts
-        virtual void resetTempAreas(void);
+        void resetTempAreas(void);
         /// Resize the temp vertex buffer?
-        virtual void resizeTempVertexBufferIfNeeded(size_t numVerts);
+        void resizeTempVertexBufferIfNeeded(size_t numVerts);
         /// Resize the temp index buffer?
-        virtual void resizeTempIndexBufferIfNeeded(size_t numInds);
+        void resizeTempIndexBufferIfNeeded(size_t numInds);
 
         /// Copy current temp vertex into buffer
-        virtual void copyTempVertexToBuffer(void);
+        void copyTempVertexToBuffer(void);
 
     private:
         void declareElement(VertexElementType t, VertexElementSemantic s);
-    };
-
-
-    /** Factory object for creating ManualObject instances */
-    class _OgreExport ManualObjectFactory : public MovableObjectFactory
-    {
-    protected:
-        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params) override;
-    public:
-        ManualObjectFactory() {}
-        ~ManualObjectFactory() {}
-
-        static String FACTORY_TYPE_NAME;
-
-        const String& getType(void) const override;
     };
     /** @} */
     /** @} */

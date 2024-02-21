@@ -36,6 +36,7 @@ namespace Ogre {
 namespace RTShader {
 
     class ProgramWriter;
+    class ProgramProcessor;
 
 /** \addtogroup Optional
 *  @{
@@ -99,7 +100,6 @@ private:
     typedef ProgramList::iterator                       ProgramListIterator;
     typedef std::map<String, ProgramWriter*>           ProgramWriterMap;
     typedef ProgramWriterMap::iterator                  ProgramWriterIterator;
-    typedef std::vector<ProgramWriterFactory*>         ProgramWriterFactoryList;
     
     //-----------------------------------------------------------------------------
     typedef std::map<String, ProgramProcessor*>        ProgramProcessorMap;
@@ -150,18 +150,6 @@ private:
         const String& language,
         const String& profiles,
         const String& cachePath);
-
-    /** 
-    Add program processor instance to this manager.
-    @param processor The instance to add.
-    */
-    void addProgramProcessor(const String& lang, ProgramProcessor* processor);
-
-    /** 
-    Remove program processor instance from this manager. 
-    @param processor The instance to remove.
-    */
-    void removeProgramProcessor(const String& lang);
     
     /** Return the number of created shaders. */
     size_t getShaderCount(GpuProgramType type) const;
@@ -171,8 +159,6 @@ private:
 
     // Map between target language and shader program processor.    
     ProgramProcessorMap mProgramProcessorsMap;
-    // Holds standard shader writer factories
-    ProgramWriterFactoryList mProgramWriterFactories;
     // The generated shaders.
     std::vector<GpuProgramPtr> mShaderList;
     // The default program processors.

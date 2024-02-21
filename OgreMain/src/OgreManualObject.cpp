@@ -36,7 +36,7 @@ namespace Ogre {
 #define TEMP_INITIAL_INDEX_SIZE sizeof(uint32) * TEMP_INITIAL_SIZE
     //-----------------------------------------------------------------------------
 ManualObject::ManualObject(const String& name)
-    : MovableObject(name), mBufferUsage(HardwareBuffer::HBU_STATIC_WRITE_ONLY), mCurrentSection(0),
+    : MovableObject(name), mBufferUsage(HBU_GPU_ONLY), mCurrentSection(0),
       mCurrentUpdating(false), mFirstVertex(true), mTempVertexPending(false), mTempVertexBuffer(0),
       mTempVertexSize(TEMP_INITIAL_VERTEX_SIZE), mTempIndexBuffer(0),
       mTempIndexSize(TEMP_INITIAL_INDEX_SIZE), mDeclSize(0), mEstVertexCount(0), mEstIndexCount(0),
@@ -124,13 +124,13 @@ ManualObject::ManualObject(const String& name)
         mTempIndexSize = newSize;
     }
     //-----------------------------------------------------------------------------
-    void ManualObject::estimateVertexCount(size_t vcount)
+    void ManualObject::estimateVertexCount(uint32 vcount)
     {
         resizeTempVertexBufferIfNeeded(vcount);
         mEstVertexCount = vcount;
     }
     //-----------------------------------------------------------------------------
-    void ManualObject::estimateIndexCount(size_t icount)
+    void ManualObject::estimateIndexCount(uint32 icount)
     {
         resizeTempIndexBufferIfNeeded(icount);
         mEstIndexCount = icount;
@@ -265,11 +265,11 @@ ManualObject::ManualObject(const String& name)
             case VET_FLOAT2:
             case VET_FLOAT3:
             case VET_FLOAT4:
-                OgreAssert(elem.getSemantic() != VES_DIFFUSE, "must use VET_COLOUR");
+                OgreAssert(elem.getSemantic() != VES_COLOUR, "must use VET_UBYTE4_NORM");
                 elem.baseVertexPointerToElement(pBase, &pFloat);
                 break;
             case VET_UBYTE4_NORM:
-                OgreAssert(elem.getSemantic() == VES_DIFFUSE, "must use VES_DIFFUSE");
+                OgreAssert(elem.getSemantic() == VES_COLOUR, "must use VES_COLOUR");
                 elem.baseVertexPointerToElement(pBase, &pRGBA);
                 break;
             default:
@@ -281,27 +281,20 @@ ManualObject::ManualObject(const String& name)
             switch(elem.getSemantic())
             {
             case VES_POSITION:
-                *pFloat++ = mTempVertex.position.x;
-                *pFloat++ = mTempVertex.position.y;
-                *pFloat++ = mTempVertex.position.z;
+                memcpy(pFloat, mTempVertex.position.ptr(), sizeof(Vector3f));
                 break;
             case VES_NORMAL:
-                *pFloat++ = mTempVertex.normal.x;
-                *pFloat++ = mTempVertex.normal.y;
-                *pFloat++ = mTempVertex.normal.z;
+                memcpy(pFloat, mTempVertex.normal.ptr(), sizeof(Vector3f));
                 break;
             case VES_TANGENT:
-                *pFloat++ = mTempVertex.tangent.x;
-                *pFloat++ = mTempVertex.tangent.y;
-                *pFloat++ = mTempVertex.tangent.z;
+                memcpy(pFloat, mTempVertex.tangent.ptr(), sizeof(Vector3f));
                 break;
             case VES_TEXTURE_COORDINATES:
                 dims = VertexElement::getTypeCount(elem.getType());
-                for (ushort t = 0; t < dims; ++t)
-                    *pFloat++ = mTempVertex.texCoord[elem.getIndex()][t];
+                memcpy(pFloat, mTempVertex.texCoord[elem.getIndex()].ptr(), sizeof(float)*dims);
                 break;
-            case VES_DIFFUSE:
-                *pRGBA++ = mTempVertex.colour.getAsABGR();
+            case VES_COLOUR:
+                *pRGBA = mTempVertex.colour.getAsBYTE();
                 break;
             default:
                 OgreAssert(false, "invalid semantic");
@@ -487,7 +480,7 @@ ManualObject::ManualObject(const String& name)
     //-----------------------------------------------------------------------------
     const String& ManualObject::getMovableType(void) const
     {
-        return ManualObjectFactory::FACTORY_TYPE_NAME;
+        return MOT_MANUAL_OBJECT;
     }
     //-----------------------------------------------------------------------------
     void ManualObject::_updateRenderQueue(RenderQueue* queue)
@@ -642,7 +635,7 @@ ManualObject::ManualObject(const String& name)
         mRenderOperation.operationType = opType;
         // default to no indexes unless we're told
         mRenderOperation.useIndexes = false;
-        mRenderOperation.useGlobalInstancingVertexBufferIsAvailable = false;
+        mRenderOperation.useGlobalInstancing = false;
         mRenderOperation.vertexData = OGRE_NEW VertexData();
         mRenderOperation.vertexData->vertexCount = 0;
     }
@@ -656,7 +649,7 @@ ManualObject::ManualObject(const String& name)
 
         mRenderOperation.operationType = opType;
         mRenderOperation.useIndexes = false;
-        mRenderOperation.useGlobalInstancingVertexBufferIsAvailable = false;
+        mRenderOperation.useGlobalInstancing = false;
         mRenderOperation.vertexData = OGRE_NEW VertexData();
         mRenderOperation.vertexData->vertexCount = 0;
     }
@@ -741,11 +734,11 @@ ManualObject::ManualObject(const String& name)
     }
     //-----------------------------------------------------------------------------
     //-----------------------------------------------------------------------------
-    String ManualObjectFactory::FACTORY_TYPE_NAME = "ManualObject";
+    const String MOT_MANUAL_OBJECT = "ManualObject";
     //-----------------------------------------------------------------------------
     const String& ManualObjectFactory::getType(void) const
     {
-        return FACTORY_TYPE_NAME;
+        return MOT_MANUAL_OBJECT;
     }
     //-----------------------------------------------------------------------------
     MovableObject* ManualObjectFactory::createInstanceImpl(

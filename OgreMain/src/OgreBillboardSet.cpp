@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include "OgreBillboard.h"
 
 #include <algorithm>
+#include <memory>
 
 namespace Ogre {
     //-----------------------------------------------------------------------
@@ -488,7 +489,7 @@ namespace Ogre {
         {
             op.operationType = RenderOperation::OT_POINT_LIST;
             op.useIndexes = false;
-            op.useGlobalInstancingVertexBufferIsAvailable = false;
+            op.useGlobalInstancing = false;
             op.indexData = 0;
             op.vertexData->vertexCount = mNumVisibleBillboards;
         }
@@ -562,7 +563,7 @@ namespace Ogre {
                 "expect.");
         }
 
-        mVertexData.reset(new VertexData());
+        mVertexData = std::make_unique<VertexData>();
         if (mPointRendering)
             mVertexData->vertexCount = mPoolSize;
         else
@@ -595,7 +596,7 @@ namespace Ogre {
 
         if (!mPointRendering)
         {
-            mIndexData.reset(new IndexData());
+            mIndexData = std::make_unique<IndexData>();
             mIndexData->indexStart = 0;
             mIndexData->indexCount = mPoolSize * 6;
 
@@ -1043,7 +1044,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     const String& BillboardSet::getMovableType(void) const
     {
-        return BillboardSetFactory::FACTORY_TYPE_NAME;
+        return MOT_BILLBOARD_SET;
     }
     //-----------------------------------------------------------------------
     Real BillboardSet::getSquaredViewDepth(const Camera* const cam) const
@@ -1103,13 +1104,6 @@ namespace Ogre {
         assert( coordIndex == (size_t)stacks * slices );
     }
     //-----------------------------------------------------------------------
-    Ogre::FloatRect const * BillboardSet::getTextureCoords( uint16 * oNumCoords )
-    {
-        *oNumCoords = (uint16)mTextureCoords.size();
-        //  std::vector<> is guaranteed to be contiguous
-        return &mTextureCoords.front();
-    }
-    //-----------------------------------------------------------------------
     void BillboardSet::setPointRenderingEnabled(bool enabled)
     {
         // Override point rendering if not supported
@@ -1140,11 +1134,11 @@ namespace Ogre {
 
     //-----------------------------------------------------------------------
     //-----------------------------------------------------------------------
-    String BillboardSetFactory::FACTORY_TYPE_NAME = "BillboardSet";
+    const String MOT_BILLBOARD_SET = "BillboardSet";
     //-----------------------------------------------------------------------
     const String& BillboardSetFactory::getType(void) const
     {
-        return FACTORY_TYPE_NAME;
+        return MOT_BILLBOARD_SET;
     }
     //-----------------------------------------------------------------------
     MovableObject* BillboardSetFactory::createInstanceImpl( const String& name,

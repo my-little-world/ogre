@@ -28,6 +28,8 @@ THE SOFTWARE.
 
 #include "OgreVulkanTextureGpu.h"
 
+#include <memory>
+
 #include "OgreException.h"
 #include "OgreVector.h"
 #include "OgreVulkanMappings.h"
@@ -44,7 +46,7 @@ namespace Ogre
 {
     VulkanHardwarePixelBuffer::VulkanHardwarePixelBuffer(VulkanTextureGpu* tex, uint32 width, uint32 height, uint32 depth,
                                                         uint8 face, uint32 mip)
-        : HardwarePixelBuffer(width, height, depth, tex->getFormat(), tex->getUsage(), false, false), mParent(tex),
+        : HardwarePixelBuffer(width, height, depth, tex->getFormat(), tex->getUsage(), false), mParent(tex),
         mFace(face), mLevel(mip)
     {
         if(mParent->getUsage() & TU_RENDERTARGET)
@@ -74,7 +76,7 @@ namespace Ogre
         if(options != HBL_DISCARD && options != HBL_WRITE_ONLY)
             target |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-        mStagingBuffer.reset(new VulkanHardwareBuffer(target, ret.getConsecutiveSize(), HBU_CPU_ONLY, false, device));
+        mStagingBuffer = std::make_unique<VulkanHardwareBuffer>(target, ret.getConsecutiveSize(), HBU_CPU_ONLY, false, device);
 
         if (options != HBL_DISCARD && options != HBL_WRITE_ONLY)
         {
@@ -212,7 +214,7 @@ namespace Ogre
         imageInfo.mipLevels = mNumMipmaps + 1;
         imageInfo.arrayLayers = getNumFaces();
         imageInfo.flags = 0;
-        imageInfo.format = VulkanMappings::get( mFormat );
+        imageInfo.format = VulkanMappings::get( mFormat, mHwGamma );
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -583,7 +585,7 @@ namespace Ogre
         VkImageViewCreateInfo imageViewCi = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
         imageViewCi.image = imageOverride ? imageOverride : mFinalTextureName;
         imageViewCi.viewType = texType;
-        imageViewCi.format = VulkanMappings::get( mFormat );
+        imageViewCi.format = VulkanMappings::get( mFormat, mHwGamma );
 
         if (PixelUtil::isLuminance(mFormat) && !PixelUtil::isDepth(mFormat))
         {
@@ -740,7 +742,7 @@ namespace Ogre
 
         if(!depthTarget)
         {
-            mDepthTexture.reset(new VulkanTextureGpu(texMgr, mName+"/Depth", 0, "", true, 0));
+            mDepthTexture = std::make_unique<VulkanTextureGpu>(texMgr, mName+"/Depth", 0, "", true, nullptr);
             mDepthTexture->setWidth(target->getWidth());
             mDepthTexture->setHeight(target->getHeight());
             mDepthTexture->setFormat(PF_DEPTH32);
@@ -748,7 +750,7 @@ namespace Ogre
             mDepthTexture->setFSAA(1, "");
         }
 
-        mRenderPassDescriptor.reset(new VulkanRenderPassDescriptor(&device->mGraphicsQueue, device->mRenderSystem));
+        mRenderPassDescriptor = std::make_unique<VulkanRenderPassDescriptor>(&device->mGraphicsQueue, device->mRenderSystem);
         mRenderPassDescriptor->mColour[0] = depthTarget ? 0 : target;
         mRenderPassDescriptor->mSlice = face;
         mRenderPassDescriptor->mDepth = depthTarget ? target : mDepthTexture.get();

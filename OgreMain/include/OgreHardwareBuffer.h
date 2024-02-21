@@ -172,7 +172,6 @@ namespace Ogre {
             size_t mLockSize;
             std::unique_ptr<HardwareBuffer> mDelegate;
             std::unique_ptr<HardwareBuffer> mShadowBuffer;
-            bool mSystemMemory;
             bool mShadowUpdated;
             bool mSuppressHardwareUpdate;
             bool mIsLocked;
@@ -188,9 +187,9 @@ namespace Ogre {
 
         public:
             /// Constructor, to be called by HardwareBufferManager only
-            HardwareBuffer(Usage usage, bool systemMemory, bool useShadowBuffer)
-                : mSizeInBytes(0), mLockStart(0), mLockSize(0), mSystemMemory(systemMemory),
-                  mShadowUpdated(false), mSuppressHardwareUpdate(false), mIsLocked(false), mUsage(usage)
+            HardwareBuffer(Usage usage, bool useShadowBuffer)
+                : mSizeInBytes(0), mLockStart(0), mLockSize(0), mShadowUpdated(false), mSuppressHardwareUpdate(false),
+                  mIsLocked(false), mUsage(usage)
             {
                 // If use shadow buffer, upgrade to WRITE_ONLY on hardware side
                 if (useShadowBuffer && usage == HBU_CPU_ONLY)
@@ -322,7 +321,6 @@ namespace Ogre {
             {
                 if(mDelegate && !srcBuffer.isSystemMemory())
                 {
-                    // GPU copy
                     mDelegate->copyData(*srcBuffer.mDelegate, srcOffset, dstOffset, length, discardWholeBuffer);
                     return;
                 }
@@ -366,7 +364,7 @@ namespace Ogre {
             /// Returns the Usage flags with which this buffer was created
             Usage getUsage(void) const { return mUsage; }
             /// Returns whether this buffer is held in system memory
-            bool isSystemMemory(void) const { return mSystemMemory; }
+            virtual bool isSystemMemory(void) const { return mDelegate && mDelegate->isSystemMemory(); }
             /// Returns whether this buffer has a system memory shadow for quicker reading
             bool hasShadowBuffer(void) const { return mShadowBuffer || (mDelegate && mDelegate->hasShadowBuffer()); }
             /// Returns whether or not this buffer is currently locked.

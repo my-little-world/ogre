@@ -112,7 +112,7 @@ void Sample_NewInstancing::setupContent()
     mViewport->setMaterialScheme(MSN_SHADERGEN);
     RTShader::ShaderGenerator& rtShaderGen = RTShader::ShaderGenerator::getSingleton();
     RTShader::RenderState* schemRenderState = rtShaderGen.getRenderState(MSN_SHADERGEN);
-    RTShader::SubRenderState* subRenderState = rtShaderGen.createSubRenderState(RTShader::SRS_INTEGRATED_PSSM3);
+    RTShader::SubRenderState* subRenderState = rtShaderGen.createSubRenderState(RTShader::SRS_SHADOW_MAPPING);
     schemRenderState->addTemplateSubRenderState(subRenderState);
 
     //Add the hardware skinning to the shader generator default render state
@@ -120,7 +120,7 @@ void Sample_NewInstancing::setupContent()
     schemRenderState->addTemplateSubRenderState(subRenderState);
 
     // increase max bone count for higher efficiency
-    RTShader::HardwareSkinningFactory::getSingleton().setMaxCalculableBoneCount(80);
+    RTShader::HardwareSkinningFactory::setMaxCalculableBoneCount(80);
 
     // re-generate shaders to include new SRSs
     rtShaderGen.invalidateScheme(MSN_SHADERGEN);

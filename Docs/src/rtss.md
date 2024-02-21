@@ -31,11 +31,12 @@ Here are the attributes you can use in a `rtshader_system` block of a `pass {}`:
 - [lighting_stage](#lighting_stage)
 - [image_based_lighting](#image_based_lighting)
 - [gbuffer](#gbuffer)
-- [normal_map](#normal_map)
+- [normal_map](#normal_map_pass)
 - [metal_roughness](#metal_roughness)
 - [fog_stage](#fog_stage)
 - [light_count](#light_count)
 - [triplanarTexturing](#triplanarTexturing)
+- [shadow_mapping](#shadow_mapping)
 - [integrated_pssm4](#integrated_pssm4)
 - [hardware_skinning](#hardware_skinning)
 - [layered_blend](#layered_blend)
@@ -44,8 +45,7 @@ Here are the attributes you can use in a `rtshader_system` block of a `pass {}`:
 <a name="transform_stage"></a>
 
 ## transform_stage
-
-@copydoc Ogre::RTShader::SRS_TRANSFORM
+@copybrief Ogre::RTShader::SRS_TRANSFORM
 
 @par
 Format: `transform_stage <type> [attrIndex]`
@@ -53,7 +53,7 @@ Format: `transform_stage <type> [attrIndex]`
 Example: `transform_stage instanced 1`
 
 @param type either `ffp` or `instanced`
-@param attrIndex the start texcoord attribute index to read the instanced world matrix from
+@param attrIndex the start texcoord attribute index to read the instanced world matrix from. Must be greater than 0.
 
 @see @ref Instancing-in-Vertex-Programs
 @see Ogre::InstanceBatchHW
@@ -77,7 +77,7 @@ Example: `lighting_stage ffp two_sided`
 
 ## image_based_lighting
 
-@copydoc Ogre::RTShader::SRS_IMAGE_BASED_LIGHTING
+@copybrief Ogre::RTShader::SRS_IMAGE_BASED_LIGHTING
 
 @par
 Format: `image_based_lighting texture <texture> [luminance <luminance>]`
@@ -92,7 +92,7 @@ For best results, generate the cubemaps using [cmgen](https://github.com/google/
 
 ## gbuffer
 
-@copydoc Ogre::RTShader::SRS_GBUFFER
+@copybrief Ogre::RTShader::SRS_GBUFFER
 
 @par
 Format: `lighting_stage gbuffer <target_layout> [target_layout]`
@@ -101,11 +101,13 @@ Example: `lighting_stage gbuffer normal_viewdepth diffuse_specular`
 
 @param target_layout with @c gbuffer, this specifies the data to be written into one or two MRT targets. Possible values are @c depth, @c normal, @c viewpos, @c normal_viewdepth and @c diffuse_specular
 
-<a name="normal_map"></a>
+<a name="normal_map_pass"></a>
 
 ## normal_map
 
-@copydoc Ogre::RTShader::SRS_NORMALMAP
+@deprecated use @ref normal_map instead
+
+@copybrief Ogre::RTShader::SRS_NORMALMAP
 
 @par
 Format: `lighting_stage normal_map <texture> [normalmap_space] [texcoord_index] [sampler]`
@@ -113,24 +115,7 @@ Format: `lighting_stage normal_map <texture> [normalmap_space] [texcoord_index] 
 Example: `lighting_stage normal_map Panels_Normal_Tangent.png tangent_space 0 SamplerToUse`
 
 @param texture normal map name to use
-@param normalmap_space <dl compact="compact">
-<dt>tangent_space</dt>
-<dd>Normal map contains normal data in tangent space.
-This is the default normal mapping behavior and it requires that the
-target mesh will have valid tangents within its vertex data.</dd>
-<dt>object_space</dt>
-<dd>Normal map contains normal data in object local space.
-This normal mapping technique has the advantages of better visualization results,
-lack of artifacts that comes from texture mirroring usage, it doesn't requires tangent
-and it also saves some instruction in the vertex shader stage.
-The main drawback of using this kind of normal map is that the target object must be static
-in terms of local space rotations and translations.</dd>
-<dt>parallax</dt>
-<dd>Normal map contains normal data in parallax corrected tangent space
-The restrictions of @c tangent_space apply. Additionally the alpha
-channel of the normal texture is expected to contain height displacement data.
-This is used for parallax corrected rendering.</dd>
-</dl>
+@param normalmap_space see @ref normal_map
 @param texcoord_index the start texcoord attribute index to read the uv coordinates from
 @param sampler the [Sampler](@ref Samplers) to use for the normal map
 
@@ -139,7 +124,7 @@ This is used for parallax corrected rendering.</dd>
 
 ## metal_roughness
 
-@copydoc Ogre::RTShader::SRS_COOK_TORRANCE_LIGHTING
+@copybrief Ogre::RTShader::SRS_COOK_TORRANCE_LIGHTING
 
 By default, roughness is read from `specular[0]` and metalness from `specular[1]`.
 
@@ -157,7 +142,7 @@ Example: `lighting_stage metal_roughness texture Default_metalRoughness.jpg`
 
 ## fog_stage
 
-@copydoc Ogre::RTShader::SRS_FOG
+@copybrief Ogre::RTShader::SRS_FOG
 
 @par
 Format: `fog_stage ffp <calc_mode>`
@@ -170,15 +155,15 @@ Example: `fog_stage ffp per_pixel`
 
 ## light_count
 
-Override dynamic light count. Allows to customize which lights the RTSS will consider.
+Override dynamic light count. Fix the number of lights to be used in the shader. Avoids shader recompilation when the number of lights changes.
 @par
-Format: `light_count <pointLights> <directionalLights> <spotLights>`
+Format: `light_count <count>`
 
 <a name="triplanarTexturing"></a>
 
 ## triplanarTexturing
 
-@copydoc Ogre::RTShader::SRS_TRIPLANAR_TEXTURING
+@copybrief Ogre::RTShader::SRS_TRIPLANAR_TEXTURING
 
 @par
 Format: `triplanarTexturing <textureScale> <plateauSize> <transitionSpeed> <textureFromX> <textureFromY> <textureFromZ>`
@@ -196,20 +181,28 @@ Valid values are [0; 0.57] not bigger to avoid division by zero
 <a name="integrated_pssm4"></a>
 
 ## integrated_pssm4
-@copydoc Ogre::RTShader::SRS_INTEGRATED_PSSM3
+@copybrief Ogre::RTShader::SRS_INTEGRATED_PSSM3
 
 @par
 Format: `integrated_pssm4 <znear> <sp0> <sp1> <zfar> [debug] [filter]`
 @param debug visualize the active shadow-splits in the scene
 @param filter one of `pcf4, pcf16` (default: @c pcf4)
 
+## shadow_mapping {#shadow_mapping}
+@copybrief Ogre::RTShader::SRS_SHADOW_MAPPING
+
+@par
+Format: `shadow_mapping [light_count <num>] [filter <type>]`
+@param filter one of `pcf4, pcf16` (default: @c pcf4)
+@param light_count number of lights to support (default: 1)
+
 <a name="hardware_skinning"></a>
 
 ## hardware_skinning
-@copydoc Ogre::RTShader::SRS_HARDWARE_SKINNING
+@copybrief Ogre::RTShader::SRS_HARDWARE_SKINNING
 
 @par
-Format: `hardware_skinning <max_bone_count> <max_weight_count> [type] [correct_antipodality scale_shearing]`
+Format: `hardware_skinning <max_bone_count> <weight_count> [type] [correct_antipodality scale_shearing]`
 @par
 Example: `hardware_skinning 24 2 dual_quaternion true false`
 
@@ -223,20 +216,52 @@ Example: `hardware_skinning 24 2 dual_quaternion true false`
 
 Here are the attributes you can use in a `rtshader_system` block of a `texture_unit {}`:
 
+- [normal_map](#normal_map)
 - [layered_blend](#layered_blend)
 - [source_modifier](#source_modifier)
+
+## normal_map {#normal_map}
+
+@copybrief Ogre::RTShader::SRS_NORMALMAP
+
+@par
+Format: `normal_map <normalmap_space> [height_scale scale] [texcoord_index idx]`
+@par
+Example: `normal_map parallax_occlusion height_scale 0.1`
+
+@param normalmap_space <dl compact="compact">
+<dt>tangent_space</dt>
+<dd>Normal map contains normal data in tangent space.
+This is the default normal mapping behavior and it requires that the
+target mesh will have valid tangents within its vertex data.</dd>
+<dt>object_space</dt>
+<dd>Normal map contains normal data in object local space.
+This normal mapping technique has the advantages of better visualization results,
+lack of artifacts that comes from texture mirroring usage, it doesn't requires tangent
+and it also saves some instruction in the vertex shader stage.
+The main drawback of using this kind of normal map is that the target object must be static
+in terms of local space rotations and translations.</dd>
+<dt>parallax</dt>
+<dd>Normal map contains normal data in parallax corrected tangent space
+The restrictions of @c tangent_space apply. Additionally the alpha
+channel of the normal texture is expected to contain height displacement data.
+This is used for parallax corrected rendering.</dd>
+<dt>parallax_occlusion</dt>
+<dd>An extension of @c parallax, which samples the texture multiple times to allow using
+a larger displacement value without getting artifacts.</dd>
+</dl>
+@param height_scale displacement scale factor, when using @c parallax or @c parallax_occlusion
+@param texcoord_index the texcoord attribute index to read the uv coordinates from
 
 <a name="layered_blend"></a>
 
 ## layered_blend
 
-@copydoc Ogre::RTShader::SRS_LAYERED_BLENDING
+@copybrief Ogre::RTShader::SRS_LAYERED_BLENDING
 @par
 Format: `layered_blend <effect>`
 @par
 Example: layered_blend luminosity
-
-@note only applicable inside a texture_unit section
 
 @param effect one of `default, normal, lighten, darken, multiply, average, add, subtract, difference, negation, exclusion, screen, overlay, hard_light, soft_light, color_dodge, color_burn, linear_dodge, linear_burn, linear_light, vivid_light, pin_light, hard_mix, reflect, glow, phoenix, saturation, color, luminosity`
 
@@ -251,8 +276,6 @@ Format: `source_modifier <operation> custom <parameterNum>`
 @par
 Example: `source_modifier src1_inverse_modulate custom 2`
 
-@note only applicable inside a texture_unit section
-
 @param operation one of `src1_modulate, src2_modulate, src1_inverse_modulate, src2_inverse_modulate`
 @param parameterNum number of the custom shader parameter that controls the operation
 
@@ -263,7 +286,7 @@ In case you need to set the properties programmatically, see the following examp
 ```cpp
 rtshader_system
 {
-	lighting_stage normal_map Default_normal.jpg
+	normal_map height_scale 0.1
 }
 ```
 becomes
@@ -276,7 +299,7 @@ RenderState* rs = shaderGen->getRenderState(MSN_SHADERGEN, *mat, 0);
 SubRenderState* srs = shaderGen->createSubRenderState(SRS_NORMALMAP);
 rs->addTemplateSubRenderState(srs);
 
-srs->setParameter("texture", "Default_normal.jpg");
+srs->setParameter("height_scale", "0.1");
 ```
 
 # System overview {#rtss_overview}
@@ -386,11 +409,11 @@ When a shader is generated for a given material the system combines the SubRende
 Sub-render states (SRS) are components designed to generate the code of the RTSS shaders. Each SRS usually has a specific role to fill within the shader's construction. These components can be combined in different combinations to create shaders with different capabilities.
 @par
 By default, %Ogre adds the following 5 SRSs to every scheme RenderState to recreate the functionality provided by the fixed pipeline
-1. @ref Ogre::RTShader::SRS_TRANSFORM - @copydoc Ogre::RTShader::SRS_TRANSFORM
+1. @ref Ogre::RTShader::SRS_TRANSFORM - @copybrief Ogre::RTShader::SRS_TRANSFORM
 2. @ref Ogre::RTShader::SRS_VERTEX_COLOUR - Calculate the base diffuse and specular color of the object regardless of lights or textures. The color is calculated based on the ambient, diffuse, specular and emissive properties of the object and scene and the specified color tracking.
-3. @ref Ogre::RTShader::SRS_PER_PIXEL_LIGHTING - @copydoc Ogre::RTShader::SRS_PER_PIXEL_LIGHTING
-4. @ref Ogre::RTShader::SRS_TEXTURING - @copydoc Ogre::RTShader::SRS_TEXTURING
-5. @ref Ogre::RTShader::SRS_FOG - @copydoc Ogre::RTShader::SRS_FOG
+3. @ref Ogre::RTShader::SRS_PER_PIXEL_LIGHTING - @copybrief Ogre::RTShader::SRS_PER_PIXEL_LIGHTING
+4. @ref Ogre::RTShader::SRS_TEXTURING - @copybrief Ogre::RTShader::SRS_TEXTURING
+5. @ref Ogre::RTShader::SRS_FOG - @copybrief Ogre::RTShader::SRS_FOG
 
 @par SubRenderStateFactory
 As the name suggests, sub render state factories are factories that produce sub render states. Each factory generates a specific SRS.
@@ -429,12 +452,13 @@ Next, you have to create the FFPLighting SRS that should be used for shader gene
 
 @note adding a SRS will automatically override the default SRS for the same stage. In the example we override the Ogre::RTShader::FFP_LIGHTING stage.
 
-## Creating shader based technique {#rtssTech}
-This step will associate the given technique with a destination shader generated based technique. Calling the `Ogre::RTShader::ShaderGenerator::createShaderBasedTechnique()` will cause the system to generate internal data structures associated with the source technique and will add new technique to the source material. This new technique will have the scheme name that was passed as an argument to this method and all its passes will contain shaders that the system will generate and update during the application runtime.
+## Creating the shader based technique {#rtssTech}
+This step will create a new, shader-based, technique based on the given technique. Calling Ogre::RTShader::ShaderGenerator::createShaderBasedTechnique() will cause the system to generate SubRenderStates based on the source technique and add a new technique using the given scheme name to the material.
+The passes of this new technique will receive shaders generated and updated by the system during as described in the @ref rtssGenerate section below.
 
 ![](CreateShaderBasedTech.svg)
 
-To use the generated technique set the change material scheme of your viewport(s) to the same scheme name you passed as argument to this method.
+To use the generated technique, change the material scheme of your viewport(s) to scheme name you passed as argument to this method.
 
 ```cpp
 // Create shader based technique from the default technique of the given material.
@@ -467,7 +491,7 @@ In order to extend the system with your own shader effects you'll have to follow
 * Implement the SubRenderState interface - This is the main class that is responsible for the actual effect processing such as preparing the destination pass, updating the CPU shader programs, updating the GPU shader parameters etc.
 * Implement the SubRenderStateFactory interface: This class will allow the RTSS to create instances of the previous class via code or script as well as export it to material script file.
 * Register the factory to the RTSS using the Ogre::RTShader::ShaderGenerator::addSubRenderStateFactory method.
-* Add shader files that will supply all the actual shader functions your SubRenderState needs. In order to support multiple shader languages you should supply code for your entire desired target shading languages (CG, HLSL, GLSL etc). These files should be placed in a way that the resource manager could access them. This can be done by placing them in a valid resource location or by dynamically adding resource location.
+* Add shader files that will supply all the actual shader functions your SubRenderState needs. In order to support multiple shader languages, @ref OgreUnifiedShader are provided. These shaders should be placed in a resource location known to the resource manager.
 
 Implementing the SubRenderState requires overriding the pure methods of the base class.
 * Ogre::RTShader::SubRenderState::getType() should return unique string that identify the sub class implementation. That value is shared among all instances and can be stored in a static string variable. It uses to system to match between SubRenderState instance and the factory to should destroy it.
@@ -491,13 +515,13 @@ In case of the Ogre::RTShader::FFPTransform we need the world view projection ma
 
 @par Resolving dependencies
 this stage should provide the name of the external shader library files that contains the actual shader code needed by this SubRenderState.
-In case of the Ogre::RTShader::FFPTexturing  it will add the common and texturing library for both vertex and pixel shader program.
+In case of the Ogre::RTShader::SRS_TEXTURING  it will add the common and texturing library for both vertex and pixel shader program.
 @par
 @snippet Components/RTShaderSystem/src/OgreShaderFFPTexturing.cpp deps_resolve
 
 @par Adding function invocations
 this stage creates the function calls within this SubRenderState requires. To add function invocations, you first need to obtain a Ogre::RTShader::FunctionStageRef for the respective stage.
-In case of the Ogre::RTShader::FFPFog it will add vertex depth calculation to the vertex shader program.
+In case of the Ogre::RTShader::SRS_FOG it will add vertex depth calculation to the vertex shader program.
 @par
 @snippet Components/RTShaderSystem/src/OgreShaderFFPFog.cpp func_invoc
 @par

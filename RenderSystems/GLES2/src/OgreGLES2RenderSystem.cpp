@@ -60,9 +60,6 @@ THE SOFTWARE.
 Ogre::GLES2ManagedResourceManager* Ogre::GLES2RenderSystem::mResourceManager = NULL;
 #endif
 
-// Convenience macro from ARB_vertex_buffer_object spec
-#define VBO_BUFFER_OFFSET(i) ((char *)(i))
-
 #ifndef GL_PACK_ROW_LENGTH_NV
 #define GL_PACK_ROW_LENGTH_NV             0x0D02
 #endif
@@ -342,7 +339,6 @@ namespace Ogre {
             glGetIntegerv(GL_MAX_DRAW_BUFFERS, &buffers);
             rsc->setNumMultiRenderTargets(
                 std::min<int>(buffers, (GLint)OGRE_MAX_MULTIPLE_RENDER_TARGETS));
-            rsc->setCapability(RSC_MRT_DIFFERENT_BIT_DEPTHS);
         }
         else
         {
@@ -359,7 +355,6 @@ namespace Ogre {
 
         // Point sprites
         rsc->setCapability(RSC_POINT_SPRITES);
-        rsc->setCapability(RSC_POINT_EXTENDED_PARAMETERS);
         
         // GLSL ES is always supported in GL ES 2
         rsc->addShaderProfile("glsles");
@@ -492,13 +487,6 @@ namespace Ogre {
 
     void GLES2RenderSystem::initialiseFromRenderSystemCapabilities(RenderSystemCapabilities* caps, RenderTarget* primary)
     {
-        if(caps->getRenderSystemName() != getName())
-        {
-            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
-                        "Trying to initialize GLES2RenderSystem from RenderSystemCapabilities that do not support OpenGL ES",
-                        "GLES2RenderSystem::initialiseFromRenderSystemCapabilities");
-        }
-
         if(caps->getNumVertexAttributes() < 16)
             GLSLProgramCommon::useTightAttributeLayout();
 
@@ -747,6 +735,24 @@ namespace Ogre {
         }
     }
 
+    static int getTextureAddressingMode(TextureAddressingMode tam, bool hasBorderClamp = true)
+    {
+        switch (tam)
+        {
+        case TAM_BORDER:
+            if (hasBorderClamp)
+                return GL_CLAMP_TO_BORDER_EXT;
+            OGRE_FALLTHROUGH;
+        case TAM_CLAMP:
+            return GL_CLAMP_TO_EDGE;
+        case TAM_MIRROR:
+            return GL_MIRRORED_REPEAT;
+        case TAM_WRAP:
+        default:
+            return GL_REPEAT;
+        }
+    }
+
     void GLES2RenderSystem::_setSampler(size_t unit, Sampler& sampler)
     {
         mStateCacheManager->activateGLTextureUnit(unit);
@@ -754,13 +760,14 @@ namespace Ogre {
         GLenum target = mTextureTypes[unit];
 
         const Sampler::UVWAddressingMode& uvw = sampler.getAddressingMode();
-        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_S, getTextureAddressingMode(uvw.u));
-        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_T, getTextureAddressingMode(uvw.v));
-        if(getCapabilities()->hasCapability(RSC_TEXTURE_3D))
-            mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_R, getTextureAddressingMode(uvw.w));
 
         bool hasBorderClamp = hasMinGLVersion(3, 2) || checkExtension("GL_EXT_texture_border_clamp") ||
                               checkExtension("GL_OES_texture_border_clamp");
+
+        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_S, getTextureAddressingMode(uvw.u, hasBorderClamp));
+        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_T, getTextureAddressingMode(uvw.v, hasBorderClamp));
+        if(getCapabilities()->hasCapability(RSC_TEXTURE_3D))
+            mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_R, getTextureAddressingMode(uvw.w, hasBorderClamp));
 
         if ((uvw.u == TAM_BORDER || uvw.v == TAM_BORDER || uvw.w == TAM_BORDER) && hasBorderClamp)
             OGRE_CHECK_GL_ERROR(glTexParameterfv( target, GL_TEXTURE_BORDER_COLOR_EXT, sampler.getBorderColour().ptr()));
@@ -799,32 +806,6 @@ namespace Ogre {
             mStateCacheManager->setTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             break;
         }
-    }
-
-    GLint GLES2RenderSystem::getTextureAddressingMode(TextureAddressingMode tam) const
-    {
-        switch (tam)
-        {
-            case TextureUnitState::TAM_CLAMP:
-                return GL_CLAMP_TO_EDGE;
-            case TextureUnitState::TAM_BORDER:
-                return GL_CLAMP_TO_BORDER_EXT;
-            case TextureUnitState::TAM_MIRROR:
-                return GL_MIRRORED_REPEAT;
-            case TextureUnitState::TAM_WRAP:
-            default:
-                return GL_REPEAT;
-        }
-    }
-
-    void GLES2RenderSystem::_setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw)
-    {
-        mStateCacheManager->activateGLTextureUnit(stage);
-        mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_S, getTextureAddressingMode(uvw.u));
-        mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_T, getTextureAddressingMode(uvw.v));
-
-        if(getCapabilities()->hasCapability(RSC_TEXTURE_3D))
-            mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_R_OES, getTextureAddressingMode(uvw.w));
     }
 
     void GLES2RenderSystem::_setLineWidth(float width)
@@ -898,22 +879,7 @@ namespace Ogre {
                 vpRect.top = target->getHeight() - vpRect.top;
                 vpRect.bottom = target->getHeight() - vpRect.bottom;
             }
-            
-#if OGRE_NO_VIEWPORT_ORIENTATIONMODE == 0
-            // This works fine whether getConfigOptions() returns by value or by reference.
-            const ConfigOptionMap& configOptions = mGLSupport->getConfigOptions();
-            ConfigOptionMap::const_iterator opt;
-            ConfigOptionMap::const_iterator end = configOptions.end();
-            
-            if ((opt = configOptions.find("Orientation")) != end)
-            {
-                String val = opt->second.currentValue;
-                if (val.find("Landscape") != String::npos)
-                {
-                    std::swap(vpRect.right, vpRect.bottom);
-                }
-            }
-#endif
+
             mStateCacheManager->setViewport(vpRect);
 
             vp->_clearUpdatedFlag();
@@ -950,6 +916,7 @@ namespace Ogre {
 
         GLenum cullMode;
         bool flip = flipFrontFace();
+        OGRE_CHECK_GL_ERROR(glFrontFace(flip ? GL_CW : GL_CCW));
 
         switch (mode)
         {
@@ -957,10 +924,10 @@ namespace Ogre {
             mStateCacheManager->setDisabled(GL_CULL_FACE);
             return;
         case CULL_CLOCKWISE:
-            cullMode = flip ? GL_FRONT : GL_BACK;
+            cullMode = GL_BACK;
             break;
         case CULL_ANTICLOCKWISE:
-            cullMode = flip ? GL_BACK : GL_FRONT;
+            cullMode = GL_FRONT;
             break;
         }
 
@@ -970,14 +937,7 @@ namespace Ogre {
 
     void GLES2RenderSystem::_setDepthBufferParams(bool depthTest, bool depthWrite, CompareFunction depthFunction)
     {
-        _setDepthBufferCheckEnabled(depthTest);
-        _setDepthBufferWriteEnabled(depthWrite);
-        _setDepthBufferFunction(depthFunction);
-    }
-
-    void GLES2RenderSystem::_setDepthBufferCheckEnabled(bool enabled)
-    {
-        if (enabled)
+        if (depthTest)
         {
             mStateCacheManager->setClearDepth(1.0f);
             mStateCacheManager->setEnabled(GL_DEPTH_TEST);
@@ -986,17 +946,8 @@ namespace Ogre {
         {
             mStateCacheManager->setDisabled(GL_DEPTH_TEST);
         }
-    }
-
-    void GLES2RenderSystem::_setDepthBufferWriteEnabled(bool enabled)
-    {
-        // Store for reference in _beginFrame
-        mStateCacheManager->setDepthMask(enabled ? GL_TRUE : GL_FALSE);
-    }
-
-    void GLES2RenderSystem::_setDepthBufferFunction(CompareFunction func)
-    {
-        mStateCacheManager->setDepthFunc(convertCompareFunction(func));
+        mStateCacheManager->setDepthMask(depthWrite);
+        mStateCacheManager->setDepthFunc(convertCompareFunction(depthFunction));
     }
 
     void GLES2RenderSystem::_setDepthBias(float constantBias, float slopeScaleBias)
@@ -1101,9 +1052,6 @@ namespace Ogre {
 
         if (state.twoSidedOperation)
         {
-            // NB: We should always treat CCW as front face for consistent with default
-            // culling mode. Therefore, we must take care with two-sided stencil settings.
-            flip = flipFrontFace();
             // Back
             OGRE_CHECK_GL_ERROR(glStencilMaskSeparate(GL_BACK, state.writeMask));
             OGRE_CHECK_GL_ERROR(glStencilFuncSeparate(GL_BACK, compareOp, state.referenceValue, state.compareMask));
@@ -1129,59 +1077,6 @@ namespace Ogre {
                 convertStencilOp(state.stencilFailOp, flip),
                 convertStencilOp(state.depthFailOp, flip),
                 convertStencilOp(state.depthStencilPassOp, flip)));
-        }
-    }
-
-    void GLES2RenderSystem::_setTextureUnitFiltering(size_t unit, FilterOptions minFilter,
-                FilterOptions magFilter, FilterOptions mipFilter)
-    {       
-        mMipFilter = mipFilter;
-        if(mCurTexMipCount == 0 && mMipFilter != FO_NONE)
-        {
-            mMipFilter = FO_NONE;           
-        }
-        _setTextureUnitFiltering(unit, FT_MAG, magFilter);
-        _setTextureUnitFiltering(unit, FT_MIN, minFilter);
-    }
-                
-    void GLES2RenderSystem::_setTextureUnitFiltering(size_t unit, FilterType ftype, FilterOptions fo)
-    {
-        mStateCacheManager->activateGLTextureUnit(unit);
-        switch (ftype)
-        {
-            case FT_MIN:
-                mMinFilter = fo;
-                // Combine with existing mip filter
-                mStateCacheManager->setTexParameteri(mTextureTypes[unit],
-                                GL_TEXTURE_MIN_FILTER,
-                                getCombinedMinMipFilter(mMinFilter, mMipFilter));
-                break;
-            case FT_MAG:
-                switch (fo)
-                {
-                    case FO_ANISOTROPIC: // GL treats linear and aniso the same
-                    case FO_LINEAR:
-                        mStateCacheManager->setTexParameteri(mTextureTypes[unit],
-                                        GL_TEXTURE_MAG_FILTER,
-                                        GL_LINEAR);
-                        break;
-                    case FO_POINT:
-                    case FO_NONE:
-                        mStateCacheManager->setTexParameteri(mTextureTypes[unit],
-                                        GL_TEXTURE_MAG_FILTER,
-                                        GL_NEAREST);
-                        break;
-                }
-                break;
-            case FT_MIP:
-                mMipFilter = fo;
-
-                // Combine with existing min filter
-                mStateCacheManager->setTexParameteri(mTextureTypes[unit],
-                                                     GL_TEXTURE_MIN_FILTER,
-                                                     getCombinedMinMipFilter(mMinFilter, mMipFilter));
-                
-                break;
         }
     }
 
@@ -1675,15 +1570,14 @@ namespace Ogre {
     void GLES2RenderSystem::unbindGpuProgram(GpuProgramType gptype)
     {
         mProgramManager->setActiveShader(gptype, NULL);
+        mActiveParameters[gptype].reset();
 
         if (gptype == GPT_VERTEX_PROGRAM && mCurrentVertexProgram)
         {
-            mActiveVertexGpuProgramParameters.reset();
             mCurrentVertexProgram = 0;
         }
         else if (gptype == GPT_FRAGMENT_PROGRAM && mCurrentFragmentProgram)
         {
-            mActiveFragmentGpuProgramParameters.reset();
             mCurrentFragmentProgram = 0;
         }
         RenderSystem::unbindGpuProgram(gptype);
@@ -1691,17 +1585,7 @@ namespace Ogre {
 
     void GLES2RenderSystem::bindGpuProgramParameters(GpuProgramType gptype, const GpuProgramParametersPtr& params, uint16 mask)
     {
-        switch (gptype)
-        {
-            case GPT_VERTEX_PROGRAM:
-                mActiveVertexGpuProgramParameters = params;
-                break;
-            case GPT_FRAGMENT_PROGRAM:
-                mActiveFragmentGpuProgramParameters = params;
-                break;
-            default:
-                break;
-        }
+        mActiveParameters[gptype] = params;
 
         GLSLESProgramCommon* program = NULL;
 
@@ -1819,6 +1703,7 @@ namespace Ogre {
             case VET_USHORT2_NORM:
             case VET_SHORT4_NORM:
             case VET_USHORT4_NORM:
+            case VET_INT_10_10_10_2_NORM:
                 normalised = GL_TRUE;
                 break;
             default:

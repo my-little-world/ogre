@@ -190,7 +190,7 @@ namespace Ogre {
         Vector4 getLightAs4DVector(size_t index) const;
         Vector3 getLightDirection(size_t index) const;
         Real getLightPowerScale(size_t index) const;
-        const Vector4f& getLightAttenuation(size_t index) const;
+        Vector4f getLightAttenuation(size_t index) const;
         Vector4f getSpotlightParams(size_t index) const;
         void setAmbientLightColour(const ColourValue& ambient);
         const ColourValue& getAmbientLightColour(void) const;
@@ -264,6 +264,7 @@ namespace Ogre {
         Real getNearClipDistance() const;
         Real getFarClipDistance() const;
         int getPassNumber(void) const;
+        int getMaterialLodIndex() const;
         void setPassNumber(const int passNumber);
         void incPassNumber(void);
         void updateLightCustomGpuParameter(const GpuProgramParameters::AutoConstantEntry& constantEntry, GpuProgramParameters *params) const;

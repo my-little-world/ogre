@@ -63,7 +63,7 @@ TextureAtlasSampler::TextureAtlasSampler() :
     mIsTableDataUpdated(false),
     mAutoAdjustPollPosition(true)
 {
-    mTextureAddressings->u = mTextureAddressings->v = mTextureAddressings->w = TextureUnitState::TAM_UNKNOWN;
+    mTextureAddressings->u = mTextureAddressings->v = mTextureAddressings->w = TAM_WRAP;
     memset(mIsAtlasTextureUnits, 0, sizeof(bool) * TAS_MAX_TEXTURES);
 }
 
@@ -119,9 +119,7 @@ bool TextureAtlasSampler::resolveParameters(ProgramSet* programSet)
 //-----------------------------------------------------------------------
 bool TextureAtlasSampler::resolveDependencies(ProgramSet* programSet)
 {
-    Program* vsProgram = programSet->getCpuProgram(GPT_VERTEX_PROGRAM);
     Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
-    vsProgram->addDependency(FFP_LIB_COMMON);
     psProgram->addDependency(SGX_LIB_TEXTURE_ATLAS);
 
     return true;
@@ -219,8 +217,7 @@ const char* TextureAtlasSampler::getAdressingFunctionName(TextureAddressingMode 
 {
     switch (mode)
     {
-    case TextureUnitState::TAM_WRAP: return SGX_FUNC_ATLAS_WRAP; 
-    case TextureUnitState::TAM_UNKNOWN: return SGX_FUNC_ATLAS_WRAP;
+    case TextureUnitState::TAM_WRAP: return SGX_FUNC_ATLAS_WRAP;
     case TextureUnitState::TAM_MIRROR: return SGX_FUNC_ATLAS_MIRROR;
     case TextureUnitState::TAM_CLAMP: return SGX_FUNC_ATLAS_CLAMP; 
     case TextureUnitState::TAM_BORDER: return SGX_FUNC_ATLAS_BORDER; 
@@ -373,7 +370,7 @@ void TextureAtlasSamplerFactory::writeInstance(MaterialSerializer* ser, SubRende
 }
 
 //-----------------------------------------------------------------------
-bool TextureAtlasSamplerFactory::addTexutreAtlasDefinition( const Ogre::String& filename, TextureAtlasTablePtr textureAtlasTable )
+bool TextureAtlasSamplerFactory::addTexutreAtlasDefinition( const Ogre::String& filename, const TextureAtlasTablePtr& textureAtlasTable )
 {
     std::ifstream inp;
     inp.open(filename.c_str(), std::ios::in | std::ios::binary);
@@ -387,7 +384,7 @@ bool TextureAtlasSamplerFactory::addTexutreAtlasDefinition( const Ogre::String& 
 
 }
 //-----------------------------------------------------------------------
-bool TextureAtlasSamplerFactory::addTexutreAtlasDefinition( DataStreamPtr stream, TextureAtlasTablePtr textureAtlasTable )
+bool TextureAtlasSamplerFactory::addTexutreAtlasDefinition( const DataStreamPtr& stream, const TextureAtlasTablePtr& textureAtlasTable )
 {
     stream->seek(0);
 

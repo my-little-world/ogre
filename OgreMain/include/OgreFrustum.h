@@ -42,20 +42,6 @@ namespace Ogre
     /** \addtogroup Scene
     *  @{
     */
-    /** Specifies orientation mode.
-    */
-    enum OrientationMode : uint8
-    {
-        OR_DEGREE_0       = 0,
-        OR_DEGREE_90      = 1,
-        OR_DEGREE_180     = 2,
-        OR_DEGREE_270     = 3,
-
-        OR_PORTRAIT       = OR_DEGREE_0,
-        OR_LANDSCAPERIGHT = OR_DEGREE_90,
-        OR_LANDSCAPELEFT  = OR_DEGREE_270
-    };
-
     /** Specifies perspective (realistic) or orthographic (architectural) projection.
     */
     enum ProjectionType : uint8
@@ -105,8 +91,6 @@ namespace Ogre
         mutable Quaternion mLastParentOrientation;
         mutable Vector3 mLastParentPosition;
 
-        /// Pre-calced projection matrix for the specific render system
-        mutable Matrix4 mProjMatrixRS;
         /// Pre-calced standard projection matrix but with render system depth range
         mutable Matrix4 mProjMatrixRSDepth;
         /// Pre-calced standard projection matrix
@@ -155,9 +139,6 @@ namespace Ogre
         /// Signal to update view information.
         virtual void invalidateView(void) const;
 
-        /// Shared class-level name for Movable type
-        static String msMovableType;
-
         ColourValue mDebugColour;
         /// Pointer to a reflection plane (automatically updated)
         const MovablePlane* mLinkedReflectPlane;
@@ -182,8 +163,6 @@ namespace Ogre
         bool mReflect;
         /// Is this frustum using an oblique depth projection?
         bool mObliqueDepthProjection;
-        /// Frustum orientation mode
-        mutable OrientationMode mOrientationMode;
 
     public:
 
@@ -316,13 +295,6 @@ namespace Ogre
         /** Get the extents of the frustum in view space. */
         RealRect getFrustumExtents() const;
 
-        /** Gets the projection matrix for this frustum adjusted for the current
-            rendersystem specifics (may be right or left-handed, depth range
-            may vary).
-
-            @deprecated do not use
-        */
-        OGRE_DEPRECATED const Matrix4& getProjectionMatrixRS(void) const;
         /** Gets the depth-adjusted projection matrix for the current rendersystem
 
             This differs from the rendering-API independent @ref getProjectionMatrix
@@ -624,19 +596,6 @@ namespace Ogre
         /** Gets a world-space list of planes enclosing the frustum.
         */
         PlaneBoundedVolume getPlaneBoundedVolume();
-        /** Set the orientation mode of the frustum. Default is OR_DEGREE_0
-
-            Setting the orientation of a frustum is only supported on
-            iOS at this time.  An exception is thrown on other platforms.
-        */
-        void setOrientationMode(OrientationMode orientationMode);
-
-        /** Get the orientation mode of the frustum.
-
-            Getting the orientation of a frustum is only supported on
-            iOS at this time.  An exception is thrown on other platforms.
-        */
-        OrientationMode getOrientationMode() const;
 
     };
 

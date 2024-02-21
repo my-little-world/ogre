@@ -63,6 +63,8 @@ bool FFPTexturing::resolveParameters(ProgramSet* programSet)
     for (auto & i : mTextureUnitParamsList)
     {
         TextureUnitParams* curParams = &i;
+        if(!curParams->mTextureUnitState)
+            continue;
 
         if (false == resolveUniformParams(curParams, programSet))
             return false;
@@ -229,6 +231,8 @@ bool FFPTexturing::addFunctionInvocations(ProgramSet* programSet)
     for (auto & i : mTextureUnitParamsList)
     {
         TextureUnitParams* curParams = &i;
+        if(!curParams->mTextureUnitState)
+            continue;
 
         if (false == addVSFunctionInvocations(curParams, vsMain))
             return false;
@@ -319,7 +323,7 @@ bool FFPTexturing::addPSFunctionInvocations(TextureUnitParams* textureUnitParams
 
     if(mLateAddBlend && colourBlend.operation == LBX_ADD)
     {
-        groupOrder = FFP_PS_COLOUR_END + 50 + 1; // after PBR lighting
+        groupOrder = FFP_PS_COLOUR_END + 50 + 20; // after PBR lighting
     }
 
     // Build colours blend
@@ -462,12 +466,6 @@ void FFPTexturing::addPSBlendInvocations(Function* psMain,
 }
 
 //-----------------------------------------------------------------------
-TexCoordCalcMethod FFPTexturing::getTexCalcMethod(TextureUnitState* textureUnitState)
-{
-    return textureUnitState->_deriveTexCoordCalcMethod();
-}
-
-//-----------------------------------------------------------------------
 bool FFPTexturing::needsTextureMatrix(TextureUnitState* textureUnitState)
 {
     const TextureUnitState::EffectMap&      effectMap = textureUnitState->getEffects(); 
@@ -537,9 +535,18 @@ bool FFPTexturing::preAddToRenderState(const RenderState* renderState, Pass* src
 
     setTextureUnitCount(srcPass->getTextureUnitStates().size());
 
+    std::set<uint16> nonFFP_TUS;
+    auto nonFFPany = srcPass->getUserObjectBindings().getUserAny("_RTSS_nonFFP_TUS");
+    if(nonFFPany.has_value())
+    {
+        nonFFP_TUS = any_cast<std::set<uint16>>(nonFFPany);
+    }
+
     // Build texture stage sub states.
     for (unsigned short i=0; i < srcPass->getNumTextureUnitStates(); ++i)
-    {       
+    {
+        if(nonFFP_TUS.find(i) != nonFFP_TUS.end())
+            continue;
         TextureUnitState* texUnitState = srcPass->getTextureUnitState(i);
         setTextureUnit(i, texUnitState);
     }   
@@ -575,6 +582,9 @@ void FFPTexturing::setTextureUnit(unsigned short index, TextureUnitState* textur
     curParams.mTextureSamplerIndex = index;
     curParams.mTextureUnitState    = textureUnitState;
 
+    if(textureUnitState->isTextureLoadFailing()) // -> will be set to a 2D texture
+        return;
+
     bool isGLES2 = ShaderGenerator::getSingleton().getTargetLanguage() == "glsles";
 
     switch (curParams.mTextureUnitState->getTextureType())
@@ -606,9 +616,6 @@ void FFPTexturing::setTextureUnit(unsigned short index, TextureUnitState* textur
         curParams.mVSInTextureCoordinateType = GCT_FLOAT3;
         break;
     }   
-
-    if(textureUnitState->isTextureLoadFailing())
-        return;
 
      curParams.mVSOutTextureCoordinateType = curParams.mVSInTextureCoordinateType;
      curParams.mTexCoordCalcMethod = textureUnitState->_deriveTexCoordCalcMethod();

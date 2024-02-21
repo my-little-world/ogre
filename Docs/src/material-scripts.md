@@ -72,21 +72,34 @@ The outermost section of a material definition does not have a lot of attributes
 
 ## lod\_strategy
 
-Sets the name of the LOD strategy to use. Defaults to ’Distance’ which means LOD changes based on distance from the camera. Also supported is ’PixelCount’ which changes LOD based on an estimate of the screen-space pixels affected. 
+Sets the name of the LOD strategy to be used.
+
 @par
-Format: lod\_strategy &lt;name&gt;<br> Default: lod\_strategy Distance
+Format: lod\_strategy &lt;name&gt;
+@par
+Default: lod\_strategy distance_sphere
+
+@par Valid values are:
+- @c distance_sphere which means LOD changes based on distance from the camera (calculated via the bounding sphere radius).
+- @c distance_box behaves the same as 'distance_sphere' except that it uses the object’s bounding box to approximate the distance.
+- @c pixel_count changes LOD levels based on an absolute estimate of the screen-space pixels occupied (internally approximated via the bounding radius).
+- @c screen_ratio_pixel_count sets that absolute screen space value in relation to the screen size (1.0 = object covering complete screen, 0.5 = half screen covered by object, etc.).
 
 <a name="lod_005fvalues"></a>
 <a name="lod_005fvalues-1"></a>
 
 ## lod\_values
 
-This attribute defines the values used to control the LOD transition for this material. By setting this attribute, you indicate that you want this material to alter the Technique that it uses based on some metric, such as the distance from the camera, or the approximate screen space coverage. The exact meaning of these values is determined by the option you select for [lod\_strategy](#lod_005fstrategy) - it is a list of distances for the ’Distance’ strategy, and a list of pixel counts for the ’PixelCount’ strategy, for example. You must give it a list of values, in order from highest LOD value to lowest LOD value, each one indicating the point at which the material will switch to the next LOD. Implicitly, all materials activate LOD index 0 for values less than the first entry, so you do not have to specify ’0’ at the start of the list. You must ensure that there is at least one Technique with a [lod\_index](#lod_005findex) value for each value in the list (so if you specify 3 values, you must have techniques for LOD indexes 0, 1, 2 and 3). Note you must always have at least one Technique at lod\_index 0.
+This attribute defines the values used to control the LOD transition for this material. By setting this attribute, you indicate that you want this material to alter the Technique that it uses based on some metric, such as the distance from the camera, or the approximate screen space coverage. The exact meaning of these values is determined by the option you select for [lod\_strategy](#lod_005fstrategy) - it is a list of distances for the @c distance_sphere strategy, and a list of pixel counts for the @c pixel_count strategy, for example. You must give it a list of values, in order from highest LOD value to lowest LOD value, each one indicating the point at which the material will switch to the next LOD. All materials automatically activate LOD index 0 for values less than the first entry, so you don't have to explicitly specify this. Additionally, if there is no technique that matches the active LOD index, a technique with a lower LOD index will be used instead. Therefore, it is important to always have at least one technique with LOD index 0.
 
 @par
-Format: lod\_values &lt;value0&gt; &lt;value1&gt; &lt;value2&gt; ...<br> Default: none
+Format: lod\_values &lt;value0&gt; &lt;value1&gt; &lt;value2&gt; ...
 @par
-Example: <br> lod\_strategy Distance lod\_values 300.0 600.5 1200
+Default: none
+@par Example:
+lod\_strategy distance_sphere
+@par
+lod\_values 300.0 600.5 1200
 
 The above example would cause the material to use the best Technique at lod\_index 0 up to a distance of 300 world units, the best from lod\_index 1 from 300 up to 600, lod\_index 2 from 600 to 1200, and lod\_index 3 from 1200 upwards.
 
@@ -179,7 +192,7 @@ Format: lod\_index &lt;number&gt;<br> NB Valid values are 0 (highest level of de
 @par
 Example: lod\_index 1
 
-All techniques must belong to a LOD index, by default they all belong to index 0, i.e. the highest LOD. Increasing indexes denote lower levels of detail. You can (and often will) assign more than one technique to the same LOD index, what this means is that OGRE will pick the best technique of the ones listed at the same LOD index. For readability, it is advised that you list your techniques in order of LOD, then in order of preference, although the latter is the only prerequisite (OGRE determines which one is ’best’ by which one is listed first). You must always have at least one Technique at lod\_index 0. The distance at which a LOD level is applied is determined by the lod\_distances attribute of the containing material, See [lod\_distances](#lod_005fdistances) for details.
+All techniques are automatically assigned to a LOD index, with the default being index 0, which corresponds to the highest LOD. Increasing indexes denote lower levels of detail. You can (and often will) assign more than one technique to the same LOD index, what this means is that OGRE will pick the best technique of the ones listed at the same LOD index. For readability, it is advised that you list your techniques in order of LOD, then in order of preference, although the latter is the only prerequisite (OGRE determines which one is ’best’ by which one is listed first). You must always have at least one Technique at lod\_index 0. The distance at which a LOD level is applied is determined by the [lod_values](#lod_005fvalues) attribute of the containing material.
 
 @par
 Default: lod\_index 0
@@ -252,7 +265,6 @@ Here are the attributes you can use in a ’pass’ section of a .material scrip
 -   [light\_clip\_planes](#light_005fclip_005fplanes)
 -   [illumination\_stage](#illumination_005fstage)
 -   [transparent\_sorting](#transparent_005fsorting)
--   [normalise\_normals](#normalise_005fnormals)
 -   [cull\_hardware](#cull_005fhardware)
 -   [cull\_software](#cull_005fsoftware)
 -   [lighting](#lighting)
@@ -426,7 +438,7 @@ This directive changes the operation which is applied between the two components
 @par
 Format: scene\_blend\_op &lt;op&gt; 
 
-@copydoc Ogre::Pass::setSceneBlendingOperation
+@copydetails Ogre::Pass::setSceneBlendingOperation
 You may change this to ’add’, ’subtract’, ’reverse_subtract’, ’min’ or ’max’.
 
 <a name="separate_005fscene_005fblend_005fop"></a><a name="separate_005fscene_005fblend_005fop-1"></a>
@@ -561,19 +573,6 @@ Default: light\_clip\_planes off
 
 @par
 Format: illumination\_stage &lt;ambient|per\_light|decal&gt; Default: none (autodetect)
-
-<a name="normalise_005fnormals"></a><a name="normalise_005fnormals-1"></a>
-
-## normalise\_normals
-
-Sets whether or not this pass renders with all vertex normals being automatically re-normalised.<br>
-@par
-Format: normalise\_normals &lt;on|off&gt;
-
-@copydetails Ogre::Pass::setNormaliseNormals
-
-@par
-Default: normalise\_normals off<br>
 
 <a name="transparent_005fsorting"></a><a name="transparent_005fsorting-1"></a>
 
@@ -954,6 +953,7 @@ Here are the attributes you can use in a @c texture_unit section of a .material 
 -   [transform](#transform)
 -   [content\_type](#content_005ftype)
 -   [sampler_ref](#sampler_ref)
+-   [unordered_access_mip](#unordered_access_mip)
 
 @note Furthermore all attributes of @ref Samplers are available. Using any of them will create a new Ogre::Sampler local to the texture unit.
 This means that any changes you made to the Default Sampler e.g. via Ogre::MaterialManager::setDefaultTextureFiltering have no effect anymore.
@@ -1085,7 +1085,7 @@ Format: content\_type &lt;type&gt; \[&lt;compositorName&gt;\] \[&lt;textureName&
 <dl compact="compact">
 <dt>named</dt> <dd>
 
-@copydoc Ogre::TextureUnitState::CONTENT_NAMED
+@copybrief Ogre::TextureUnitState::CONTENT_NAMED
 
 </dd> <dt>shadow</dt> <dd>
 
@@ -1093,7 +1093,7 @@ This option allows you to pull in a shadow texture, and is only valid when you u
 
 </dd> <dt>compositor</dt> <dd>
 
-@copydoc Ogre::TextureUnitState::CONTENT_COMPOSITOR This can be either in a render\_scene directive inside a compositor script, or in a general pass in a viewport that has a compositor attached. Note that this is a reference only, meaning that it does not change the render order. You must make sure that the order is reasonable for what you are trying to achieve (for example, texture pooling might cause the referenced texture to be overwritten by something else by the time it is referenced).
+@copybrief Ogre::TextureUnitState::CONTENT_COMPOSITOR This can be either in a render\_scene directive inside a compositor script, or in a general pass in a viewport that has a compositor attached. Note that this is a reference only, meaning that it does not change the render order. You must make sure that the order is reasonable for what you are trying to achieve (for example, texture pooling might cause the referenced texture to be overwritten by something else by the time it is referenced).
 
 </dd> </dl>
 
@@ -1110,7 +1110,8 @@ Default: content\_type named
 
 ## tex\_coord\_set
 
-@copydoc Ogre::TextureUnitState::setTextureCoordSet
+@copybrief Ogre::TextureUnitState::setTextureCoordSet
+@copydetails Ogre::TextureUnitState::setTextureCoordSet
 
 @par
 Format: tex\_coord\_set &lt;set\_num&gt;
@@ -1193,7 +1194,7 @@ Environment maps make an object look reflective by using automatic texture coord
 <dl compact="compact">
 <dt>spherical</dt> <dd>
 
-@copydoc Ogre::TextureUnitState::ENV_CURVED
+@copybrief Ogre::TextureUnitState::ENV_CURVED
 Requires a single texture which is either a fish-eye lens view of the reflected scene, or some other texture which looks good as a spherical map (a texture of glossy highlights is popular especially in car sims). This effect is based on the relationship between the eye direction and the vertex normals of the object, so works best when there are a lot of gradually changing normals, i.e. curved objects.
 
 </dd> <dt>planar</dt> <dd>
@@ -1204,11 +1205,11 @@ The effect is based on the position of the vertices in the viewport rather than 
 
 </dd> <dt>cubic\_reflection</dt> <dd>
 
-@copydoc Ogre::TextureUnitState::ENV_REFLECTION
+@copybrief Ogre::TextureUnitState::ENV_REFLECTION
 Uses a group of 6 textures making up the inside of a cube, each of which is a view if the scene down each axis. Works extremely well in all cases but has a higher technical requirement from the card than spherical mapping. Requires that you bind a [cubic texture](#texture) to this unit.
 
 </dd> <dt>cubic\_normal</dt> <dd>
-@copydoc Ogre::TextureUnitState::ENV_NORMAL
+@copybrief Ogre::TextureUnitState::ENV_NORMAL
 Generates 3D texture coordinates containing the camera space normal vector from the normal information held in the vertex data. Again, use of this feature requires a [cubic texture](#texture).
 
 </dd> </dl> <br>
@@ -1342,6 +1343,17 @@ Format: sampler_ref &lt;name&gt;
 @par
 Example: sampler_ref mySampler
 
+<a name="unordered_access_mip"></a>
+## unordered_access_mip
+
+@copybrief Ogre::TextureUnitState::setUnorderedAccessMipLevel
+
+@par
+Format: unordered_access_mip &lt;mipLevel&gt;
+
+@par
+Example: unordered_access_mip 0
+
 # Samplers {#Samplers}
 
 Samplers allow you to quickly change the settings for all associated Textures. Typically you have many Textures but only a few sampling states in your application.
@@ -1411,16 +1423,24 @@ Format: filtering &lt;none|bilinear|trilinear|anisotropic&gt;<br> Default: filte
 
 <dl compact="compact">
 <dt>none</dt> <dd>
-@copydoc Ogre::TFO_NONE
+@copybrief Ogre::TFO_NONE
+
+@copydetails Ogre::TFO_NONE
 </dd> 
 <dt>bilinear</dt> <dd> 
-@copydoc Ogre::TFO_BILINEAR 
+@copybrief Ogre::TFO_BILINEAR
+
+@copydetails Ogre::TFO_BILINEAR
 </dd> 
 <dt>trilinear</dt> <dd> 
-@copydoc Ogre::TFO_TRILINEAR
+@copybrief Ogre::TFO_TRILINEAR
+
+@copydetails Ogre::TFO_TRILINEAR
 </dd> 
 <dt>anisotropic</dt> <dd> 
-@copydoc Ogre::TFO_ANISOTROPIC
+@copybrief Ogre::TFO_ANISOTROPIC
+
+@copydetails Ogre::TFO_ANISOTROPIC
 </dd> </dl> 
 
 ### Complex Format
@@ -1458,7 +1478,9 @@ Format: mipmap\_bias &lt;value&gt;<br> Default: mipmap\_bias 0
 <a name="compare_test"></a>
 ## compare_test
 
-@copydoc Ogre::Sampler::setCompareEnabled
+@copybrief Ogre::Sampler::setCompareEnabled
+
+@copydetails Ogre::Sampler::setCompareEnabled
 
 @par
 Format: compare_test on
@@ -1478,7 +1500,7 @@ Format: comp_func &lt;func&gt;
 
 # Using GPU Programs in a Pass {#Using-Vertex_002fGeometry_002fFragment-Programs-in-a-Pass}
 
-Within a pass section of a material script, you can reference a vertex, geometry and / or a fragment program which is been defined in a .program script (See [GPU Program Scripts](@ref Declaring-Vertex_002fGeometry_002fFragment-Programs)). The programs are defined separately from the usage of them in the pass, since the programs are very likely to be reused between many separate materials, probably across many different .material scripts, so this approach lets you define the program only once and use it many times.
+Within a pass section of a material script, you can reference a vertex, geometry, tessellation, compute, and / or a fragment program which has been defined in @ref High-level-Programs. The programs are defined separately from the usage of them in the pass, since the programs are very likely to be reused between many separate materials, probably across many different .material scripts, so this approach lets you define the program only once and use it many times.
 
 As well as naming the program in question, you can also provide parameters to it. Here’s a simple example:
 
@@ -1492,11 +1514,13 @@ vertex_program_ref myVertexProgram
 
 In this example, we bind a vertex program called ’myVertexProgram’ (which will be defined elsewhere) to the pass, and give it 2 parameters, one is an ’auto’ parameter, meaning we do not have to supply a value as such, just a recognised code (in this case it’s the world/view/projection matrix which is kept up to date automatically by Ogre). The second parameter is a manually specified parameter, a 4-element float. The indexes are described later.
 
-The syntax of the link to a vertex program and a fragment or geometry program are identical, the only difference is that ’fragment\_program\_ref’ and ’geometry\_program\_ref’ are used respectively instead of ’vertex\_program\_ref’.
+The syntax of the link to a vertex program and a fragment or geometry program are identical, the only difference is that `fragment_program_ref` and `geometry_program_ref` are used respectively instead of `vertex_program_ref`. For tessellation shaders, use `tessellation_hull_program_ref` and `tessellation_domain_program_ref` to link to the hull tessellation program and the domain tessellation program respectively. Compute shader programs can be linked with `compute_program_ref`.
 
-For many situations vertex, geometry and fragment programs are associated with each other in a pass but this is not cast in stone. You could have a vertex program that can be used by several different fragment programs. Another situation that arises is that you can mix fixed pipeline and programmable pipeline (shaders) together. You could use the non-programmable vertex fixed function pipeline and then provide a fragment\_program\_ref in a pass i.e. there would be no vertex\_program\_ref section in the pass. The fragment program referenced in the pass must meet the requirements as defined in the related API in order to read from the outputs of the vertex fixed pipeline. You could also just have a vertex program that outputs to the fragment fixed function pipeline.
+For many situations vertex, geometry and fragment programs are associated with each other in a pass but this is not cast in stone. You could have a vertex program that can be used by several different fragment programs.
 
-The requirements to read from or write to the fixed function pipeline are similar between rendering API’s (DirectX and OpenGL) but how its actually done in each type of shader (vertex, geometry or fragment) depends on the shader language. For HLSL (DirectX API) and associated asm consult MSDN at <http://msdn.microsoft.com/library/>. For GLSL (OpenGL), consult section 7.6 of the GLSL spec 1.1 available at <http://www.opengl.org/registry/>. The built in varying variables provided in GLSL allow your program to read/write to the fixed function pipeline varyings. For Cg consult the Language Profiles section in CgUsersManual.pdf that comes with the Cg Toolkit available at <https://developer.nvidia.com/cg-toolkit>. For HLSL and Cg its the varying bindings that allow your shader programs to read/write to the fixed function pipeline varyings.
+Moreover, older APIs permit the use of both fixed pipeline and programmable pipeline (shaders) simultaneously. Specifically, the OpenGL compatibility profile and Direct3D SM2.x allow this.
+You can utilize the vertex fixed function pipeline and just provide a @c fragment_program_ref in a pass, with no vertex program reference included. The fragment program must comply with the specified requirements of the related API in order to access the outputs of the vertex fixed pipeline. Alternatively, you can employ a vertex program that directly feeds into the fragment fixed function pipeline.
+Most of Ogre's render systems do not support the Fixed Function pipeline. In that case, if you supply vertex shader, you will need to supply a fragment shader as well.
 
 # Adding new Techniques, Passes, to copied materials {#Adding-new-Techniques_002c-Passes_002c-to-copied-materials_003a}
 

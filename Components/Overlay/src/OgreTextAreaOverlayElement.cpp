@@ -105,7 +105,6 @@ namespace Ogre {
     #define UNICODE_CR 0x000D
     #define UNICODE_LF 0x000A
     #define UNICODE_SPACE 0x0020
-    #define UNICODE_ZERO 0x0030
     //---------------------------------------------------------------------
     TextAreaOverlayElement::TextAreaOverlayElement(const String& name)
         : OverlayElement(name), mColourBottom(ColourValue::White), mColourTop(ColourValue::White)
@@ -149,7 +148,7 @@ namespace Ogre {
             mRenderOp.operationType = RenderOperation::OT_TRIANGLE_LIST;
             mRenderOp.useIndexes = false;
             mRenderOp.vertexData->vertexStart = 0;
-            mRenderOp.useGlobalInstancingVertexBufferIsAvailable = false;
+            mRenderOp.useGlobalInstancing = false;
             // Vertex buffer will be created in checkMemoryAllocation
 
             mInitialised = true;
@@ -246,12 +245,6 @@ namespace Ogre {
         float left = _getDerivedLeft() * 2.0f - 1.0f;
         float top = -( (_getDerivedTop() * 2.0f ) - 1.0f );
 
-        // Derive space with from a number 0
-        if(mSpaceWidth == 0)
-        {
-            mSpaceWidth = mFont->getGlyphInfo(UNICODE_ZERO).advance * mCharHeight;
-        }
-
         // Use iterator
         auto iend = decoded.end();
         bool newLine = true;
@@ -269,7 +262,7 @@ namespace Ogre {
                     {
                         break;
                     }
-                    else if (character == UNICODE_SPACE) // space
+                    else if (character == UNICODE_SPACE && mSpaceWidth) // space
                     {
                         len += mSpaceWidth * 2.0f * mViewportAspectCoef;
                     }
@@ -312,7 +305,7 @@ namespace Ogre {
                 }
                 continue;
             }
-            else if (character == UNICODE_SPACE) // space
+            else if (character == UNICODE_SPACE && mSpaceWidth) // space
             {
                 // Just leave a gap, no tris
                 left += mSpaceWidth * 2.0f * mViewportAspectCoef;
@@ -324,6 +317,15 @@ namespace Ogre {
             const auto& glyphInfo = mFont->getGlyphInfo(character);
             Real horiz_height = glyphInfo.aspectRatio * mViewportAspectCoef ;
             const Font::UVRect& uvRect = glyphInfo.uvRect;
+
+            if(uvRect.isNull())
+            {
+                // Just leave a gap, no tris
+                left += glyphInfo.advance * mCharHeight * 2.0f * mViewportAspectCoef;
+                // Also reduce tri count
+                mRenderOp.vertexData->vertexCount -= 6;
+                continue;
+            }
 
             left += glyphInfo.bearing * mCharHeight * 2 * mViewportAspectCoef;
 

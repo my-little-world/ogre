@@ -115,7 +115,7 @@ void RTShaderSRSSegmentedLights::updateGpuProgramsParams(Renderable* rend, const
             // Update light attenuation parameters.
             curParams.mSpotParams->setGpuParameter(Ogre::Vector3(1 / srcLight->getAttenuationRange(),0,0));
             break;
-
+        case Light::LT_RECTLIGHT:
         case Light::LT_SPOTLIGHT:
             {                       
                 Ogre::Vector3 vec3;
@@ -318,6 +318,7 @@ bool RTShaderSRSSegmentedLights::resolvePerLightParameters(ProgramSet* programSe
     {       
         switch (i.mType)
         {
+        case Light::LT_RECTLIGHT:
         case Light::LT_DIRECTIONAL:
             i.mDirection = psProgram->resolveParameter(GCT_FLOAT3, -1, (uint16)GPV_LIGHTS, "light_direction_space");
             break;
@@ -364,10 +365,8 @@ bool RTShaderSRSSegmentedLights::resolveDependencies(ProgramSet* programSet)
     Program* vsProgram = programSet->getCpuProgram(GPT_VERTEX_PROGRAM);
     Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
 
-    vsProgram->addDependency(FFP_LIB_COMMON);
     vsProgram->addDependency(SL_LIB_PERPIXELLIGHTING);
 
-    psProgram->addDependency(FFP_LIB_COMMON);
     psProgram->addDependency(SL_LIB_PERPIXELLIGHTING);
 
     return true;
@@ -593,7 +592,7 @@ bool RTShaderSRSSegmentedLights::addPSIlluminationInvocation(LightParams* curLig
     
     switch (curLightParams->mType)
     {
-
+    case Light::LT_RECTLIGHT:
     case Light::LT_DIRECTIONAL:         
         if (mSpecularEnable)
         {               
@@ -716,11 +715,7 @@ void RTShaderSRSSegmentedLights::copyFrom(const SubRenderState& rhs)
     const RTShaderSRSSegmentedLights& rhsLighting = static_cast<const RTShaderSRSSegmentedLights&>(rhs);
 
     mUseSegmentedLightTexture = rhsLighting.mUseSegmentedLightTexture;
-    
-    int lightCount[3];
-
-    rhsLighting.getLightCount(lightCount);
-    setLightCount(lightCount);
+    mLightParamsList = rhsLighting.mLightParamsList;
 }
 
 //-----------------------------------------------------------------------
@@ -742,7 +737,7 @@ bool RTShaderSRSSegmentedLights::preAddToRenderState(const RenderState* renderSt
         setSpecularEnable(false);   
     }
 
-    setLightCount(renderState->getLightCount().ptr());
+    setLightCount(renderState->getLightCount());
 
     if (mUseSegmentedLightTexture)
     {
@@ -759,7 +754,7 @@ bool RTShaderSRSSegmentedLights::preAddToRenderState(const RenderState* renderSt
 }
 
 //-----------------------------------------------------------------------
-void RTShaderSRSSegmentedLights::setLightCount(const int lightCount[3])
+void RTShaderSRSSegmentedLights::setLightCount(int lightCount)
 {
     mLightParamsList.clear();
     //Set always to have one single directional lights
@@ -767,44 +762,15 @@ void RTShaderSRSSegmentedLights::setLightCount(const int lightCount[3])
     curParams.mType = Light::LT_DIRECTIONAL;
     mLightParamsList.push_back(curParams);
 
-    for (int type=0; type < 3; ++type)
+    curParams.mType = Light::LT_POINT;
+    for (int i=0; i < lightCount; ++i)
     {
-        for (int i=0; i < lightCount[type]; ++i)
+        if ((!mUseSegmentedLightTexture) || (curParams.mType == Light::LT_DIRECTIONAL))
         {
-            
-            if (type == 0)
-                curParams.mType = Light::LT_POINT;
-            //else if (type == 1)
-            //  curParams.mType = Light::LT_DIRECTIONAL;
-            else if (type == 2)
-                curParams.mType = Light::LT_SPOTLIGHT;      
-
-            if ((!mUseSegmentedLightTexture) || (curParams.mType == Light::LT_DIRECTIONAL))
-            {
-                mLightParamsList.push_back(curParams);
-            }
+            mLightParamsList.push_back(curParams);
         }
-    }           
-}
-
-//-----------------------------------------------------------------------
-void RTShaderSRSSegmentedLights::getLightCount(int lightCount[3]) const
-{
-    lightCount[0] = 0;
-    lightCount[1] = 0;
-    lightCount[2] = 0;
-
-    for (const auto& curParams : mLightParamsList)
-    {
-        if (curParams.mType == Light::LT_POINT)
-            lightCount[0]++;
-        else if (curParams.mType == Light::LT_DIRECTIONAL)
-            lightCount[1]++;
-        else if (curParams.mType == Light::LT_SPOTLIGHT)
-            lightCount[2]++;
     }
 }
-
 
 //-----------------------------------------------------------------------
 const String& RTShaderSRSSegmentedLightsFactory::getType() const

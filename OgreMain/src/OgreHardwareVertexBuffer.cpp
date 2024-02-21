@@ -27,15 +27,16 @@ THE SOFTWARE.
 */
 #include "OgreStableHeaders.h"
 #include "OgreHardwareVertexBuffer.h"
+
+#include <memory>
 #include "OgreDefaultHardwareBufferManager.h"
 
 namespace Ogre {
 
     //-----------------------------------------------------------------------------
-    HardwareVertexBuffer::HardwareVertexBuffer(HardwareBufferManagerBase* mgr, size_t vertexSize,  
-        size_t numVertices, HardwareBuffer::Usage usage, 
-        bool useSystemMemory, bool useShadowBuffer) 
-        : HardwareBuffer(usage, useSystemMemory, useShadowBuffer),
+    HardwareVertexBuffer::HardwareVertexBuffer(HardwareBufferManagerBase* mgr, size_t vertexSize,
+        size_t numVertices, HardwareBuffer::Usage usage, bool useShadowBuffer)
+        : HardwareBuffer(usage, useShadowBuffer),
           mIsInstanceData(false),
           mMgr(mgr),
           mNumVertices(numVertices),
@@ -48,14 +49,13 @@ namespace Ogre {
         // Create a shadow buffer if required
         if (useShadowBuffer)
         {
-            mShadowBuffer.reset(new DefaultHardwareBuffer(mSizeInBytes));
+            mShadowBuffer = std::make_unique<DefaultHardwareBuffer>(mSizeInBytes);
         }
 
     }
     HardwareVertexBuffer::HardwareVertexBuffer(HardwareBufferManagerBase* mgr, size_t vertexSize,
                                                size_t numVertices, HardwareBuffer* delegate)
-        : HardwareVertexBuffer(mgr, vertexSize, numVertices, delegate->getUsage(), delegate->isSystemMemory(),
-                               false)
+        : HardwareVertexBuffer(mgr, vertexSize, numVertices, delegate->getUsage(), false)
     {
         mDelegate.reset(delegate);
     }
@@ -68,30 +68,17 @@ namespace Ogre {
         }
     }
     //-----------------------------------------------------------------------------
-    bool HardwareVertexBuffer::checkIfVertexInstanceDataIsSupported()
-    {
-        // Use the current render system
-        RenderSystem* rs = Root::getSingleton().getRenderSystem();
-
-        // Check if the supported  
-        return rs->getCapabilities()->hasCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA);
-    }
-    //-----------------------------------------------------------------------------
     void HardwareVertexBuffer::setIsInstanceData( const bool val )
     {
-        if (val && !checkIfVertexInstanceDataIsSupported())
-        {
-            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, 
-                "vertex instance data is not supported by the render system.", 
-                "HardwareVertexBuffer::checkIfInstanceDataSupported");
-        }
-        else
-        {
-            mIsInstanceData = val;  
-        }
+        RenderSystem* rs = Root::getSingleton().getRenderSystem();
+
+        OgreAssert(!val || rs->getCapabilities()->hasCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA),
+                   "unsupported by rendersystem");
+
+        mIsInstanceData = val;
     }
     //-----------------------------------------------------------------------------
-    size_t HardwareVertexBuffer::getInstanceDataStepRate() const
+    uint32 HardwareVertexBuffer::getInstanceDataStepRate() const
     {
         return mInstanceDataStepRate;
     }
@@ -504,7 +491,7 @@ namespace Ogre {
     }
     //-----------------------------------------------------------------------------
     // Sort routine for VertexElement
-    bool VertexDeclaration::vertexElementLess(const VertexElement& e1, const VertexElement& e2)
+    static bool vertexElementLess(const VertexElement& e1, const VertexElement& e2)
     {
         // Sort by source first
         if (e1.getSource() < e2.getSource())
@@ -531,7 +518,7 @@ namespace Ogre {
     }
     void VertexDeclaration::sort(void)
     {
-        mElementList.sort(VertexDeclaration::vertexElementLess);
+        mElementList.sort(vertexElementLess);
     }
     //-----------------------------------------------------------------------------
     void VertexDeclaration::closeGapsInSource(void)

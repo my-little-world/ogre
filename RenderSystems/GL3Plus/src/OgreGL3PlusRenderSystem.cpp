@@ -252,7 +252,6 @@ namespace Ogre {
 
         // Point sprites
         rsc->setCapability(RSC_POINT_SPRITES);
-        rsc->setCapability(RSC_POINT_EXTENDED_PARAMETERS);
 
         // Check for hardware stencil support and set bit depth
         rsc->setCapability(RSC_HWSTENCIL);
@@ -307,7 +306,6 @@ namespace Ogre {
         GLint buffers;
         OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_DRAW_BUFFERS, &buffers));
         rsc->setNumMultiRenderTargets(std::min<int>(buffers, (GLint)OGRE_MAX_MULTIPLE_RENDER_TARGETS));
-        rsc->setCapability(RSC_MRT_DIFFERENT_BIT_DEPTHS);
 
         // Stencil wrapping
         rsc->setCapability(RSC_STENCIL_WRAP);
@@ -396,8 +394,7 @@ namespace Ogre {
         // Tessellation Program Properties
         if (hasMinGLVersion(4, 0) || checkExtension("GL_ARB_tessellation_shader"))
         {
-            rsc->setCapability(RSC_TESSELLATION_HULL_PROGRAM);
-            rsc->setCapability(RSC_TESSELLATION_DOMAIN_PROGRAM);
+            rsc->setCapability(RSC_TESSELLATION_PROGRAM);
 
             OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_TESS_CONTROL_UNIFORM_COMPONENTS, &constantCount));
             // float params
@@ -468,13 +465,6 @@ namespace Ogre {
 
     void GL3PlusRenderSystem::initialiseFromRenderSystemCapabilities(RenderSystemCapabilities* caps, RenderTarget* primary)
     {
-        if (caps->getRenderSystemName() != getName())
-        {
-            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
-                        "Trying to initialize GL3PlusRenderSystem from RenderSystemCapabilities that do not support OpenGL 3+",
-                        "GL3PlusRenderSystem::initialiseFromRenderSystemCapabilities");
-        }
-
         mProgramManager = new GLSLProgramManager(this);
         // Create GLSL shader factory
         mGLSLShaderFactory = new GLSLShaderFactory();
@@ -726,17 +716,6 @@ namespace Ogre {
         static_cast<GL3PlusSampler&>(sampler).bind(unit);
     }
 
-    void GL3PlusRenderSystem::_setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw)
-    {
-        mStateCacheManager->activateGLTextureUnit(stage);
-        mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_S,
-                                             GL3PlusSampler::getTextureAddressingMode(uvw.u));
-        mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_T,
-                                             GL3PlusSampler::getTextureAddressingMode(uvw.v));
-        mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_R,
-                                             GL3PlusSampler::getTextureAddressingMode(uvw.w));
-    }
-
     void GL3PlusRenderSystem::_setLineWidth(float width)
     {
         OGRE_CHECK_GL_ERROR(glLineWidth(width));
@@ -830,14 +809,10 @@ namespace Ogre {
     void GL3PlusRenderSystem::_setCullingMode(CullingMode mode)
     {
         mCullingMode = mode;
-        // NB: Because two-sided stencil API dependence of the front face, we must
-        // use the same 'winding' for the front face everywhere. As the OGRE default
-        // culling mode is clockwise, we also treat anticlockwise winding as front
-        // face for consistently. On the assumption that, we can't change the front
-        // face by glFrontFace anywhere.
 
         GLenum cullMode;
         bool flip = flipFrontFace();
+        OGRE_CHECK_GL_ERROR(glFrontFace(flip ? GL_CW : GL_CCW));
 
         switch( mode )
         {
@@ -845,10 +820,10 @@ namespace Ogre {
             mStateCacheManager->setEnabled( GL_CULL_FACE, false );
             return;
         case CULL_CLOCKWISE:
-            cullMode = flip ? GL_FRONT : GL_BACK;
+            cullMode = GL_BACK;
             break;
         case CULL_ANTICLOCKWISE:
-            cullMode = flip ? GL_BACK : GL_FRONT;
+            cullMode = GL_FRONT;
             break;
         }
 
@@ -863,34 +838,17 @@ namespace Ogre {
 
     void GL3PlusRenderSystem::_setDepthBufferParams(bool depthTest, bool depthWrite, CompareFunction depthFunction)
     {
-        _setDepthBufferCheckEnabled(depthTest);
-        _setDepthBufferWriteEnabled(depthWrite);
-        _setDepthBufferFunction(depthFunction);
-    }
-
-    void GL3PlusRenderSystem::_setDepthBufferCheckEnabled(bool enabled)
-    {
-        if (enabled)
+        if (depthTest)
         {
             mStateCacheManager->setClearDepth(isReverseDepthBufferEnabled() ? 0.0f : 1.0f);
         }
-        mStateCacheManager->setEnabled(GL_DEPTH_TEST, enabled);
-    }
-
-    void GL3PlusRenderSystem::_setDepthBufferWriteEnabled(bool enabled)
-    {
-        GLboolean flag = enabled ? GL_TRUE : GL_FALSE;
-        mStateCacheManager->setDepthMask( flag );
-
+        mStateCacheManager->setEnabled(GL_DEPTH_TEST, depthTest);
+        mStateCacheManager->setDepthMask( depthWrite );
         // Store for reference in _beginFrame
-        mDepthWrite = enabled;
-    }
-
-    void GL3PlusRenderSystem::_setDepthBufferFunction(CompareFunction func)
-    {
+        mDepthWrite = depthWrite;
         if(isReverseDepthBufferEnabled())
-            func = reverseCompareFunction(func);
-        mStateCacheManager->setDepthFunc(convertCompareFunction(func));
+            depthFunction = reverseCompareFunction(depthFunction);
+        mStateCacheManager->setDepthFunc(convertCompareFunction(depthFunction));
     }
 
     void GL3PlusRenderSystem::_setDepthBias(float constantBias, float slopeScaleBias)
@@ -978,16 +936,13 @@ namespace Ogre {
 
         if(!state.enabled)
             return;
-        bool flip;
+        bool flip = false;
         mStencilWriteMask = state.writeMask;
 
         auto compareOp = convertCompareFunction(state.compareOp);
 
         if (state.twoSidedOperation)
         {
-            // NB: We should always treat CCW as front face for consistent with default
-            // culling mode. Therefore, we must take care with two-sided stencil settings.
-            flip = flipFrontFace();
             // Back
             OGRE_CHECK_GL_ERROR(glStencilMaskSeparate(GL_BACK, state.writeMask));
             OGRE_CHECK_GL_ERROR(glStencilFuncSeparate(GL_BACK, compareOp, state.referenceValue, state.compareMask));
@@ -1006,55 +961,12 @@ namespace Ogre {
         }
         else
         {
-            flip = false;
             mStateCacheManager->setStencilMask(state.writeMask);
             OGRE_CHECK_GL_ERROR(glStencilFunc(compareOp, state.referenceValue, state.compareMask));
             OGRE_CHECK_GL_ERROR(glStencilOp(
                 convertStencilOp(state.stencilFailOp, flip),
                 convertStencilOp(state.depthFailOp, flip),
                 convertStencilOp(state.depthStencilPassOp, flip)));
-        }
-    }
-
-    void GL3PlusRenderSystem::_setTextureUnitFiltering(size_t unit, FilterType ftype, FilterOptions fo)
-    {
-        mStateCacheManager->activateGLTextureUnit(unit);
-        switch (ftype)
-        {
-        case FT_MIN:
-            mMinFilter = fo;
-
-            // Combine with existing mip filter
-            mStateCacheManager->setTexParameteri(
-                mTextureTypes[unit], GL_TEXTURE_MIN_FILTER,
-                GL3PlusSampler::getCombinedMinMipFilter(mMinFilter, mMipFilter));
-            break;
-
-        case FT_MAG:
-            switch (fo)
-            {
-            case FO_ANISOTROPIC: // GL treats linear and aniso the same
-            case FO_LINEAR:
-                mStateCacheManager->setTexParameteri(mTextureTypes[unit],
-                                                    GL_TEXTURE_MAG_FILTER,
-                                                    GL_LINEAR);
-                break;
-            case FO_POINT:
-            case FO_NONE:
-                mStateCacheManager->setTexParameteri(mTextureTypes[unit],
-                                                    GL_TEXTURE_MAG_FILTER,
-                                                    GL_NEAREST);
-                break;
-            }
-            break;
-        case FT_MIP:
-            mMipFilter = fo;
-
-            // Combine with existing min filter
-            mStateCacheManager->setTexParameteri(
-                mTextureTypes[unit], GL_TEXTURE_MIN_FILTER,
-                GL3PlusSampler::getCombinedMinMipFilter(mMinFilter, mMipFilter));
-            break;
         }
     }
 
@@ -1099,15 +1011,9 @@ namespace Ogre {
 
         auto numberOfInstances = op.numberOfInstances;
 
-        int operationType = op.operationType;
-        // Use adjacency if there is a geometry program and it requested adjacency info
-        auto currentGeometryShader = mCurrentShader[GPT_GEOMETRY_PROGRAM];
-        if(mGeometryProgramBound && currentGeometryShader && currentGeometryShader->isAdjacencyInfoRequired())
-            operationType |= RenderOperation::OT_DETAIL_ADJACENCY_BIT;
-
         // Determine the correct primitive type to render.
         GLint primType;
-        switch (operationType)
+        switch (op.operationType)
         {
         case RenderOperation::OT_POINT_LIST:
             primType = GL_POINTS;
@@ -1181,7 +1087,7 @@ namespace Ogre {
 
             if (op.useIndexes)
             {
-                void *pBufferData = GL_BUFFER_OFFSET(op.indexData->indexStart *
+                void *pBufferData = VBO_BUFFER_OFFSET(op.indexData->indexStart *
                                                      op.indexData->indexBuffer->getIndexSize());
                 GLenum indexType = (op.indexData->indexBuffer->getType() == HardwareIndexBuffer::IT_16BIT) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
                 OGRE_CHECK_GL_ERROR(glDrawElementsBaseVertex(GL_PATCHES, op.indexData->indexCount, indexType, pBufferData, op.vertexData->vertexStart));
@@ -1197,7 +1103,7 @@ namespace Ogre {
         }
         else if (op.useIndexes)
         {
-            void *pBufferData = GL_BUFFER_OFFSET(op.indexData->indexStart *
+            void *pBufferData = VBO_BUFFER_OFFSET(op.indexData->indexStart *
                                                  op.indexData->indexBuffer->getIndexSize());
 
             GLenum indexType = (op.indexData->indexBuffer->getType() == HardwareIndexBuffer::IT_16BIT) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
@@ -1680,32 +1586,7 @@ namespace Ogre {
     void GL3PlusRenderSystem::unbindGpuProgram(GpuProgramType gptype)
     {
         mProgramManager->setActiveShader(gptype, NULL);
-
-        if (gptype == GPT_VERTEX_PROGRAM && mCurrentShader[gptype])
-        {
-            mActiveVertexGpuProgramParameters.reset();
-        }
-        else if (gptype == GPT_GEOMETRY_PROGRAM && mCurrentShader[gptype])
-        {
-            mActiveGeometryGpuProgramParameters.reset();
-        }
-        else if (gptype == GPT_FRAGMENT_PROGRAM && mCurrentShader[gptype])
-        {
-            mActiveFragmentGpuProgramParameters.reset();
-        }
-        else if (gptype == GPT_HULL_PROGRAM && mCurrentShader[gptype])
-        {
-            mActiveTessellationHullGpuProgramParameters.reset();
-        }
-        else if (gptype == GPT_DOMAIN_PROGRAM && mCurrentShader[gptype])
-        {
-            mActiveTessellationDomainGpuProgramParameters.reset();
-        }
-        else if (gptype == GPT_COMPUTE_PROGRAM && mCurrentShader[gptype])
-        {
-            mActiveComputeGpuProgramParameters.reset();
-        }
-
+        mActiveParameters[gptype].reset();
         mCurrentShader[gptype] = NULL;
 
         RenderSystem::unbindGpuProgram(gptype);
@@ -1713,29 +1594,7 @@ namespace Ogre {
 
     void GL3PlusRenderSystem::bindGpuProgramParameters(GpuProgramType gptype, const GpuProgramParametersPtr& params, uint16 mask)
     {
-        switch (gptype)
-        {
-        case GPT_VERTEX_PROGRAM:
-            mActiveVertexGpuProgramParameters = params;
-            break;
-        case GPT_FRAGMENT_PROGRAM:
-            mActiveFragmentGpuProgramParameters = params;
-            break;
-        case GPT_GEOMETRY_PROGRAM:
-            mActiveGeometryGpuProgramParameters = params;
-            break;
-        case GPT_HULL_PROGRAM:
-            mActiveTessellationHullGpuProgramParameters = params;
-            break;
-        case GPT_DOMAIN_PROGRAM:
-            mActiveTessellationDomainGpuProgramParameters = params;
-            break;
-        case GPT_COMPUTE_PROGRAM:
-            mActiveComputeGpuProgramParameters = params;
-            break;
-        default:
-            break;
-        }
+        mActiveParameters[gptype] = params;
 
         GLSLProgram* program = NULL;
 
@@ -1806,7 +1665,7 @@ namespace Ogre {
 
         const GL3PlusHardwareBuffer* hwGlBuffer = vertexBuffer->_getImpl<GL3PlusHardwareBuffer>();
         mStateCacheManager->bindGLBuffer(GL_ARRAY_BUFFER, hwGlBuffer->getGLBufferId());
-        void* pBufferData = GL_BUFFER_OFFSET(elem.getOffset() + vertexStart * vertexBuffer->getVertexSize());
+        void* pBufferData = VBO_BUFFER_OFFSET(elem.getOffset() + vertexStart * vertexBuffer->getVertexSize());
 
         if (vertexBuffer->isInstanceData())
         {

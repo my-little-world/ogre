@@ -374,6 +374,9 @@ namespace Ogre
                     case Light::LT_SPOTLIGHT:
                         writeValue("spot");
                         break;
+                    case Light::LT_RECTLIGHT:
+                        writeValue("rect");
+                        break;
                     };
                 }
             }
@@ -705,14 +708,6 @@ namespace Ogre
                 writeValue(pPass->getPolygonModeOverrideable() ? "on" : "off");
             }
 
-            // normalise normals
-            if (mDefaults ||
-                pPass->getNormaliseNormals() != false)
-            {
-                writeAttribute(3, "normalise_normals");
-                writeValue(pPass->getNormaliseNormals() ? "on" : "off");
-            }
-
             //fog override
             if (mDefaults ||
                 pPass->getFogOverride() != false)
@@ -818,7 +813,6 @@ namespace Ogre
         case TextureUnitState::TAM_MIRROR:
             return "mirror";
         case TextureUnitState::TAM_WRAP:
-        case TextureUnitState::TAM_UNKNOWN:
             return "wrap";
         }
 
@@ -1662,7 +1656,6 @@ namespace Ogre
                 const GpuProgramParameters::AutoConstantDefinition* autoConstDef =
                     GpuProgramParameters::getAutoConstantDefinition(autoEntry->paramType);
 
-                assert(autoConstDef && "Bad auto constant Definition Table");
                 // output auto constant name
                 writeValue(quoteWord(autoConstDef->name), useMainBuffer);
                 // output data if it uses it

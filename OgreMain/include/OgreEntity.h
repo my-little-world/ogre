@@ -107,6 +107,38 @@ namespace Ogre {
         /// State of animation for animable meshes
         AnimationStateSet* mAnimationState;
 
+        /** Structure for recording the use of temporary blend buffers. */
+        class TempBlendedBufferInfo : public HardwareBufferLicensee
+        {
+        private:
+            // Pre-blended
+            HardwareVertexBufferPtr srcPositionBuffer;
+            HardwareVertexBufferPtr srcNormalBuffer;
+            // Post-blended
+            HardwareVertexBufferPtr destPositionBuffer;
+            HardwareVertexBufferPtr destNormalBuffer;
+            unsigned short posBindIndex;
+            unsigned short normBindIndex;
+            /// Both positions and normals are contained in the same buffer.
+            bool posNormalShareBuffer;
+            bool posNormalExtraData;
+            bool bindPositions;
+            bool bindNormals;
+
+        public:
+            ~TempBlendedBufferInfo(void);
+            /// Utility method, extract info from the given VertexData.
+            void extractFrom(const VertexData* sourceData);
+            /// Utility method, checks out temporary copies of src into dest.
+            void checkoutTempCopies(bool positions = true, bool normals = true);
+            /// Utility method, binds dest copies into a given VertexData struct.
+            void bindTempCopies(VertexData* targetData, bool suppressHardwareUpload);
+            /** Overridden member from HardwareBufferLicensee. */
+            void licenseExpired(HardwareBuffer* buffer) override;
+            /** Detect currently have buffer copies checked out and touch it. */
+            bool buffersCheckedOut(bool positions = true, bool normals = true) const;
+        };
+
 
         /// Temp buffer details for software skeletal anim of shared geometry
         TempBlendedBufferInfo mTempSkelAnimInfo;
@@ -232,15 +264,6 @@ namespace Ogre {
         /// Index of maximum detail LOD (NB lower index is higher detail).
         ushort mMaxMeshLodIndex;
 
-        /// LOD bias factor, not transformed.
-        Real mMaterialLodFactor;
-        /// LOD bias factor, transformed for optimisation when calculating adjusted LOD value.
-        Real mMaterialLodFactorTransformed;
-        /// Index of minimum detail LOD (NB higher index is lower detail).
-        ushort mMinMaterialLodIndex;
-        /// Index of maximum detail LOD (NB lower index is higher detail).
-        ushort mMaxMaterialLodIndex;
-
         /** List of LOD Entity instances (for manual LODs).
             We don't know when the mesh is using manual LODs whether one LOD to the next will have the
             same number of SubMeshes, therefore we have to allow a separate Entity list
@@ -253,11 +276,13 @@ namespace Ogre {
         const Real mMeshLodFactorTransformed;
         const ushort mMinMeshLodIndex;
         const ushort mMaxMeshLodIndex;
-        const Real mMaterialLodFactor;
-        const Real mMaterialLodFactorTransformed;
-        const ushort mMinMaterialLodIndex;
-        const ushort mMaxMaterialLodIndex;
 #endif
+        /// LOD bias factor, not transformed.
+        Real mMaterialLodFactor;
+        /// Index of minimum detail LOD (NB higher index is lower detail).
+        ushort mMinMaterialLodIndex;
+        /// Index of maximum detail LOD (NB lower index is higher detail).
+        ushort mMaxMaterialLodIndex;
         /** This Entity's personal copy of the skeleton, if skeletally animated.
         */
         SkeletonInstance* mSkeletonInstance;
@@ -488,7 +513,7 @@ namespace Ogre {
             LOD will be limited by the number in the Mesh).
         */
         void setMeshLodBias(Real factor, ushort maxDetailIndex = 0, ushort minDetailIndex = 99);
-
+#endif
         /** Sets a level-of-detail bias for the material detail of this entity.
 
             Level of detail reduction is normally applied automatically based on the Material
@@ -519,7 +544,7 @@ namespace Ogre {
             LOD will be limited by the number of LOD indexes used in the Material).
         */
         void setMaterialLodBias(Real factor, ushort maxDetailIndex = 0, ushort minDetailIndex = 99);
-#endif
+
         /** Sets whether the polygon mode of this entire entity may be
             overridden by the camera detail settings.
         */
@@ -734,14 +759,6 @@ namespace Ogre {
             The positions/normals of the returned vertex data is in object space.
         */
         VertexData* _getHardwareVertexAnimVertexData(void) const;
-        /** Advanced method to get the temp buffer information for software
-            skeletal animation.
-        */
-        TempBlendedBufferInfo* _getSkelAnimTempBufferInfo(void);
-        /** Advanced method to get the temp buffer information for software
-            morph animation.
-        */
-        TempBlendedBufferInfo* _getVertexAnimTempBufferInfo(void);
         /// Override to return specific type flag.
         uint32 getTypeFlags(void) const override;
         /// Retrieve the VertexData which should be used for GPU binding.
@@ -848,20 +865,6 @@ namespace Ogre {
         }
 
         
-    };
-
-    /** Factory object for creating Entity instances */
-    class _OgreExport EntityFactory : public MovableObjectFactory
-    {
-    private:
-        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params) override;
-    public:
-        EntityFactory() {}
-        ~EntityFactory() {}
-
-        static String FACTORY_TYPE_NAME;
-
-        const String& getType(void) const override;
     };
     /** @} */
     /** @} */

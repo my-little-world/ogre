@@ -48,16 +48,6 @@ namespace Ogre
     {
     }
     //---------------------------------------------------------------------
-    const AnyNumeric& NumericKeyFrame::getValue(void) const
-    {
-        return mValue;
-    }
-    //---------------------------------------------------------------------
-    void NumericKeyFrame::setValue(const AnyNumeric& val)
-    {
-        mValue = val;
-    }
-    //---------------------------------------------------------------------
     KeyFrame* NumericKeyFrame::_clone(AnimationTrack* newParent) const
     {
         NumericKeyFrame* newKf = OGRE_NEW NumericKeyFrame(newParent, mTime);
@@ -144,12 +134,12 @@ namespace Ogre
     {
     }
     //---------------------------------------------------------------------
-    void VertexPoseKeyFrame::addPoseReference(ushort poseIndex, Real influence)
+    void VertexPoseKeyFrame::addPoseReference(ushort poseIndex, float influence)
     {
         mPoseRefs.push_back(PoseRef(poseIndex, influence));
     }
     //---------------------------------------------------------------------
-    void VertexPoseKeyFrame::updatePoseReference(ushort poseIndex, Real influence)
+    void VertexPoseKeyFrame::updatePoseReference(ushort poseIndex, float influence)
     {
         for (auto & poseRef : mPoseRefs)
         {

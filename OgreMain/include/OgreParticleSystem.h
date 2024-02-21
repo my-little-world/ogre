@@ -391,7 +391,7 @@ namespace Ogre {
             @param height
                 The new default height for the particles in this set. Must be non-negative!
         */
-        virtual void setDefaultDimensions(Real width, Real height);
+        void setDefaultDimensions(Real width, Real height);
 
         /** See setDefaultDimensions - this sets 1 component individually. */
         virtual void setDefaultWidth(Real width);
@@ -567,7 +567,7 @@ namespace Ogre {
         /// Last frame in which known to be visible
         unsigned long mLastVisibleFrame;
         /// Controller for time update
-        ControllerReal* mTimeController;
+        ControllerFloat* mTimeController;
         /// Indication whether the emitted emitter pool (= pool with particle emitters that are emitted) is initialised
         bool mEmittedEmitterPoolInitialised;
         /// Used to control if the particle system should emit particles or not.

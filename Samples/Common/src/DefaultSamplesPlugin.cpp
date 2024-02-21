@@ -59,7 +59,9 @@
 #include "Isosurf.h"
 #include "Lighting.h"
 #include "LightShafts.h"
-#include "MeshLod.h"
+#ifdef OGRE_BUILD_COMPONENT_MESHLODGENERATOR
+#   include "MeshLod.h"
+#endif
 #include "NewInstancing.h"
 #include "OceanDemo.h"
 #include "ParticleFX.h"
@@ -68,6 +70,7 @@
     #include "PCZTestApp.h"
 #endif
 #include "PBR.h"
+#include "RectLight.h"
 #include "PNTrianglesTessellation.h"
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
 #   include "ShaderSystem.h"
@@ -127,7 +130,9 @@ DefaultSamplesPlugin::DefaultSamplesPlugin() : SamplePlugin("DefaultSamplesPlugi
     addSample(new Sample_Shadows);
     addSample(new Sample_Lighting);
     addSample(new Sample_LightShafts);
+#ifdef OGRE_BUILD_COMPONENT_MESHLODGENERATOR
     addSample(new Sample_MeshLod);
+#endif
     addSample(new Sample_ParticleFX);
 #ifdef HAVE_PCZ_PLUGIN
     addSample(new Sample_PCZTest);
@@ -146,6 +151,7 @@ DefaultSamplesPlugin::DefaultSamplesPlugin() : SamplePlugin("DefaultSamplesPlugi
     // the samples below require shaders
     addSample(new Sample_Tessellation);
     addSample(new Sample_PBR);
+    addSample(new Sample_RectLight);
 #if defined(OGRE_BUILD_COMPONENT_RTSHADERSYSTEM) && OGRE_PLATFORM != OGRE_PLATFORM_WINRT
     addSample(new Sample_ShaderSystem);
     addSample(new Sample_ShaderSystemTexturedFog);

@@ -69,14 +69,16 @@ namespace Ogre {
         TU_NOT_SRV = 0x40,
         /// Texture can be bound as an Unordered Access View
         /// (imageStore/imageRead/glBindImageTexture in GL jargon)
-        TU_UAV = 0x80,
+        TU_UNORDERED_ACCESS = 0x80,
         /// Texture can be used as an UAV, but not as a regular texture.
-        TU_UAV_NOT_SRV = TU_UAV | TU_NOT_SRV,
+        TU_UAV_NOT_SRV = TU_UNORDERED_ACCESS | TU_NOT_SRV,
         /// Default to automatic mipmap generation static textures
         TU_DEFAULT = TU_AUTOMIPMAP | HBU_GPU_ONLY,
 
-        // deprecated
-        TU_NOTSHADERRESOURCE = TU_NOT_SRV
+        /// @deprecated
+        TU_NOTSHADERRESOURCE = TU_NOT_SRV,
+        /// @deprecated
+        TU_UAV = TU_UNORDERED_ACCESS
     };
 
     /** Enum identifying the texture access privilege
@@ -285,9 +287,6 @@ namespace Ogre {
             called for you.
         */
         void createInternalResources(void);
-
-        /// @deprecated use unload() instead
-        void freeInternalResources(void);
         
         /** Copies (and maybe scales to fit) the contents of this texture to
             another texture. */
@@ -459,33 +458,18 @@ namespace Ogre {
         PixelFormat mSrcFormat;
         uint32 mSrcWidth, mSrcHeight, mSrcDepth;
 
-        PixelFormat mDesiredFormat;
-        unsigned short mDesiredIntegerBitDepth;
-        unsigned short mDesiredFloatBitDepth;
-
         bool mTreatLuminanceAsAlpha;
         bool mInternalResourcesCreated;
         bool mMipmapsHardwareGenerated;
         bool mHwGamma;
 
-        /// vector of images that should be loaded (cubemap/ texture array)
-        std::vector<String> mLayerNames;
         String mFSAAHint;
-
-        /** Vector of images that were pulled from disk by
-            prepareLoad but have yet to be pushed into texture memory
-            by loadImpl.  Images should be deleted by loadImpl and unprepareImpl.
-        */
-        typedef std::vector<Image> LoadedImages;
-        LoadedImages mLoadedImages;
 
         /// Vector of pointers to subsurfaces
         typedef std::vector<HardwarePixelBufferSharedPtr> SurfaceList;
         SurfaceList mSurfaceList;
 
         TextureType mTextureType;
-
-        void readImage(LoadedImages& imgs, const String& name, const String& ext, bool haveNPOT);
 
         void prepareImpl() override;
         void unprepareImpl() override;
@@ -513,7 +497,23 @@ namespace Ogre {
         */
         uint32 getMaxMipmaps() const;
 
-        static const char* CUBEMAP_SUFFIXES[6];
+    private:
+        uchar mDesiredIntegerBitDepth;
+        uchar mDesiredFloatBitDepth;
+        PixelFormat mDesiredFormat;
+
+        /// vector of images that should be loaded (cubemap/ texture array)
+        std::vector<String> mLayerNames;
+
+        /** Vector of images that were pulled from disk by
+            prepareLoad but have yet to be pushed into texture memory
+            by loadImpl.  Images should be deleted by loadImpl and unprepareImpl.
+        */
+        typedef std::vector<Image> LoadedImages;
+        LoadedImages mLoadedImages;
+
+        void readImage(LoadedImages& imgs, const String& name, const String& ext, bool haveNPOT);
+        void freeInternalResources(void);
     };
     /** @} */
     /** @} */

@@ -140,20 +140,20 @@ namespace Ogre
         AutoConstantDefinition(ACT_SPOTLIGHT_WORLDVIEWPROJ_MATRIX_ARRAY,  "spotlight_worldviewproj_matrix_array",16, ET_REAL, ACDT_INT),
         AutoConstantDefinition(ACT_CUSTOM,                        "custom",                       4, ET_REAL, ACDT_INT),  // *** needs to be tested
         AutoConstantDefinition(ACT_TIME,                               "time",                               1, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_TIME_0_X,                      "time_0_x",                     4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_COSTIME_0_X,                   "costime_0_x",                  4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_SINTIME_0_X,                   "sintime_0_x",                  4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_TANTIME_0_X,                   "tantime_0_x",                  4, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_TIME_0_X,                      "time_0_x",                     1, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_COSTIME_0_X,                   "costime_0_x",                  1, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_SINTIME_0_X,                   "sintime_0_x",                  1, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_TANTIME_0_X,                   "tantime_0_x",                  1, ET_REAL, ACDT_REAL),
         AutoConstantDefinition(ACT_TIME_0_X_PACKED,               "time_0_x_packed",              4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_TIME_0_1,                      "time_0_1",                     4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_COSTIME_0_1,                   "costime_0_1",                  4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_SINTIME_0_1,                   "sintime_0_1",                  4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_TANTIME_0_1,                   "tantime_0_1",                  4, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_TIME_0_1,                      "time_0_1",                     1, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_COSTIME_0_1,                   "costime_0_1",                  1, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_SINTIME_0_1,                   "sintime_0_1",                  1, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_TANTIME_0_1,                   "tantime_0_1",                  1, ET_REAL, ACDT_REAL),
         AutoConstantDefinition(ACT_TIME_0_1_PACKED,               "time_0_1_packed",              4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_TIME_0_2PI,                    "time_0_2pi",                   4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_COSTIME_0_2PI,                 "costime_0_2pi",                4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_SINTIME_0_2PI,                 "sintime_0_2pi",                4, ET_REAL, ACDT_REAL),
-        AutoConstantDefinition(ACT_TANTIME_0_2PI,                 "tantime_0_2pi",                4, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_TIME_0_2PI,                    "time_0_2pi",                   1, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_COSTIME_0_2PI,                 "costime_0_2pi",                1, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_SINTIME_0_2PI,                 "sintime_0_2pi",                1, ET_REAL, ACDT_REAL),
+        AutoConstantDefinition(ACT_TANTIME_0_2PI,                 "tantime_0_2pi",                1, ET_REAL, ACDT_REAL),
         AutoConstantDefinition(ACT_TIME_0_2PI_PACKED,             "time_0_2pi_packed",            4, ET_REAL, ACDT_REAL),
         AutoConstantDefinition(ACT_FRAME_TIME,                    "frame_time",                   1, ET_REAL, ACDT_REAL),
         AutoConstantDefinition(ACT_FPS,                           "fps",                          1, ET_REAL, ACDT_NONE),
@@ -184,6 +184,7 @@ namespace Ogre
         AutoConstantDefinition(ACT_LOD_CAMERA_POSITION_OBJECT_SPACE,  "lod_camera_position_object_space", 3, ET_REAL, ACDT_NONE),
         AutoConstantDefinition(ACT_LIGHT_CUSTOM,        "light_custom", 4, ET_REAL, ACDT_INT),
         AutoConstantDefinition(ACT_POINT_PARAMS,                    "point_params",                   4, ET_REAL, ACDT_NONE),
+        AutoConstantDefinition(ACT_MATERIAL_LOD_INDEX,       "material_lod_index",             1, ET_INT, ACDT_NONE),
 
         // NOTE: new auto constants must be added before this line, as the following are merely aliases
         // to allow legacy world_ names in scripts
@@ -751,6 +752,8 @@ namespace Ogre
         , mIgnoreMissingParams(false)
         , mActivePassIterationIndex(std::numeric_limits<size_t>::max())
     {
+        static_assert((sizeof(AutoConstantDictionary) / sizeof(AutoConstantDefinition) - 5) == ACT_MATERIAL_LOD_INDEX,
+                      "AutoConstantDictionary out of sync");
     }
     GpuProgramParameters::~GpuProgramParameters() {}
 
@@ -1201,7 +1204,7 @@ namespace Ogre
         size_t logicalIndex, size_t requestedSize, uint16 variability, BaseConstantType type)
     {
         OgreAssert(type != BCT_SAMPLER, "");
-        if (!mLogicalToPhysical)
+        if (!mLogicalToPhysical || int(logicalIndex) == -1)
             return NULL;
 
         GpuLogicalIndexUse* indexUse = 0;
@@ -1226,8 +1229,7 @@ namespace Ogre
 
                 // Set up a mapping for all items in the count
                 size_t currPhys = physicalIndex;
-                size_t count = requestedSize / 4;
-                GpuLogicalIndexUseMap::iterator insertedIterator;
+                size_t count = std::max<size_t>(requestedSize / 4, 1);
 
                 for (size_t logicalNum = 0; logicalNum < count; ++logicalNum)
                 {
@@ -1238,10 +1240,8 @@ namespace Ogre
                     currPhys += 4;
 
                     if (logicalNum == 0)
-                        insertedIterator = it;
+                        indexUse = &(it->second);
                 }
-
-                indexUse = &(insertedIterator->second);
             }
             else
             {
@@ -1252,15 +1252,15 @@ namespace Ogre
         }
         else
         {
-            size_t physicalIndex = logi->second.physicalIndex;
             indexUse = &(logi->second);
             // check size
-            if (logi->second.currentSize < requestedSize)
+            if (indexUse->currentSize < requestedSize)
             {
+                size_t physicalIndex = indexUse->physicalIndex;
                 // init buffer entry wasn't big enough; could be a mistake on the part
                 // of the original use, or perhaps a variable length we can't predict
                 // until first actual runtime use e.g. world matrix array
-                size_t insertCount = requestedSize - logi->second.currentSize;
+                size_t insertCount = requestedSize - indexUse->currentSize;
                 auto insertPos = mConstants.begin();
                 std::advance(insertPos, physicalIndex);
                 mConstants.insert(insertPos, insertCount*4, 0);
@@ -1290,7 +1290,7 @@ namespace Ogre
                     mNamedConstants->bufferSize += insertCount;
                 }
 
-                logi->second.currentSize += insertCount;
+                indexUse->currentSize += insertCount;
             }
         }
 
@@ -1468,7 +1468,8 @@ namespace Ogre
 
         if (indexUse)
         {
-            indexUse->variability = GPV_GLOBAL;
+            // do not clear variability, indexUse is shared across all instances
+
             size_t physicalIndex = indexUse->physicalIndex;
             // update existing index if it exists
             for (AutoConstantList::iterator i = mAutoConstants.begin();
@@ -1488,7 +1489,7 @@ namespace Ogre
         const GpuConstantDefinition* def = _findNamedConstantDefinition(name);
         if (def)
         {
-            def->variability = GPV_GLOBAL;
+            // do not clear variability, def is shared across all instances
 
             // Autos are always floating point
             if (def->isFloat()) {
@@ -1792,7 +1793,9 @@ namespace Ogre
                 case ACT_LOD_CAMERA_POSITION:
                     _writeRawConstant(ac.physicalIndex, source->getLodCameraPosition(), ac.elementCount);
                     break;
-
+                case ACT_MATERIAL_LOD_INDEX:
+                    _writeRawConstant(ac.physicalIndex, (float)source->getMaterialLodIndex());
+                    break;
                 case ACT_TEXTURE_WORLDVIEWPROJ_MATRIX:
                     // can also be updated in lights
                     _writeRawConstant(ac.physicalIndex, source->getTextureWorldViewProjMatrix(ac.data),ac.elementCount);
@@ -1832,7 +1835,7 @@ namespace Ogre
                     break;
                 case ACT_LIGHT_POSITION_OBJECT_SPACE_ARRAY:
                     for (size_t l = 0; l < ac.data; ++l)
-                        _writeRawConstant(ac.physicalIndex + l*sizeof(Vector4),
+                        _writeRawConstant(ac.physicalIndex + l*sizeof(Vector4f),
                                           source->getInverseWorldMatrix() *
                                               source->getLightAs4DVector(l),
                                           ac.elementCount);
@@ -2084,7 +2087,7 @@ namespace Ogre
                 case ACT_LIGHT_POSITION_ARRAY:
                     // Get as 4D vector, works for directional lights too
                     for (size_t l = 0; l < ac.data; ++l)
-                        _writeRawConstant(ac.physicalIndex + l*sizeof(Vector4),
+                        _writeRawConstant(ac.physicalIndex + l*sizeof(Vector4f),
                                           source->getLightAs4DVector(l), ac.elementCount);
                     break;
 
@@ -2100,7 +2103,7 @@ namespace Ogre
 
                 case ACT_LIGHT_POSITION_VIEW_SPACE_ARRAY:
                     for (size_t l = 0; l < ac.data; ++l)
-                        _writeRawConstant(ac.physicalIndex + l*sizeof(Vector4),
+                        _writeRawConstant(ac.physicalIndex + l*sizeof(Vector4f),
                                           source->getViewMatrix() *
                                               source->getLightAs4DVector(l),
                                           ac.elementCount);
@@ -2360,6 +2363,7 @@ namespace Ogre
             _findNamedConstantDefinition(name, !mIgnoreMissingParams);
         if (def)
         {
+            OgreAssert(def->isFloat(), "incompatible parameter type in shader");
             def->variability = deriveVariability(acType);
             // make sure we also set variability on the logical index map
             getConstantLogicalIndexUse(def->logicalIndex, def->elementSize * def->arraySize, def->variability, BCT_FLOAT);
@@ -2376,6 +2380,7 @@ namespace Ogre
             _findNamedConstantDefinition(name, !mIgnoreMissingParams);
         if (def)
         {
+            OgreAssert(def->isFloat(), "incompatible parameter type in shader");
             def->variability = deriveVariability(acType);
             // make sure we also set variability on the logical index map
             getConstantLogicalIndexUse(def->logicalIndex, def->elementSize * def->arraySize, def->variability, BCT_FLOAT);
@@ -2466,7 +2471,7 @@ namespace Ogre
                     size_t sz = std::min(srcsz, destsz);
                     if (newdef->isFloat() || newdef->isInt() || newdef->isUnsignedInt() || newdef->isBool())
                     {
-                        OgreAssertDbg(mConstants.size() >= (newdef->physicalIndex + sz * 4), "Invalid physical index");
+                        OgreAssert(mConstants.size() >= (newdef->physicalIndex + sz * 4), "Invalid physical index or size");
                         memcpy(getFloatPointer(newdef->physicalIndex),
                                source.getFloatPointer(olddef.physicalIndex),
                                sz * 4);
@@ -2546,17 +2551,12 @@ namespace Ogre
 
     //-----------------------------------------------------------------------
     const GpuProgramParameters::AutoConstantDefinition*
-    GpuProgramParameters::getAutoConstantDefinition(const size_t idx)
+    GpuProgramParameters::getAutoConstantDefinition(AutoConstantType idx)
     {
-        if (idx < getNumAutoConstantDefinitions())
-        {
-            // verify index is equal to acType
-            // if they are not equal then the dictionary was not setup properly
-            assert(idx == static_cast<size_t>(AutoConstantDictionary[idx].acType));
-            return &AutoConstantDictionary[idx];
-        }
-        else
-            return 0;
+        // verify index is equal to acType
+        // if they are not equal then the dictionary was not setup properly
+        assert(idx == AutoConstantDictionary[idx].acType);
+        return &AutoConstantDictionary[idx];
     }
     //-----------------------------------------------------------------------
     size_t GpuProgramParameters::getNumAutoConstantDefinitions(void)

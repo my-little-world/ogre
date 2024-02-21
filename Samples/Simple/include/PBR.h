@@ -58,11 +58,11 @@ protected:
 
         mEntity = mSceneMgr->createEntity("DamagedHelmet.mesh");
 
-        unsigned short src, dst;
-        if (!mEntity->getMesh()->suggestTangentVectorBuildParams(VES_TANGENT, src, dst))
+        unsigned short src;
+        if (!mEntity->getMesh()->suggestTangentVectorBuildParams(src))
         {
-            // enforce that we have tangent vectors
-            mEntity->getMesh()->buildTangentVectors(VES_TANGENT, src, dst);
+            // ensure that we have tangent vectors
+            mEntity->getMesh()->buildTangentVectors(src);
         }
 
         SceneNode* node = mSceneMgr->getRootSceneNode()->createChildSceneNode();
@@ -85,7 +85,7 @@ protected:
     void checkBoxToggled(CheckBox* box) override
     {
         bool checked = box->isChecked();
-        mParams->setNamedConstant("u_ScaleIBLAmbient", Vector4f(float(checked)));
+        mParams->setNamedConstant("u_ScaleIBLAmbient", Vector4(float(checked)));
 
         using namespace RTShader;
         MaterialPtr mat = MaterialManager::getSingleton().getByName("DamagedHelmet_RTSS");

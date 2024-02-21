@@ -27,6 +27,8 @@ THE SOFTWARE.
 */
 #include "OgreStableHeaders.h"
 #include "OgreHardwareIndexBuffer.h"
+
+#include <memory>
 #include "OgreDefaultHardwareBufferManager.h"
 
 
@@ -34,9 +36,8 @@ namespace Ogre {
 
     //-----------------------------------------------------------------------------
     HardwareIndexBuffer::HardwareIndexBuffer(HardwareBufferManagerBase* mgr, IndexType idxType, 
-        size_t numIndexes, HardwareBuffer::Usage usage, 
-        bool useSystemMemory, bool useShadowBuffer) 
-        : HardwareBuffer(usage, useSystemMemory, useShadowBuffer)
+        size_t numIndexes, HardwareBuffer::Usage usage, bool useShadowBuffer)
+        : HardwareBuffer(usage, useShadowBuffer)
         , mIndexType(idxType)
         , mMgr(mgr)
         , mNumIndexes(numIndexes)
@@ -56,14 +57,13 @@ namespace Ogre {
         // Create a shadow buffer if required
         if (useShadowBuffer)
         {
-            mShadowBuffer.reset(new DefaultHardwareBuffer(mSizeInBytes));
+            mShadowBuffer = std::make_unique<DefaultHardwareBuffer>(mSizeInBytes);
         }
     }
 
     HardwareIndexBuffer::HardwareIndexBuffer(HardwareBufferManagerBase* mgr, IndexType idxType,
                                              size_t numIndexes, HardwareBuffer* delegate)
-        : HardwareIndexBuffer(mgr, idxType, numIndexes, delegate->getUsage(), delegate->isSystemMemory(),
-                              false)
+        : HardwareIndexBuffer(mgr, idxType, numIndexes, delegate->getUsage(), false)
     {
         mDelegate.reset(delegate);
     }

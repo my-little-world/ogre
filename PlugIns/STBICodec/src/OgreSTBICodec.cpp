@@ -74,7 +74,7 @@ namespace Ogre {
         stbi_convert_iphone_png_to_rgb(1);
         stbi_set_unpremultiply_on_load(1);
 
-        LogManager::getSingleton().logMessage("stb_image - v2.27 - public domain image loader");
+        LogManager::getSingleton().logMessage("stb_image - v2.28 - public domain image loader");
         
         // Register codecs
         String exts = "jpeg,jpg,png,bmp,psd,tga,gif,pic,ppm,pgm,hdr";
@@ -212,11 +212,6 @@ namespace Ogre {
     String STBIImageCodec::magicNumberToFileExt(const char *magicNumberPtr, size_t maxbytes) const
     {
         return BLANKSTRING;
-    }
-
-    const String& STBIPlugin::getName() const {
-        static String name = "STB Image Codec";
-        return name;
     }
 
 #ifndef OGRE_STATIC_LIB

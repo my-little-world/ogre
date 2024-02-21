@@ -46,6 +46,7 @@ extern "C" struct SDL_Window;
 
 namespace Ogre {
     class OverlaySystem;
+    class ImGuiOverlay;
 }
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_ANDROID
@@ -200,10 +201,8 @@ namespace OgreBites
         */
         virtual void loadResources();
 
-        /**
-        Reconfigures the context. Attempts to preserve the current sample state.
-        */
-        virtual void reconfigure(const Ogre::String& renderer, Ogre::NameValuePairList& options);
+        /// @deprecated use do not use
+        OGRE_DEPRECATED virtual void reconfigure(const Ogre::String& renderer, Ogre::NameValuePairList& options);
 
 
         /**
@@ -225,6 +224,12 @@ namespace OgreBites
         Destroys dummy scene.
           */
         void destroyDummyScene();
+
+        /** Show the renderer configuration menu
+         *
+         * creates a dummy scene to allow rendering the dialog
+         */
+        void runRenderingSettingsDialog();
 
         /**
          * enables the caching of compiled shaders to file
@@ -275,9 +280,9 @@ namespace OgreBites
         void destroyWindow(const Ogre::String& name);
 
         /**
-         * get the FileSystemLayer instace pointing to an application specific directory
+         * get the FileSystemLayer instance pointing to an application specific directory
          */
-        Ogre::FileSystemLayer& getFSLayer() { return *mFSLayer; }
+        Ogre::FileSystemLayer& getFSLayer() const { return *mFSLayer; }
 
         /**
          * the directory where the media files were installed
@@ -285,6 +290,13 @@ namespace OgreBites
          * same as OGRE_MEDIA_DIR in CMake
          */
         static Ogre::String getDefaultMediaDir();
+
+        /**
+         * Set up the overlay system for usage with ImGui
+         */
+        Ogre::ImGuiOverlay* initialiseImGui();
+
+        InputListener* getImGuiInputListener() const { return mImGuiListener.get(); }
     protected:
         /// internal method to destroy both the render and the native window
         virtual void _destroyWindow(const NativeWindowPair& win);
@@ -303,6 +315,8 @@ namespace OgreBites
 
         typedef std::set<std::pair<uint32_t, InputListener*> > InputListenerList;
         InputListenerList mInputListeners;
+
+        std::unique_ptr<InputListener> mImGuiListener;
 
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
         Ogre::RTShader::ShaderGenerator*       mShaderGenerator; // The Shader generator instance.

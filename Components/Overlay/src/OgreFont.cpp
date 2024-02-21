@@ -67,12 +67,6 @@ namespace Ogre
         String doGet(const void* target) const override;
         void doSet(void* target, const String& val) override;
     };
-    class CmdCharSpacer : public ParamCommand
-    {
-    public:
-        String doGet(const void* target) const override;
-        void doSet(void* target, const String& val) override;
-    };
     class CmdSize : public ParamCommand
     {
     public:
@@ -95,7 +89,6 @@ namespace Ogre
     // Command object for setting / getting parameters
     static CmdType msTypeCmd;
     static CmdSource msSourceCmd;
-    static CmdCharSpacer msCharacterSpacerCmd;
     static CmdSize msSizeCmd;
     static CmdResolution msResolutionCmd;
     static CmdCodePoints msCodePointsCmd;
@@ -125,7 +118,7 @@ namespace Ogre
     Font::Font(ResourceManager* creator, const String& name, ResourceHandle handle,
         const String& group, bool isManual, ManualResourceLoader* loader)
         :Resource (creator, name, handle, group, isManual, loader),
-        mType(FT_TRUETYPE), mTtfSize(0), mTtfResolution(0), mTtfMaxBearingY(0), mAntialiasColour(false)
+        mType(FT_TRUETYPE), mTtfSize(0), mTtfResolution(0), mTtfMaxBearingY(0), mAntialiasColour(true)
     {
 
         if (createParamDictionary("Font"))
@@ -137,9 +130,6 @@ namespace Ogre
             dict->addParameter(
                 ParameterDef("source", "Filename of the source of the font.", PT_STRING),
                 &msSourceCmd);
-            dict->addParameter(
-                ParameterDef("character_spacer", "Spacing between characters to prevent overlap artifacts.", PT_STRING),
-                &msCharacterSpacerCmd);
             dict->addParameter(
                 ParameterDef("size", "True type size", PT_REAL),
                 &msSizeCmd);
@@ -220,8 +210,6 @@ namespace Ogre
         bbs->setBillboardOrigin(BBO_CENTER_LEFT);
         bbs->setDefaultDimensions(0, 0);
 
-        float spaceWidth = mCodePointMap.find('0')->second.advance * height;
-
         text.resize(text.size() + 3); // add padding for decoder
         auto it = text.c_str();
         auto end = text.c_str() + text.size() - 3;
@@ -238,12 +226,6 @@ namespace Ogre
             if(err)
                 continue;
 
-            if (cpId == ' ')
-            {
-                left += spaceWidth;
-                continue;
-            }
-
             if(cpId == '\n')
             {
                 top -= height;
@@ -251,17 +233,18 @@ namespace Ogre
                 continue;
             }
 
-            auto cp = mCodePointMap.find(cpId);
-            if (cp == mCodePointMap.end())
-                continue;
+            const auto& cp = getGlyphInfo(cpId);
 
-            left += cp->second.bearing * height;
+            left += cp.bearing * height;
 
-            auto bb = bbs->createBillboard(Vector3(left, top, 0), colour);
-            bb->setDimensions(cp->second.aspectRatio * height, height);
-            bb->setTexcoordRect(cp->second.uvRect);
+            if(!cp.uvRect.isNull())
+            {
+                auto bb = bbs->createBillboard(Vector3(left, top, 0), colour);
+                bb->setDimensions(cp.aspectRatio * height, height);
+                bb->setTexcoordRect(cp.uvRect);
+            }
 
-            left += (cp->second.advance - cp->second.bearing) * height;
+            left += (cp.advance - cp.bearing) * height;
         }
     }
 
@@ -310,7 +293,7 @@ namespace Ogre
         // Set up blending
         if (mTexture->hasAlpha())
         {
-            mMaterial->setSceneBlending( SBT_TRANSPARENT_ALPHA );
+            mMaterial->setSceneBlending(mAntialiasColour ? SBF_ONE : SBF_SOURCE_ALPHA, SBF_ONE_MINUS_SOURCE_ALPHA);
             mMaterial->getTechnique(0)->getPass(0)->setTransparentSortingEnabled(false);
         }
         else
@@ -357,7 +340,7 @@ namespace Ogre
         // If codepoints not supplied, assume ASCII
         if (mCodePointRangeList.empty())
         {
-            mCodePointRangeList.push_back(CodePointRange(33, 126));
+            mCodePointRangeList.push_back(CodePointRange(32, 126));
         }
         float vpScale = OverlayManager::getSingleton().getPixelRatio();
 #ifdef HAVE_FREETYPE
@@ -465,19 +448,13 @@ namespace Ogre
                 if (ftResult)
                 {
                     // problem loading this glyph, continue
-                    LogManager::getSingleton().logError(StringUtil::format(
-                        "Freetype could not load charcode %u in font %s", cp, mSource.c_str()));
+                    LogManager::getSingleton().logError(
+                        StringUtil::format("Charcode %u is not in font %s", cp, mSource.c_str()));
                     continue;
                 }
 
                 buffer = face->glyph->bitmap.buffer;
-                if (!buffer)
-                {
-                    // Yuck, FT didn't detect this but generated a null pointer!
-                    LogManager::getSingleton().logWarning(StringUtil::format(
-                        "Freetype did not find charcode %u in font %s", cp, mSource.c_str()));
-                    continue;
-                }
+                OgreAssertDbg(buffer || (!face->glyph->bitmap.width && !face->glyph->bitmap.rows), "attempting to load NULL buffer");
 
                 uint advance = face->glyph->advance.x >> 6;
                 uint width = face->glyph->bitmap.width;
@@ -494,6 +471,9 @@ namespace Ogre
                         StringUtil::format("Charcode %u is not in font %s", cp, mSource.c_str()));
                     continue;
                 }
+
+                if(cp == ' ') // should figure out how advance works for stbtt..
+                    idx = stbtt_FindGlyphIndex(&font, '0');
 
                 TRect<int> r;
                 stbtt_GetGlyphBitmapBox(&font, idx, scale, scale, &r.left, &r.top, &r.right, &r.bottom);
@@ -546,7 +526,8 @@ namespace Ogre
                                     float(x_bearing) / max_height, float(advance) / max_height});
 
                 // Advance a column
-                l += (width + char_spacer);
+                if(width)
+                    l += (width + char_spacer);
             }
         }
 #ifdef HAVE_FREETYPE
@@ -594,12 +575,6 @@ namespace Ogre
         Font* f = static_cast<Font*>(target);
         f->setSource(val);
     }
-    //-----------------------------------------------------------------------
-    String CmdCharSpacer::doGet(const void* target) const
-    {
-        return "1";
-    }
-    void CmdCharSpacer::doSet(void* target, const String& val) {}
     //-----------------------------------------------------------------------
     String CmdSize::doGet(const void* target) const
     {

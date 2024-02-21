@@ -56,7 +56,7 @@ namespace Ogre {
     }
     //---------------------------------------------------------------------
     void MeshSerializerImpl::exportMesh(const Mesh* pMesh, 
-        const DataStreamPtr stream, Endian endianMode)
+        const DataStreamPtr& stream, Endian endianMode)
     {
         LogManager::getSingleton().logMessage("MeshSerializer writing mesh data to stream " + stream->getName() + "...");
 
@@ -274,9 +274,6 @@ namespace Ogre {
             writeGeometry(s->vertexData);
         }
 
-        // write out texture alias chunks
-        writeSubMeshTextureAliases(s);
-
         // Operation type
         writeSubMeshOperation(s);
 
@@ -336,27 +333,6 @@ namespace Ogre {
     {
         return MSTREAM_OVERHEAD_SIZE + sizeof (unsigned short) +
             s->extremityPoints.size() * sizeof (float)* 3;
-    }
-
-
-    //---------------------------------------------------------------------
-    void MeshSerializerImpl::writeSubMeshTextureAliases(const SubMesh* s)
-    {
-        size_t chunkSize;
-        LogManager::getSingleton().logMessage("Exporting submesh texture aliases...");
-
-        // iterate through texture aliases and write them out as a chunk
-        for (auto& t : s->mTextureAliases)
-        {
-            chunkSize = MSTREAM_OVERHEAD_SIZE + calcStringSize(t.first) + calcStringSize(t.second);
-            writeChunkHeader(M_SUBMESH_TEXTURE_ALIAS, chunkSize);
-            // write out alias name
-            writeString(t.first);
-            // write out texture name
-            writeString(t.second);
-        }
-
-        LogManager::getSingleton().logMessage("Submesh texture aliases exported.");
     }
 
     //---------------------------------------------------------------------
@@ -567,7 +543,6 @@ namespace Ogre {
             size += calcGeometrySize(pSub->vertexData);
         }
 
-        size += calcSubMeshTextureAliasesSize(pSub);
         size += calcSubMeshOperationSize();
 
         // Bone assignments
@@ -579,18 +554,6 @@ namespace Ogre {
     size_t MeshSerializerImpl::calcSubMeshOperationSize()
     {
         return MSTREAM_OVERHEAD_SIZE + sizeof(uint16);
-    }
-    //---------------------------------------------------------------------
-    size_t MeshSerializerImpl::calcSubMeshTextureAliasesSize(const SubMesh* pSub)
-    {
-        size_t chunkSize = 0;
-        // iterate through texture alias map and calc size of strings
-        for (auto& t : pSub->mTextureAliases)
-        {
-            chunkSize += MSTREAM_OVERHEAD_SIZE + calcStringSize(t.first) + calcStringSize(t.second);
-        }
-
-        return chunkSize;
     }
     //---------------------------------------------------------------------
     size_t MeshSerializerImpl::calcGeometrySize(const VertexData* vertexData)
@@ -855,15 +818,14 @@ namespace Ogre {
                 switch(streamID)
                 {
                 case M_GEOMETRY:
-                    pMesh->sharedVertexData = OGRE_NEW VertexData();
+                    pMesh->createVertexData();
                     try {
                         readGeometry(stream, pMesh, pMesh->sharedVertexData);
                     }
                     catch (ItemIdentityException&)
                     {
                         // duff geometry data entry with 0 vertices
-                        OGRE_DELETE pMesh->sharedVertexData;
-                        pMesh->sharedVertexData = 0;
+                        pMesh->resetVertexData();
                         // Skip this stream (pointer will have been returned to just after header)
                         stream->skip(mCurrentstreamLen - MSTREAM_OVERHEAD_SIZE);
                     }
@@ -984,7 +946,7 @@ namespace Ogre {
                 OGRE_EXCEPT(Exception::ERR_INTERNAL_ERROR, "Missing geometry data in mesh file",
                     "MeshSerializerImpl::readSubMesh");
             }
-            sm->vertexData = OGRE_NEW VertexData();
+            sm->createVertexData();
             readGeometry(stream, pMesh, sm->vertexData);
         }
 
@@ -1009,7 +971,8 @@ namespace Ogre {
                     break;
                 case M_SUBMESH_TEXTURE_ALIAS:
                     seenTexAlias = true;
-                    readSubMeshTextureAlias(stream, pMesh, sm);
+                    String aliasName = readString(stream);
+                    String textureName = readString(stream);
                     break;
                 }
 
@@ -1021,7 +984,7 @@ namespace Ogre {
             }
 
             if (seenTexAlias)
-                LogManager::getSingleton().logWarning("texture aliases for SubMeshes are deprecated - " +
+                LogManager::getSingleton().logError("texture aliases for SubMeshes are unsupported - " +
                                                       stream->getName());
 
             if (!stream->eof())
@@ -1042,15 +1005,6 @@ namespace Ogre {
         unsigned short opType;
         readShorts(stream, &opType, 1);
         sm->operationType = static_cast<RenderOperation::OperationType>(opType);
-    }
-    //---------------------------------------------------------------------
-    void MeshSerializerImpl::readSubMeshTextureAlias(const DataStreamPtr& stream, Mesh* pMesh, SubMesh* sub)
-    {
-        String aliasName = readString(stream);
-        String textureName = readString(stream);
-        OGRE_IGNORE_DEPRECATED_BEGIN
-        sub->addTextureAlias(aliasName, textureName);
-        OGRE_IGNORE_DEPRECATED_END
     }
     //---------------------------------------------------------------------
     void MeshSerializerImpl::writeSkeletonLink(const String& skelName)
@@ -2345,7 +2299,7 @@ namespace Ogre {
                 case M_POSE_VERTEX:
                     // create vertex offset
                     uint32 vertIndex;
-                    Vector3 offset, normal;
+                    Vector3f offset, normal;
                     // unsigned long vertexIndex
                     readInts(stream, &vertIndex, 1);
                     // float xoffset, yoffset, zoffset
@@ -2946,7 +2900,7 @@ namespace Ogre {
             if (manual)
             {
                 // Read detail stream
-                uint16  streamID = readChunk(stream);
+                streamID = readChunk(stream);
                 if (streamID != M_MESH_LOD_MANUAL)
                 {
                     OGRE_EXCEPT(Exception::ERR_ITEM_NOT_FOUND,
@@ -2961,7 +2915,7 @@ namespace Ogre {
                 pushInnerChunk(stream);
                 for (uint16 n = 0; n < numSubs; ++n)
                 {
-                    unsigned long streamID = readChunk(stream);
+                    streamID = readChunk(stream);
                     if (streamID != M_MESH_LOD_GENERATED)
                     {
                         OGRE_EXCEPT(Exception::ERR_ITEM_NOT_FOUND,
@@ -3145,7 +3099,7 @@ namespace Ogre {
                 case M_POSE_VERTEX:
                     // create vertex offset
                     uint32 vertIndex;
-                    Vector3 offset;
+                    Vector3f offset;
                     // unsigned long vertexIndex
                     readInts(stream, &vertIndex, 1);
                     // float xoffset, yoffset, zoffset
@@ -3337,7 +3291,7 @@ namespace Ogre {
             if (manual)
             {
                 // Read detail stream
-                uint16  streamID = readChunk(stream);
+                streamID = readChunk(stream);
                 if (streamID != M_MESH_LOD_MANUAL)
                 {
                     OGRE_EXCEPT(Exception::ERR_ITEM_NOT_FOUND,
@@ -3352,7 +3306,7 @@ namespace Ogre {
                 pushInnerChunk(stream);
                 for (uint16 n = 0; n < numSubs; ++n)
                 {
-                    unsigned long streamID = readChunk(stream);
+                    streamID = readChunk(stream);
                     if (streamID != M_MESH_LOD_GENERATED)
                     {
                         OGRE_EXCEPT(Exception::ERR_ITEM_NOT_FOUND,

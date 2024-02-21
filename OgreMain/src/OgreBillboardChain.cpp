@@ -34,6 +34,7 @@ THE SOFTWARE.
 #include "OgreViewport.h"
 
 #include <limits>
+#include <memory>
 
 namespace Ogre {
     const size_t BillboardChain::SEGMENT_EMPTY = std::numeric_limits<size_t>::max();
@@ -58,7 +59,6 @@ namespace Ogre {
         mChainCount(numberOfChains),
         mUseTexCoords(useTextureCoords),
         mUseVertexColour(useColours),
-        mDynamic(dynamic),
         mVertexDeclDirty(true),
         mBuffersNeedRecreating(true),
         mBoundsDirty(true),
@@ -66,12 +66,12 @@ namespace Ogre {
         mVertexContentDirty(true),
         mRadius(0.0f),
         mTexCoordDir(TCD_U),
-        mVertexCameraUsed(0),
         mFaceCamera(true),
-        mNormalBase(Vector3::UNIT_X)
+        mNormalBase(Vector3::UNIT_X),
+        mVertexCameraUsed(0)
     {
-        mVertexData.reset(new VertexData());
-        mIndexData.reset(new IndexData());
+        mVertexData = std::make_unique<VertexData>();
+        mIndexData = std::make_unique<IndexData>();
 
         mOtherTexCoordRange[0] = 0.0f;
         mOtherTexCoordRange[1] = 1.0f;
@@ -150,7 +150,7 @@ namespace Ogre {
                 HardwareBufferManager::getSingleton().createVertexBuffer(
                 mVertexData->vertexDeclaration->getVertexSize(0),
                 mVertexData->vertexCount,
-                HardwareBuffer::HBU_DYNAMIC_WRITE_ONLY_DISCARDABLE);
+                HBU_CPU_TO_GPU);
 
             // (re)Bind the buffer
             // Any existing buffer will lose its reference count and be destroyed
@@ -160,7 +160,7 @@ namespace Ogre {
                 HardwareBufferManager::getSingleton().createIndexBuffer(
                     HardwareIndexBuffer::IT_16BIT,
                     mChainCount * mMaxElementsPerChain * 6, // max we can use
-                    mDynamic? HardwareBuffer::HBU_DYNAMIC_WRITE_ONLY : HardwareBuffer::HBU_STATIC_WRITE_ONLY);
+                    HBU_GPU_ONLY);
             // NB we don't set the indexCount on IndexData here since we will
             // probably use less than the maximum number of indices
 
@@ -208,18 +208,9 @@ namespace Ogre {
         mVertexDeclDirty = mBuffersNeedRecreating = true;
         mIndexContentDirty = mVertexContentDirty = true;
     }
-    //-----------------------------------------------------------------------
-    void BillboardChain::setDynamic(bool dyn)
-    {
-        mDynamic = dyn;
-        mBuffersNeedRecreating = mIndexContentDirty = mVertexContentDirty = true;
-    }
     void BillboardChain::setAutoUpdate(bool autoUpdate)
     {
         mAutoUpdate = autoUpdate;
-        OGRE_IGNORE_DEPRECATED_BEGIN
-        setDynamic(autoUpdate);
-        OGRE_IGNORE_DEPRECATED_END
     }
     //-----------------------------------------------------------------------
     void BillboardChain::addChainElement(size_t chainIndex,
@@ -656,7 +647,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     const String& BillboardChain::getMovableType(void) const
     {
-        return BillboardChainFactory::FACTORY_TYPE_NAME;
+        return MOT_BILLBOARD_CHAIN;
     }
     //-----------------------------------------------------------------------
     void BillboardChain::_updateRenderQueue(RenderQueue* queue)
@@ -713,11 +704,11 @@ namespace Ogre {
     }
     //-----------------------------------------------------------------------
     //-----------------------------------------------------------------------
-    String BillboardChainFactory::FACTORY_TYPE_NAME = "BillboardChain";
+    const String MOT_BILLBOARD_CHAIN = "BillboardChain";
     //-----------------------------------------------------------------------
     const String& BillboardChainFactory::getType(void) const
     {
-        return FACTORY_TYPE_NAME;
+        return MOT_BILLBOARD_CHAIN;
     }
     //-----------------------------------------------------------------------
     MovableObject* BillboardChainFactory::createInstanceImpl( const String& name,

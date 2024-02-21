@@ -106,7 +106,7 @@ namespace OgreBites
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
                 s->setShaderGenerator(mShaderGenerator);
 #endif
-                s->_setup(mWindow, mFSLayer, mOverlaySystem);   // start new sample
+                s->_setup(this);   // start new sample
             }
 
             if (prof)
@@ -212,112 +212,6 @@ namespace OgreBites
             return true;
         }
 
-        /*-----------------------------------------------------------------------------
-        | Processes window size change event. Adjusts mouse's region to match that
-        | of the window. You could also override this method to prevent resizing.
-        -----------------------------------------------------------------------------*/
-        void windowResized(Ogre::RenderWindow* rw) override
-        {
-            // manually call sample callback to ensure correct order
-            if (!isCurrentSamplePaused()) mCurrentSample->windowResized(rw);
-        }
-
-        // window event callbacks which manually call their respective sample callbacks to ensure correct order
-
-        void windowMoved(Ogre::RenderWindow* rw) override
-        {
-            if (!isCurrentSamplePaused()) mCurrentSample->windowMoved(rw);
-        }
-
-        bool windowClosing(Ogre::RenderWindow* rw) override
-        {
-            if (!isCurrentSamplePaused()) return mCurrentSample->windowClosing(rw);
-            return true;
-        }
-
-        void windowClosed(Ogre::RenderWindow* rw) override
-        {
-            if (!isCurrentSamplePaused()) mCurrentSample->windowClosed(rw);
-        }
-
-        void windowFocusChange(Ogre::RenderWindow* rw) override
-        {
-            if (!isCurrentSamplePaused()) mCurrentSample->windowFocusChange(rw);
-        }
-
-        // keyboard and mouse callbacks which manually call their respective sample callbacks to ensure correct order
-
-        bool keyPressed(const KeyboardEvent& evt) override
-        {
-            // Ignore repeated signals from key being held down.
-            if (evt.repeat) return true;
-
-            if (!isCurrentSamplePaused()) return mCurrentSample->keyPressed(evt);
-            return true;
-        }
-
-        bool keyReleased(const KeyboardEvent& evt) override
-        {
-            if (!isCurrentSamplePaused()) return mCurrentSample->keyReleased(evt);
-            return true;
-        }
-
-        bool touchMoved(const TouchFingerEvent& evt) override
-        {
-            if (!isCurrentSamplePaused())
-                return mCurrentSample->touchMoved(evt);
-            return true;
-        }
-
-        bool mouseMoved(const MouseMotionEvent& evt) override
-        {
-            if (!isCurrentSamplePaused())
-                return mCurrentSample->mouseMoved(evt);
-            return true;
-        }
-
-        bool touchPressed(const TouchFingerEvent& evt) override
-        {
-            if (!isCurrentSamplePaused())
-                return mCurrentSample->touchPressed(evt);
-            return true;
-        }
-
-        bool mousePressed(const MouseButtonEvent& evt) override
-        {
-            if (!isCurrentSamplePaused())
-                return mCurrentSample->mousePressed(evt);
-            return true;
-        }
-
-        bool touchReleased(const TouchFingerEvent& evt) override
-        {
-            if (!isCurrentSamplePaused())
-                return mCurrentSample->touchReleased(evt);
-            return true;
-        }
-
-        bool mouseReleased(const MouseButtonEvent& evt) override
-        {
-            if (!isCurrentSamplePaused())
-                return mCurrentSample->mouseReleased(evt);
-            return true;
-        }
-
-        bool mouseWheelRolled(const MouseWheelEvent& evt) override
-        {
-            if (!isCurrentSamplePaused())
-                return mCurrentSample->mouseWheelRolled(evt);
-            return true;
-        }
-
-        bool textInput (const TextInputEvent& evt) override
-        {
-            if (!isCurrentSamplePaused ())
-                return mCurrentSample->textInput (evt);
-            return true;
-        }
-
         bool isFirstRun() { return mFirstRun; }
         void setFirstRun(bool flag) { mFirstRun = flag; }
         bool isLastRun() { return mLastRun; }
@@ -326,15 +220,21 @@ namespace OgreBites
         /*-----------------------------------------------------------------------------
         | Reconfigures the context. Attempts to preserve the current sample state.
         -----------------------------------------------------------------------------*/
-        void reconfigure(const Ogre::String& renderer, Ogre::NameValuePairList& options) override
+        void reconfigure(const Ogre::String& renderer)
         {
             // save current sample state
             mLastSample = mCurrentSample;
             if (mCurrentSample) mCurrentSample->saveState(mLastSampleState);
 
             mLastRun = false;             // we want to go again with the new settings
-            ApplicationContext::reconfigure(renderer, options);
+            mNextRenderer = renderer;
+#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+            // Need to save the config on iOS to make sure that changes are kept on disk
+            mRoot->saveConfig();
+#endif
+            mRoot->queueEndRendering(); // break from render loop
         }
+        using ApplicationContextBase::reconfigure; // unused, silence warning
 
         /*-----------------------------------------------------------------------------
         | Recovers the last sample after a reset. You can override in the case that

@@ -101,6 +101,7 @@ protected:
 #ifdef INCLUDE_RTSHADER_SYSTEM
         matNames.push_back("RTSS/NormalMapping_SinglePass");
         matNames.push_back("RTSS/OffsetMapping");
+        matNames.push_back("RTSS/ParallaxOcclusionMapping");
         matNames.push_back("RTSS/NormalMapping_MultiPass");
 #endif
         matNames.push_back("Examples/BumpMapping/MultiLight");
@@ -111,6 +112,7 @@ protected:
 
     
         mPossibilities["ogrehead.mesh"] = matNames;
+        mPossibilities["cube.mesh"] = matNames;
         mPossibilities["knot.mesh"] = matNames;
 
         matNames.clear();
@@ -126,24 +128,20 @@ protected:
 
         mPossibilities["athene.mesh"] = matNames;
 
-        for (std::map<String, StringVector>::iterator it = mPossibilities.begin(); it != mPossibilities.end(); it++)
+        for (const auto& p : mPossibilities)
         {
             // load each mesh with non-default hardware buffer usage options
-            MeshPtr mesh = MeshManager::getSingleton().load(it->first, ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
+            MeshPtr mesh = MeshManager::getSingleton().load(p.first, ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
                 HardwareBuffer::HBU_DYNAMIC_WRITE_ONLY);
 
             // build tangent vectors for our mesh
-            unsigned short src, dest;
-            if (!mesh->suggestTangentVectorBuildParams(VES_TANGENT, src, dest))
-            {
-                mesh->buildTangentVectors(VES_TANGENT, src, dest);
-                // this version cleans mirrored and rotated UVs but requires quality models
-                // mesh->buildTangentVectors(VES_TANGENT, src, dest, true, true);
-            }
+            mesh->buildTangentVectors();
+            // this version cleans mirrored and rotated UVs but requires quality models
+            // mesh->buildTangentVectors(VES_TANGENT, src, dest, true, true);
 
             // create an entity from the mesh and set the first available material
             Entity* ent = mSceneMgr->createEntity(mesh->getName(), mesh->getName());
-            ent->setMaterialName(it->second.front());
+            ent->setMaterialName(p.second.front());
         }
     }
 
@@ -194,8 +192,8 @@ protected:
 
         // create a menu to choose the model displayed
         mMeshMenu = mTrayMgr->createLongSelectMenu(TL_BOTTOM, "Mesh", "Mesh", 370, 290, 10);
-        for (std::map<String, StringVector>::iterator it = mPossibilities.begin(); it != mPossibilities.end(); it++)
-            mMeshMenu->addItem(it->first);
+        for (const auto& p : mPossibilities)
+            mMeshMenu->addItem(p.first);
 
         // create a menu to choose the material used by the model
         mMaterialMenu = mTrayMgr->createLongSelectMenu(TL_BOTTOM, "Material", "Material", 370, 290, 10);
